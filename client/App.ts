@@ -1,0 +1,375 @@
+///<reference path="../node_modules/@types/jquery/index.d.ts" />
+///<reference path="../node_modules/@types/socket.io/index.d.ts" />
+
+import {Socket} from "socket.io";
+import {SocketMessage} from "../server/SocketMessage";
+import {Config, ViewState} from "./config";
+import {GUIManager} from "./GUIManager";
+import {DiceManager} from "./DiceManager";
+import {AuctionManager} from "./AuctionManager";
+
+module EOSRoller {
+
+    // Defined in the scatterjs-core js file, which is required
+    declare var ScatterJS:any;
+
+    // Defined by socket.io.js
+    declare var io:any;
+
+    // Defined by
+    declare var Eos:any;
+
+    export class Main {
+
+        private eos:any = null;
+        private identity:any = null;
+        private account:any = null;
+        private accountInfo:any = null;
+        private hasScatter:boolean = false;
+        private socketMessage:SocketMessage = null;
+        private guiManager:GUIManager = null;
+        private loginInProgress:boolean = false;
+        private diceManager:DiceManager = null;
+        private auctionManager:AuctionManager = null;
+
+        private eosNetwork:string = "mainnet"; // "mainnet" or "jungle";
+
+        /**
+         * Class constructor. Simply creates our _webpage object and calls its
+         * onPageLoad method. Optionally kills console.log messages (if set
+         * in Globals).
+         */
+        constructor() {
+
+            console.log('================================');
+            console.log('========== EosRoller ===========');
+            console.log('========= version 0.1 ==========');
+            console.log('================================');
+            window.addEventListener('load', (event) => {
+
+                // Grab our initial EOS network
+                let savedEOSNetwork:string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
+                if (savedEOSNetwork) {
+                    this.eosNetwork = savedEOSNetwork;
+                } else {
+                    localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                }
+
+                // The first thing we do is connect to the API server
+                let apiServer:string = Config.API_SERVER.host + ":" + Config.API_SERVER.port.toString();
+                let socket: Socket = io(apiServer, {transports: ['websocket'], upgrade: false, "forceNew": true});
+                this.socketMessage = new SocketMessage(socket);
+                this.attachSocketListeners(socket);
+
+                // Create our GUI manager
+                this.guiManager = new GUIManager();
+                this.attachGUIListeners();
+
+                // Create our supporting game manager(s)
+                this.diceManager = new DiceManager(this.socketMessage, this.guiManager);
+                this.auctionManager = new AuctionManager(this.socketMessage, this.guiManager);
+
+                // Let all know that we are logged out
+                this.updateViewState(ViewState.LOGGED_OUT);
+
+                // Handle the API server connection
+                $(document).on("apiServerConnect", (event) => {
+                    this.guiManager.blockUI(false);
+                    ScatterJS.scatter.connect("EOSRoller", {initTimeout: 10000}).then((connected) => {
+                        this.hasScatter = connected;
+                        if (!connected) {
+                            // TODO NEEDS TO INSTALL SCATTER
+                        } else {
+                            // Try to login
+                            if (ScatterJS.scatter.identity) {
+                                this.login();
+                            }
+                        }
+                    });
+                });
+
+            });
+
+            // Kill console logging if so desired.
+            // console.log = (message?:any, ...optionalParams: any[]) => {};
+        }
+
+        /**
+         * Disconnects from the API server
+         */
+        private disconnectFromApiServer():void {
+            if (this.socketMessage) {
+                this.socketMessage.destroy();
+                this.socketMessage = null;
+            }
+        }
+
+        /*
+         * Clears everything that needs to be when we log out
+         */
+        private clearScatterReferences():void {
+            this.identity = null;
+            this.account = null;
+            this.accountInfo = null;
+            this.eos = null;
+
+            let evt:CustomEvent = new CustomEvent("updateEos", {"detail": this.eos});
+            document.dispatchEvent(evt);
+        }
+
+        /**
+         * Logs the user in if he is not already logged in
+         * @param {() => {}} onLoggedIn
+         */
+        private login(onLoggedIn:() => {} = null):Promise<any> {
+
+            if (this.hasScatter && !this.loginInProgress && (this.account == null)) {
+
+                this.loginInProgress = true;
+
+                if (this.eos == null) {
+                    // Save a proxy instance of Eos library that integrates with scatter for signatures and transactions.
+                    this.eos = ScatterJS.scatter.eos(Config.SCATTER_NETWORK[this.eosNetwork], Eos, {"chainId": Config.SCATTER_NETWORK[this.eosNetwork].chainId}, 'https');
+
+                    let evt:CustomEvent = new CustomEvent("updateEos", {"detail": this.eos});
+                    document.dispatchEvent(evt);
+                }
+
+                if (!this.identity) {
+                    return new Promise((resolve) => {
+                        this.identity = ScatterJS.scatter.identity;
+                        if (!this.identity) {
+                            let network: any = Config.SCATTER_NETWORK[this.eosNetwork];
+                            ScatterJS.scatter.getIdentity({accounts: [Config.SCATTER_NETWORK[this.eosNetwork]]}).then((identity) => {
+                                resolve(identity);
+                            });
+                        } else {
+                            resolve(this.identity);
+                        }
+                    }).then((identity: any) => {
+                        this.identity = identity;
+                        if (this.identity) {
+                            this.account = this.identity.accounts.find(acc => acc.blockchain === 'eos');
+                            if (this.account) {
+                                this.loginInProgress = false;
+                                ScatterJS.scatter.authenticate().then((sig: string) => {
+                                    this.socketMessage.ctsEOSAccount(this.account, this.eosNetwork, location.host, this.identity.publicKey, sig);
+                                }).catch(error => {
+                                    this.account = null;
+                                    // TODO HANDLE Authentication Failed!
+                                });
+                            } else {
+                                this.loginInProgress = false;
+                                // TODO NEEDS EOS ACCOUNT IN SELECTED IDENTITY
+                            }
+                        } else {
+                            this.loginInProgress = false;
+                            // TODO NEEDS SCATTER IDENTITY
+                        }
+                    }).catch((reason: any) => {
+                        this.loginInProgress = false;
+                        // TODO HANDLE UNKNOWN CLIENT LOGIN PROBLEM
+                        console.log("HANDLE UNKNOWN CLIENT LOGIN PROBLEM");
+                        console.log(reason);
+                    });
+                } else {
+                    this.loginInProgress = false;
+                    return Promise.resolve();
+                }
+            } else {
+                return Promise.resolve();
+            }
+        }
+
+        /**
+         * Logs the user out
+         * @returns {Promise<any>}
+         */
+        private logout():Promise<any> {
+            this.updateViewState(ViewState.LOGGED_OUT);
+            this.guiManager.updateEOSBalance("0");
+            this.clearScatterReferences();
+            if (ScatterJS.scatter.identity) {
+                return ScatterJS.scatter.forgetIdentity();
+            } else {
+                return Promise.resolve();
+            }
+        }
+
+        // Updates our view based on our state
+        private updateViewState(state:ViewState):void {
+            let data:any = {"viewState" : state, "account": this.account, "accountInfo": this.accountInfo};
+            let evt:CustomEvent = new CustomEvent("updateViewState", {"detail": data});
+            if (state == ViewState.LOGGED_IN) {
+                this.updateCoinBalances();
+            }
+            document.dispatchEvent(evt);
+        }
+
+        // Grabs the current balance of all coins
+        private updateCoinBalances():void {
+            this.eos.getCurrencyBalance("eosio.token", this.account.name, "EOS").then((result:string[]) => {
+                let eosBalance = result.find(currency => currency.indexOf('EOS') >= 0);
+                if (eosBalance) {
+                    eosBalance = parseFloat(eosBalance).toFixed(4);
+                    this.guiManager.updateEOSBalance(eosBalance);
+                }
+            }).catch(error => console.error(error));
+        }
+
+        /**
+         * Attach event handlers that listen for API messages
+         */
+        private attachSocketListeners(socket:Socket):void {
+
+            // Sent from server to indicate the server has registered this client
+            socket.on(SocketMessage.STC_CLIENT_CONNECTED, (data:any) => {
+
+                console.log("Connected to API server");
+                let evt:CustomEvent = new CustomEvent("apiServerConnect", {"detail": ""});
+                document.dispatchEvent(evt);
+
+            });
+
+            // Sent from the server in response to CTS_EOS_ACCOUNT with more complete
+            // information on the currently logged in account. The object we get is:
+            //
+            // {
+            //   "timestamp": 1540933501,
+            //   "account_name": "chassettny11",
+            //   "head_block_num": 24375484,
+            //   "head_block_time": "2018-10-30T21:05:01.000",
+            //   "privileged": false,
+            //   "last_code_update": "1970-01-01T00:00:00.000",
+            //   "created": "2018-10-23T21:17:46.000",
+            //   "core_liquid_balance": "2.9677 EOS",
+            //   "ram_quota": 4455,
+            //   "net_weight": 500,
+            //   "cpu_weight": 553900,
+            //   "net_limit": {
+            //     "used": 492,
+            //     "available": 33609,
+            //     "max": 34101
+            //   },
+            //   "cpu_limit": {
+            //     "used": 2387,
+            //     "available": 6811959,
+            //     "max": 6814346
+            //   },
+            //   "ram_usage": 3574,
+            //   "permissions": [
+            //     {
+            //       "perm_name": "active",
+            //       "parent": "owner",
+            //       "required_auth": {
+            //         "threshold": 1,
+            //         "keys": [
+            //           {
+            //             "key": "EOS7rxXxrYRGqzKBh2DjQh7ZCC6TLTHFQgoUqYdBmLYUpzBa1HWcd",
+            //             "weight": 1
+            //           }
+            //         ],
+            //         "accounts": [],
+            //         "waits": []
+            //       }
+            //     },
+            //     {
+            //       "perm_name": "owner",
+            //       "parent": "",
+            //       "required_auth": {
+            //         "threshold": 1,
+            //         "keys": [
+            //           {
+            //             "key": "EOS63Sq4dDaqLkz1h2yRv8CRfyxwGajU27kHxVWn3XztPPt8bL7Bt",
+            //             "weight": 1
+            //           }
+            //         ],
+            //         "accounts": [],
+            //         "waits": []
+            //       }
+            //     }
+            //   ],
+            //   "total_resources": {
+            //     "owner": "chassettny11",
+            //     "net_weight": "0.0500 EOS",
+            //     "cpu_weight": "55.3900 EOS",
+            //     "ram_bytes": 3055
+            //   },
+            //   "self_delegated_bandwidth": {
+            //     "from": "chassettny11",
+            //     "to": "chassettny11",
+            //     "net_weight": "0.0500 EOS",
+            //     "cpu_weight": "0.1500 EOS"
+            //   },
+            //   "refund_request": null,
+            //   "voter_info": {
+            //     "owner": "chassettny11",
+            //     "proxy": "",
+            //     "producers": [],
+            //     "staked": 2000,
+            //     "last_vote_weight": "0.00000000000000000",
+            //     "proxied_vote_weight": "0.00000000000000000",
+            //     "is_proxy": 0
+            //   }
+            // }
+            //
+            socket.on(SocketMessage.STC_ACCOUNT_INFO, (data: any) => {
+                this.accountInfo = JSON.parse(data);
+                this.updateViewState(ViewState.LOGGED_IN);
+            });
+
+            // Indicates the server wants this client to operate in developer mode
+            socket.on(SocketMessage.STC_DEV_MODE, (data:any) => {
+                this.guiManager.enableDevGui();
+                this.guiManager.setNetworkMenu(this.eosNetwork == "mainnet" ? "MainNet" : "Jungle");
+            });
+
+            // Server has sent a developer error message
+            socket.on(SocketMessage.STC_DEV_ERROR, (data:any) => {
+                data = JSON.parse(data);
+                this.guiManager.onDevError(data.message);
+            });
+
+            // Server wants us to clear developer error messages
+            socket.on(SocketMessage.STC_CLEAR_DEV_ERRORS, (data:any) => {
+                this.guiManager.onClearDevErrors();
+            });
+
+            // Server has sent an error message
+            socket.on(SocketMessage.STC_ERROR, (data:any) => {
+                data = JSON.parse(data);
+                this.guiManager.onError(data.message);
+            });
+        }
+
+        /**
+         * Attaches listeners to the GUI
+         */
+        private attachGUIListeners():void  {
+
+            $(document).on("selectNetwork", (event) => {
+
+                // Switch networks
+                if (this.eosNetwork != event.detail.toString()) {
+                    this.logout().then(() => {
+                        this.eosNetwork = event.detail.toString();
+                        this.login();
+                        localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                    });
+                }
+            });
+
+            $(document).on("logIn", (event) => {
+                this.login();
+            });
+
+            $(document).on("logOut", (event) => {
+                this.logout();
+            });
+        }
+
+    }
+}
+
+// Create a single instance of our page handler
+let EOSRollerInstance = new EOSRoller.Main();
