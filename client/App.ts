@@ -8,7 +8,7 @@ import {GUIManager} from "./GUIManager";
 import {DiceManager} from "./DiceManager";
 import {AuctionManager} from "./AuctionManager";
 
-module EOSRoller {
+module EOSTime {
 
     // Defined in the scatterjs-core js file, which is required
     declare var ScatterJS:any;
@@ -372,4 +372,4 @@ module EOSRoller {
 }
 
 // Create a single instance of our page handler
-let EOSRollerInstance = new EOSRoller.Main();
+let EOSRollerInstance = new EOSTime.Main();

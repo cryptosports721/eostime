@@ -22,7 +22,27 @@ export class Config extends ConfigBase {
             debug: false,
             sign: true,
             // jungle bp endpoint
-            httpEndpoint: 'http://jungle.cryptolions.io:18888',
+            httpEndpoint: 'http://dev.cryptolions.io:18888', // http://jungle.cryptolions.io:18888',
+            // jungle chainId
+            chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca'
+        },
+        "jungle-AWS-large": { // 54.164.95.106
+            expireInSeconds: 60,
+            broadcast: true,
+            debug: false,
+            sign: true,
+            // jungle bp endpoint
+            httpEndpoint: 'http://54.164.95.106:18888',
+            // jungle chainId
+            chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca'
+        },
+        "jungle-AWS-small": { // 54.152.82.172
+            expireInSeconds: 60,
+            broadcast: true,
+            debug: false,
+            sign: true,
+            // jungle bp endpoint
+            httpEndpoint: 'http://54.164.95.106:18888',
             // jungle chainId
             chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca'
         }

@@ -20,12 +20,14 @@ export class EosBlockchain {
     //     console.log(actions);
     // });
 
+    private config:any;
     private eos:any;
 
     /**
      * Constructor
      */
     constructor(config:any) {
+        this.config = config;
         this.eos = Eos(config);
     }
 
@@ -34,7 +36,16 @@ export class EosBlockchain {
      * @param config
      */
     public setConfig(config:any):void {
+        this.config = config;
         this.eos = Eos(config);
+    }
+
+    /**
+     * Returns our network config object
+     * @returns {any}
+     */
+    public getConfig():any {
+        return this.config;
     }
 
     /**
@@ -118,6 +129,22 @@ export class EosBlockchain {
     }
 
     /**
+     * Gets the head block and other info regarding the EOS blockchain
+     * @returns {Promise<any>}
+     */
+    public getInfo():Promise<any> {
+        return new Promise<any>((resolve, reject) => {
+            this.eos.getInfo((err, val) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(val);
+                }
+            });
+        });
+    }
+
+    /**
      * Returns all of the actions in a transaction
      * @param {string} transactionId
      * @returns {Promise<any>}
@@ -139,6 +166,19 @@ export class EosBlockchain {
      */
     public getActions(contract:string, pos:number = 0, offset: number = 10) : Promise<any> {
         return this.eos.getActions(contract, pos, offset);
+    }
+
+    /**
+     * Returns the complete table
+     *
+     * @param {string} contract
+     * @param {string} table
+     * @param {number} pos
+     * @param {number} offset
+     * @returns {Promise<any>}
+     */
+    public getTable(contract:string, table: string, lowerBound:number = 0, upperBound:number = -1, limit: number = 10):Promise<any> {
+        return this.eos.getTableRows(true, contract, contract, table, 0, lowerBound, upperBound, limit);
     }
 
     /**

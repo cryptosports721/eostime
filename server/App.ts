@@ -2,24 +2,84 @@
 import Process = NodeJS.Process;
 import Socket from "socket.io";
 import {ClientConnection} from "./ClientConnection";
-import {EosBlockchain} from "./EosBlockchain";
 import {Config} from "./Config";
+import {EosWatcher} from "./EosWatcher";
+import {EosBlockchain} from "./EosBlockchain";
+import {AuctionManager} from "./AuctionManager";
+import {DBManager} from "./DBManager";
 
 
-var process:Process = require('process');
-var nodeStatic = require('node-static');
-var http = require('http');
-var sio = require('socket.io');
-var db = require('mysql');
+const process:Process = require('process');
+const nodeStatic = require('node-static');
+const http = require('http');
+const sio = require('socket.io');
 
 module App {
 
     export class Main {
 
         private sio:any = null;
+        private eosBlockchain:EosBlockchain = null;
+        private eosWatcher:EosWatcher = null;
+        private auctionManager:AuctionManager = null;
+        private dbManager:DBManager = null;
+        private serverConfig:any = null;
+
+        private updaters:any[] = [
+            {
+                actionType: "eosio.token::transfer",
+                updater: (state, payload, blockInfo, context) => {
+                    // TODO React to action (put in database)
+                    /*
+                        payload IS:
+                        {
+                          "transactionId": "2618221d8415df911c22ced29cfa584d5d6a2da0c86264cc0d0d6e305a25678c",
+                          "actionIndex": 0,
+                          "account": "eosio.token",
+                          "name": "transfer",
+                          "authorization": [
+                            {
+                              "actor": "eosgamez1234",
+                              "permission": "active"
+                            }
+                          ],
+                          "data": {
+                            "from": "eosgamez1234",
+                            "to": "eosgameztea2",
+                            "quantity": "0.0098 EOS",
+                            "memo": "bet_id : 5be1fb03cca0bd6029b92e19 eosgamez.io"
+                          }
+                        }
+
+                        blockInfo IS:
+                        {
+                          "blockNumber": 23144669,
+                          "blockHash": "016128ddf7b2d8de3ddc6c777f34265b2cb544b4eae9866203354314207844ef",
+                          "previousBlockHash": "016128dc39a08a71cfd354651e2e067bedcb9d9ecd6fe0f11bd4e7902f15b69a",
+                          "timestamp": "2018-11-07T01:35:17.500Z"
+                        }
+                    */
+                    let transactionData = Config.safeProperty(payload, ["data"], null);
+                    if (transactionData && transactionData.to == this.serverConfig.eostimeContract) {
+
+                        // Fire an inbound EOS transfer message
+                        this.auctionManager.onBidReceived(transactionData.from);
+                    }
+                }
+            },
+        ];
+        private effects:any[] = [
+            {
+                actionType: "eosio.token::transfer",
+                effect: (state, payload, blockInfo, context) => {
+
+                }
+            }
+        ];
 
         /**
          * Constructs our App
+         * node App.js -port 4001 -devmode true -startwatchernow true -db mongodb://localhost:27017/eostime -username node_server -password <password>
          */
         constructor() {
 
@@ -35,15 +95,19 @@ module App {
                 Config.DEVELOPER_MODE = developerMode.toUpperCase() == "TRUE";
             }
 
+            // Grab startwatchernow
+            let startWatcherNow:string|boolean = <string> this.getCliParam("-startwatchernow", false);
+            startWatcherNow = startWatcherNow && (startWatcherNow == "true");
+
             // Create our file server config
-            var file = new nodeStatic.Server('public', { // bin is the folder containing our html, etc
+            const file = new nodeStatic.Server('public', { // bin is the folder containing our html, etc
                 cache: 0,	// don't cache
                 gzip: true	// gzip our assets
             });
 
             // create our server and listen on the specified port
             //
-            var httpServer = http.createServer(function (request, response) {
+            const httpServer = http.createServer(function (request, response) {
                 request.addListener('end', function () {
                     file.serve(request, response);
                 });
@@ -54,7 +118,58 @@ module App {
             this.sio.serveClient(true); // the server will serve the client js file
             this.sio.attach(httpServer);
 
-            this.attachEventHandlers();
+            const db:string = <string> this.getCliParam("-db", false, "mongodb://localhost:27017/eostime");
+            const username:string = <string> this.getCliParam("-username", false, "node_server");
+            const password:string = <string> this.getCliParam("-password", false);
+            if (password) {
+                this.dbManager = new DBManager();
+            } else {
+                console.log("-password is a required command line option");
+                process.exit();
+            }
+
+            this.eosBlockchain = new EosBlockchain(Config.EOS_CONFIG.jungle);
+
+            // Open the database then start the EOS blockchain watcher
+            this.dbManager.openDbConnection(db, username, password).then((result) => {
+                return this.dbManager.getConfig("serverConfig");
+            }).then((serverConfig:any) => {
+                this.serverConfig = serverConfig;
+
+                this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
+
+                if (startWatcherNow) {
+                    return this.eosBlockchain.getInfo();
+                } else {
+                    return this.dbManager.getConfig("currentBlockNumber");
+                }
+            }).then((val:any) => {
+                let currentBlockNumber:number = null;
+                if (val) {
+                    if (typeof val == "number") {
+                        currentBlockNumber = val;
+                    } else {
+                        currentBlockNumber = Config.safeProperty(val, ["head_block_num"], null);
+                    }
+                    if (currentBlockNumber != null) {
+                        // Run our EOS blockchain watcher
+                        this.eosWatcher = new EosWatcher(this.eosBlockchain.getConfig(), currentBlockNumber, this.updaters, this.effects, this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this));
+                        this.eosWatcher.run();
+
+                        // Finally, attach event handlers
+                        this.attachEventHandlers();
+                    }
+                }
+                if (currentBlockNumber == null) {
+                    console.log("Could not resolve currentBlockNumber");
+                    process.exit();
+                }
+
+            }).catch((err) => {
+                console.log("Could not open eostime database and start the EOS blockchain watcher");
+                console.log(err.message);
+                process.exit();
+            });
         }
 
         // ----------------------------------------------------------------------------
@@ -71,7 +186,7 @@ module App {
             this.sio.on('connect', (socket:Socket.Socket) => {
 
                 // Spawn new EOS client connection manager for this socket
-                new ClientConnection(socket);
+                new ClientConnection(socket, this.dbManager);
 
             });
 
@@ -80,6 +195,7 @@ module App {
             // ============================================================================
 
             // Catch exit event
+            let localThis:Main = this;
             process.on('exit', function () {
 
                 for (let i:number = 0; i < ClientConnection.CONNECTIONS.length; i++) {
@@ -88,6 +204,10 @@ module App {
                     if (accountInfo) {
                         console.log("Connection with [" + accountInfo.account_name + "] terminated");
                     }
+                }
+                if (localThis.dbManager) {
+                    console.log("Disconnecting from database");
+                    localThis.dbManager.closeDbConnection();
                 }
                 console.log("EOSRoller Server Exit");
 
@@ -112,9 +232,10 @@ module App {
          *
          * @param paramName
          * @param isNumber
-         * @returns {any}
+         * @param defaultValue
+         * @returns {number | string}
          */
-        private getCliParam(paramName, isNumber): number | string {
+        private getCliParam(paramName, isNumber, defaultValue:any = null): number | string {
             for (var i: number = 0; i < process.argv.length; i++) {
                 var val: string = process.argv[i];
                 if (val == paramName) {
@@ -126,7 +247,7 @@ module App {
                             if (!isNaN(valNum)) {
                                 return valNum;
                             } else {
-                                return null;
+                                return defaultValue;
                             }
                         } else {
                             return process.argv[nextArgIdx];
@@ -134,7 +255,29 @@ module App {
                     }
                 }
             }
-            return null;
+            return defaultValue;
+        }
+
+        /**
+         * Watcher callback executed on each block processed
+         * @param {number} blockNumber
+         * @returns {Promise<void>}
+         */
+        private processedBlockCallback(blockNumber:number, timestamp:string):Promise<void> {
+            return this.dbManager.setConfig("currentBlockNumber", blockNumber).then(() => {
+                return this.auctionManager.processBlock(blockNumber, timestamp);
+            });
+        }
+
+        /**
+         * Watcher callback executed when we need to rollback to a previous block
+         * @param {number} blockNumber
+         * @returns {Promise<void>}
+         */
+        private rollbackToCallback(blockNumber:number):Promise<void> {
+            return this.dbManager.setConfig("currentBlockNumber", blockNumber).then(() => {
+                return this.auctionManager.rollbackToBlock(blockNumber);
+            });
         }
 
         // ----------------------------------------------------------------------------

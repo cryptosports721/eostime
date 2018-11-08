@@ -3,6 +3,7 @@ import {SocketMessage} from "./SocketMessage";
 import {EosBlockchain} from "./EosBlockchain";
 import {Config} from "./Config";
 import {Moment} from "moment";
+import {DBManager} from "./DBManager";
 
 var moment = require('moment');
 
@@ -12,14 +13,20 @@ export class ClientConnection {
     public static CONNECTIONS:ClientConnection[] = new Array<ClientConnection>();
 
     // Private class members
+    private sio:any;
+    private ipAddress;
     private socketMessage:SocketMessage;
     private eos:EosBlockchain;
     private network:string = null;
     private accountInfo:any = null;
+    private dbManager = null;
 
-    constructor(_socket:Socket.Socket,) {
+    constructor(_socket:Socket.Socket, dbManager:DBManager) {
+
+        this.dbManager = dbManager;
 
         if (!this.isBlockedIPAddress(_socket.handshake.address)) {
+            this.ipAddress = _socket.handshake.address;
             // Setup this ClientConnection
             this.socketMessage = new SocketMessage(_socket);
             this.attachAPIHandlers();
@@ -41,6 +48,54 @@ export class ClientConnection {
      */
     public getAccountInfo():any {
         return this.accountInfo;
+    }
+
+    /**
+     * Sends new accountInfo object to client
+     * @param accountName
+     */
+    public sendAccountInfo(accountName:string):void {
+        // Send EOS account info to the client
+        let retryCount:number = 0;
+        const getAccoutFromBlockchain = function() {
+            // Send account information to the client
+            this.eos.getAccount(accountName).then((accountInfo: any) => {
+                this.socketMessage.stcDevError("Sent account info for " + accountName + " to client");
+                this.accountInfo = accountInfo;
+                this.registerClientAccount(accountInfo);
+                this.socketMessage.stcAccountInfo(accountInfo);
+            }).catch((err: any) => {
+                if (err) {
+                    if (err.status == 500) {
+                        // TODO ADD THE SOCKET'S IP TO THE BLOCKED LIST BECAUSE THE ACCOUNT
+                        console.log("BAD ACCOUNT");
+                    } else if (err.status == 429) {
+                        // Indicates too many requests out to EOS blockchain, try
+                        // again in 1 second up to five times.
+                        retryCount++;
+                        if (retryCount < 5) {
+                            let localThis:ClientConnection = this;
+                            return new Promise(function(resolve) {
+                                setTimeout(() => {
+                                    localThis.socketMessage.stcDevError("Retry #" + retryCount.toString() + " EOSjs getAccount()");
+                                    getAccoutFromBlockchain();
+                                }, 1000);
+                            });
+                        } else {
+                            this.socketMessage.stcDevError("EOSjs getAccount(" + accountName + ") Too many requests failure");
+                        }
+                    } else if (err.message) {
+                        this.socketMessage.stcDevError(err.message);
+                    } else {
+                        this.socketMessage.stcDevError("Unknown error EOSjs getAccount(" + accountName + ")");
+                    }
+                } else {
+                    this.socketMessage.stcDevError("NULL error EOSjs getAccount(" + accountName + ")");
+                }
+            });
+        }.bind(this);
+        this.socketMessage.stcDevError("Retrieving account information for " + accountName + " from EOS");
+        getAccoutFromBlockchain();
     }
 
     /**
@@ -98,47 +153,8 @@ export class ClientConnection {
                 // Save our network
                 this.network = data.network;
 
-                // Send EOS account info to the client
-                let retryCount:number = 0;
-                const getAccoutFromBlockchain = function() {
-                    // Send account information to the client
-                    this.eos.getAccount(account.name).then((accountInfo: any) => {
-                        this.socketMessage.stcDevError("Sent account info for " + account.name + " to client");
-                        this.accountInfo = accountInfo;
-                        this.registerClientAccount(accountInfo);
-                        this.socketMessage.stcAccountInfo(accountInfo);
-                    }).catch((err: any) => {
-                        if (err) {
-                            if (err.status == 500) {
-                                // TODO ADD THE SOCKET'S IP TO THE BLOCKED LIST BECAUSE THE ACCOUNT
-                                console.log("BAD ACCOUNT");
-                            } else if (err.status == 429) {
-                                // Indicates too many requests out to EOS blockchain, try
-                                // again in 1 second up to five times.
-                                retryCount++;
-                                if (retryCount < 5) {
-                                    let localThis:ClientConnection = this;
-                                    return new Promise(function(resolve) {
-                                        setTimeout(() => {
-                                            localThis.socketMessage.stcDevError("Retry #" + retryCount.toString() + " EOSjs getAccount()");
-                                            getAccoutFromBlockchain();
-                                        }, 1000);
-                                    });
-                                } else {
-                                    this.socketMessage.stcDevError("EOSjs getAccount(" + account.name + ") Too many requests failure");
-                                }
-                            } else if (err.message) {
-                                this.socketMessage.stcDevError(err.message);
-                            } else {
-                                this.socketMessage.stcDevError("Unknown error EOSjs getAccount(" + account.name + ")");
-                            }
-                        } else {
-                            this.socketMessage.stcDevError("NULL error EOSjs getAccount(" + account.name + ")");
-                        }
-                    });
-                }.bind(this);
-                this.socketMessage.stcDevError("Retrieving account information for " + account.name + " from EOS");
-                getAccoutFromBlockchain();
+                // Send the account info structure to the client
+                this.sendAccountInfo(account.name);
             } else {
                 // TODO BAD SCATTER SIGNATURE
                 this.socketMessage.stcDevError("[" + account.name + "] BAD SIGNATURE from IP " + this.socketMessage.getSocket().handshake.address);
@@ -160,8 +176,29 @@ export class ClientConnection {
      * Registers an account in the database if it has not already been registered.
      * @param accountInfo
      */
-    private registerClientAccount(accountInfo:any) : void {
-
+    private registerClientAccount(accountInfo:any) : Promise<void> {
+        return this.dbManager.getDocumentByKey("users", {accountName: accountInfo.account_name}).then((user) => {
+            if (user) {
+                // We have already seen this guy
+                if (user.ipAddresses.indexOf(this.ipAddress) < 0) {
+                    user.ipAddresses.push(this.ipAddress);
+                }
+                user.eosBalance = accountInfo.core_liquid_balance;
+                user.lastConnectedTime = moment().format();
+                return this.dbManager.updateDocumentByKey("users", {accountName: accountInfo.account_name}, user);
+            } else {
+                // This is a new user
+                let user:any = {
+                    accountName: accountInfo.account_name,
+                    eosBalance: accountInfo.core_liquid_balance,
+                    lastConnectedTime: moment().format(),
+                    ipAddresses: [this.ipAddress]
+                }
+                return this.dbManager.insertDocument("users", user);
+            }
+        }).catch((err) => {
+            console.log(err);
+        });
     }
 
 }

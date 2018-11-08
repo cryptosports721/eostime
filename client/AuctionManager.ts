@@ -2,13 +2,14 @@ import {GUIManager} from "./GUIManager";
 import {ViewStateObserver} from "./ViewStateObserver";
 import {SocketMessage} from "../server/SocketMessage";
 import {Moment} from "moment";
+import {Config} from "./Config";
 
 var moment = require('moment');
 
 export class AuctionManager extends ViewStateObserver {
 
     private eos:any = null;
-    private guiManager:any = null;
+    private guiManager:GUIManager = null;
     private socketMessage:SocketMessage = null;
     private auctionElements:JQuery<HTMLElement>[] = null;
 
@@ -256,23 +257,37 @@ export class AuctionManager extends ViewStateObserver {
                 const auctionMemo: string = "bid-" + auction.auction_id;
                 const options = {authorization: [`${this.account.name}@${this.account.authority}`]};
 
-                /*
-                this.eos.transfer(this.account.name, contractAccount, assetAndQuantity, diceMemo, options).then((result) => {
+                this.eos.transfer(this.account.name, Config.eostimeContract, auction.bid_price + " EOS", auction.id + "-" + auction.instance_id, options).then((result) => {
                     console.log(result);
                 }).catch(err => {
-                    console.log(err);
+
+                    let error = Config.safeProperty(err, ["error"], null);
+                    if (error) {
+                        console.log("======");
+                        let errorMessages:string[] = Config.safeProperty(error, ["details"], null);
+                        if (errorMessages) {
+                            for (let errorMessage of errorMessages) {
+                                console.log(errorMessage);
+                            }
+                        }
+                    }
+                    let errorMessage:string = Config.safeProperty(err, ["message"], null);
+                    if (errorMessage) {
+                        console.log(errorMessage);
+                    } else {
+                        console.log(err);
+                    }
                 });
-                */
 
                 // TODO Get rid of this spoofing
-                let bidders:string[] = ["chassettny11", "littlebilly1", "kramertheman", "pagepatchdog"];
-                let spoofedResult:any = {...auction};
-                spoofedResult.expires = auction.expires + 30;
-                spoofedResult.prize_pool = (parseFloat(auction.prize_pool) + parseFloat(spoofedResult.bid_price)).toFixed(4);
-                spoofedResult.last_bidder = this.spoofedBidders[this.spoofedBidderIdx++];
-                spoofedResult.remaining_bid_count--;
-                if (this.spoofedBidderIdx == this.spoofedBidders.length) this.spoofedBidderIdx = 0;
-                resolve(spoofedResult);
+                // let bidders:string[] = ["chassettny11", "littlebilly1", "kramertheman", "pagepatchdog"];
+                // let spoofedResult:any = {...auction};
+                // spoofedResult.expires = auction.expires + 30;
+                // spoofedResult.prize_pool = (parseFloat(auction.prize_pool) + parseFloat(spoofedResult.bid_price)).toFixed(4);
+                // spoofedResult.last_bidder = this.spoofedBidders[this.spoofedBidderIdx++];
+                // spoofedResult.remaining_bid_count--;
+                // if (this.spoofedBidderIdx == this.spoofedBidders.length) this.spoofedBidderIdx = 0;
+                // resolve(spoofedResult);
 
             } else {
                 reject(new Error("No eos object available"));
@@ -298,47 +313,76 @@ export class AuctionManager extends ViewStateObserver {
                 // TODO THIS IS BOGUS - USING A CONTRACT GREG IS DEVELOPING
                 this.eos.getTableRows(
                     {
-                        code:'sre1x4jrxs54',
-                        scope:'sre1x4jrxs54',
-                        table:'redzones',
+                        code: Config.eostimeContract,
+                        scope: Config.eostimeContract,
+                        table: Config.eostimeContractAuctionTable,
                         json: true,
                     }
                 ).then(function (data) {
 
-                    let spoofData:any[] = [
-                        {
-                            "auction_id": 223,
-                            "creation_time": Math.floor(new Date().getTime()/1000) - 20000 - Math.floor(66400 * Math.random()),
-                            "prize_pool": "12.5000",
-                            "bid_price": "0.0500",
-                            "last_bidder": "chassettny11",
-                            "last_bid_id": 112,
-                            "expires": Math.floor(new Date().getTime()/1000) + Math.floor(Math.random()*180),
-                            "remaining_bid_count": 20202
-                        },
-                        {
-                            "auction_id": 224,
-                            "creation_time": Math.floor(new Date().getTime()/1000) - 20000 - Math.floor(66400 * Math.random()),
-                            "prize_pool": "20.0000",
-                            "bid_price": "0.5000",
-                            "last_bidder": "roscoebar101",
-                            "last_bid_id": 334,
-                            "expires": Math.floor(new Date().getTime()/1000) + Math.floor(Math.random()*180),
-                            "remaining_bid_count": 10990
-                        },
-                        {
-                            "auction_id": 225,
-                            "creation_time": Math.floor(new Date().getTime()/1000) - 20000 - Math.floor(66400 * Math.random()),
-                            "prize_pool": "40.0000",
-                            "bid_price": "1.0000",
-                            "last_bidder": "patchpage101",
-                            "last_bid_id": 223,
-                            "expires": Math.floor(new Date().getTime()/1000) + Math.floor(Math.random()*180),
-                            "remaining_bid_count": 865
-                        }
-                    ];
+                    let auctions:any[] = Config.safeProperty(data, ["rows"], null);
+                    if (auctions) {
+                        // data.rows[n] from blockchain table:
+                        //
+                        // auto_refill: 0
+                        // bid_price: "0.1000 EOS"
+                        // creation_time: "2018-11-07T13:59:54"
+                        // enabled: 1
+                        // expires: "2018-11-07T14:58:12"
+                        // id: 1
+                        // init_bid_count: 250
+                        // init_duration_secs: 30
+                        // init_prize_pool: "10.0000 EOS"
+                        // init_redzone_secs: 15
+                        // instance_id: 128
+                        // last_bidder: "eostimecontr"
+                        // prize_pool: "10.0000 EOS"
+                        // remaining_bid_count: 250
 
-                    resolve(spoofData);
+                        // Massage the data a little bit
+                        for (let auction of auctions) {
+                            console.log(auction.expires);
+                            auction.prize_pool = auction.prize_pool.split(" ")[0];
+                            auction.bid_price = auction.bid_price.split(" ")[0];
+                            auction.expires = parseInt(moment(auction.expires + "+00:00").local().format("X"));
+                            auction.creation_time = parseInt(moment(auction.creation_time + "+00:00").local().format("X"));
+                        }
+                    }
+
+                    // let spoofData:any[] = [
+                    //     {
+                    //         "auction_id": 223,
+                    //         "creation_time": Math.floor(new Date().getTime()/1000) - 20000 - Math.floor(66400 * Math.random()),
+                    //         "prize_pool": "12.5000",
+                    //         "bid_price": "0.0500",
+                    //         "last_bidder": "chassettny11",
+                    //         "last_bid_id": 112,
+                    //         "expires": Math.floor(new Date().getTime()/1000) + Math.floor(Math.random()*180),
+                    //         "remaining_bid_count": 20202
+                    //     },
+                    //     {
+                    //         "auction_id": 224,
+                    //         "creation_time": Math.floor(new Date().getTime()/1000) - 20000 - Math.floor(66400 * Math.random()),
+                    //         "prize_pool": "20.0000",
+                    //         "bid_price": "0.5000",
+                    //         "last_bidder": "roscoebar101",
+                    //         "last_bid_id": 334,
+                    //         "expires": Math.floor(new Date().getTime()/1000) + Math.floor(Math.random()*180),
+                    //         "remaining_bid_count": 10990
+                    //     },
+                    //     {
+                    //         "auction_id": 225,
+                    //         "creation_time": Math.floor(new Date().getTime()/1000) - 20000 - Math.floor(66400 * Math.random()),
+                    //         "prize_pool": "40.0000",
+                    //         "bid_price": "1.0000",
+                    //         "last_bidder": "patchpage101",
+                    //         "last_bid_id": 223,
+                    //         "expires": Math.floor(new Date().getTime()/1000) + Math.floor(Math.random()*180),
+                    //         "remaining_bid_count": 865
+                    //     }
+                    // ];
+
+                    resolve(auctions);
                 });
             } else {
                 reject(new Error("No eos object available"));

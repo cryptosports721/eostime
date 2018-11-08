@@ -6,6 +6,9 @@ export class ConfigBase {
     public static minBet:number = 0.1;
     public static maxBet:number = 5.0;
 
+    public static eostimeContract:string = "eostimecontr";
+    public static eostimeContractAuctionTable:string = "redzones";
+
     /**
      * Returns the first public key from the accountInfo structure that has the permission "active"
      * @returns {string}
