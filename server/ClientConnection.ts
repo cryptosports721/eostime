@@ -4,6 +4,7 @@ import {EosBlockchain} from "./EosBlockchain";
 import {Config} from "./Config";
 import {Moment} from "moment";
 import {DBManager} from "./DBManager";
+import {AuctionManager} from "./AuctionManager";
 
 var moment = require('moment');
 
@@ -13,17 +14,18 @@ export class ClientConnection {
     public static CONNECTIONS:ClientConnection[] = new Array<ClientConnection>();
 
     // Private class members
-    private sio:any;
     private ipAddress;
     private socketMessage:SocketMessage;
     private eos:EosBlockchain;
     private network:string = null;
     private accountInfo:any = null;
-    private dbManager = null;
+    private dbManager:DBManager = null;
+    private auctionManager:AuctionManager = null;
 
-    constructor(_socket:Socket.Socket, dbManager:DBManager) {
+    constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager) {
 
         this.dbManager = dbManager;
+        this.auctionManager = auctionManager;
 
         if (!this.isBlockedIPAddress(_socket.handshake.address)) {
             this.ipAddress = _socket.handshake.address;
@@ -43,11 +45,23 @@ export class ClientConnection {
     }
 
     /**
+     * Returns the socket associated with this connection
+     * @returns {SocketIO.Socket}
+     */
+    public getSocket():Socket.Socket {
+        return this.socketMessage.getSocket();
+    }
+
+    /**
      * Getter for accountInfo member
      * @returns {any}
      */
     public getAccountInfo():any {
         return this.accountInfo;
+    }
+
+    public sendDevMessage(message:string):void {
+        this.socketMessage.stcDevMessage(message);
     }
 
     /**
@@ -60,7 +74,7 @@ export class ClientConnection {
         const getAccoutFromBlockchain = function() {
             // Send account information to the client
             this.eos.getAccount(accountName).then((accountInfo: any) => {
-                this.socketMessage.stcDevError("Sent account info for " + accountName + " to client");
+                this.socketMessage.stcDevMessage("Sent account info for " + accountName + " to client");
                 this.accountInfo = accountInfo;
                 this.registerClientAccount(accountInfo);
                 this.socketMessage.stcAccountInfo(accountInfo);
@@ -77,24 +91,24 @@ export class ClientConnection {
                             let localThis:ClientConnection = this;
                             return new Promise(function(resolve) {
                                 setTimeout(() => {
-                                    localThis.socketMessage.stcDevError("Retry #" + retryCount.toString() + " EOSjs getAccount()");
+                                    localThis.socketMessage.stcDevMessage("Retry #" + retryCount.toString() + " EOSjs getAccount()");
                                     getAccoutFromBlockchain();
                                 }, 1000);
                             });
                         } else {
-                            this.socketMessage.stcDevError("EOSjs getAccount(" + accountName + ") Too many requests failure");
+                            this.socketMessage.stcDevMessage("EOSjs getAccount(" + accountName + ") Too many requests failure");
                         }
                     } else if (err.message) {
-                        this.socketMessage.stcDevError(err.message);
+                        this.socketMessage.stcDevMessage(err.message);
                     } else {
-                        this.socketMessage.stcDevError("Unknown error EOSjs getAccount(" + accountName + ")");
+                        this.socketMessage.stcDevMessage("Unknown error EOSjs getAccount(" + accountName + ")");
                     }
                 } else {
-                    this.socketMessage.stcDevError("NULL error EOSjs getAccount(" + accountName + ")");
+                    this.socketMessage.stcDevMessage("NULL error EOSjs getAccount(" + accountName + ")");
                 }
             });
         }.bind(this);
-        this.socketMessage.stcDevError("Retrieving account information for " + accountName + " from EOS");
+        this.socketMessage.stcDevMessage("Retrieving account information for " + accountName + " from EOS");
         getAccoutFromBlockchain();
     }
 
@@ -137,7 +151,7 @@ export class ClientConnection {
 
             // Create our eos instance
             this.network = data.network;
-            this.eos = new EosBlockchain(Config.EOS_CONFIG[this.network]);
+            this.eos = new EosBlockchain(Config.EOS_CONFIG[this.network], null);
 
             // Validate the scatter signature
             let host:string = data.data;
@@ -157,9 +171,14 @@ export class ClientConnection {
                 this.sendAccountInfo(account.name);
             } else {
                 // TODO BAD SCATTER SIGNATURE
-                this.socketMessage.stcDevError("[" + account.name + "] BAD SIGNATURE from IP " + this.socketMessage.getSocket().handshake.address);
+                this.socketMessage.stcDevMessage("[" + account.name + "] BAD SIGNATURE from IP " + this.socketMessage.getSocket().handshake.address);
             }
         });
+
+        socket.on(SocketMessage.CTS_GET_ALL_AUCTIONS, (data:any) => {
+            this.socketMessage.stcCurrentAuctions(this.auctionManager.getAuctions());
+        });
+
     }
 
     /**

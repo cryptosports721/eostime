@@ -53,7 +53,8 @@ export class AuctionManager {
     private dbManager:DBManager;
     private eosBlockchain:EosBlockchain;
     private serverConfig:any;
-    private auctions:any[] = null;
+    private auctions:any[] = new Array<any>();
+    private outstandingPayoutRestartTransactions:any = {};
 
     /**
      * Constructs our auction manager
@@ -68,19 +69,11 @@ export class AuctionManager {
     }
 
     /**
-     * Triggered when EOS watcher recognizes a bid
-     * @param {string} accountName
+     * Returns the auctions we are currently monitoring
+     * @returns {any[]}
      */
-    public onBidReceived(accountName:string):void {
-
-        if (accountName) {
-            for (let client of ClientConnection.CONNECTIONS) {
-                if (client.getAccountInfo().account_name == accountName) {
-                    client.sendAccountInfo(accountName);
-                    break;
-                }
-            }
-        }
+    public getAuctions():any[] {
+        return this.auctions;
     }
 
     /**
@@ -91,18 +84,43 @@ export class AuctionManager {
      */
     public processBlock(blockNumber:number, timestamp:string):Promise<any> {
 
+        console.log(blockNumber.toString() + " " + timestamp);
         let blockUnixTime:number = parseInt(moment(timestamp + "+00:00").local().format("X"));
         return new Promise<any>((resolve, reject) => {
             this.eosBlockchain.getTable(this.serverConfig.eostimeContract, this.serverConfig.eostimeContractTable).then((data:any) => {
                let auctionsFromBlockchain:any[] = Config.safeProperty(data, ["rows"], null);
+               let auctionToPayout:any = null;
                if (auctionsFromBlockchain) {
-                   let resolvedAuctions:any = this.resolveAuctions(auctionsFromBlockchain, blockUnixTime);
-
-                   // TODO Implement this - going to the gym now
-                   // Broadcast to all clients relevant auction information
-
-
+                   let sortedAuctions:any = this.sortAuctions(auctionsFromBlockchain, blockUnixTime);
+                   for (let auction of sortedAuctions.removed) {
+                       this.sio.sockets.emit(SocketMessage.STC_REMOVE_AUCTION, JSON.stringify(auction));
+                   }
+                   for (let auction of sortedAuctions.added) {
+                       this.sio.sockets.emit(SocketMessage.STC_ADD_AUCTION, JSON.stringify(auction));
+                   }
+                   for (let auction of sortedAuctions.changed) {
+                       this.sio.sockets.emit(SocketMessage.STC_CHANGE_AUCTION, JSON.stringify(auction));
+                   }
+                   for (let auction of sortedAuctions.ended) {
+                       if (!auctionToPayout && !auction.paid_out && !this.outstandingPayoutRestartTransactions[auction.id]) {
+                           auctionToPayout = auction;
+                       }
+                       this.sio.sockets.emit(SocketMessage.STC_END_AUCTION, JSON.stringify(auction));
+                   }
                }
+
+               // Payout a winning auction (asynchronously)
+               if (auctionToPayout) {
+                   this.outstandingPayoutRestartTransactions[auctionToPayout.id] = true;
+                   this.eosBlockchain.payoutAuction(auctionToPayout.id).then((result) => {
+                       delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
+                   }).catch((reason: any) => {
+                       delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
+                       console.log("Failed to payout");
+                       console.log(reason);
+                   });
+               }
+
                resolve();
             });
         });
@@ -139,20 +157,72 @@ export class AuctionManager {
      * Merges the currently held auctions with the new auctions received
      * from the blockchain.
      *
-     * @param {any[]} updatedAuctions
+     * @param {any[]} auctionsFromBlockchain
      * @param {number} blockUnixTime
      * @returns {any}
      */
-    private resolveAuctions(updatedAuctions:any[], blockUnixTime:number):any {
+    private sortAuctions(auctionsFromBlockchain:any[], blockUnixTime:number):any {
+
         let toRet:any = {
             "removed": new Array<any>(),
             "added": new Array<any>(),
             "changed": new Array<any>(),
             "ended": new Array<any>()
-        }
-        for (let auctionToCheck of this.auctions) {
+        };
 
+        // Loop through our existing auctions looking for removed, ended, or changed entries
+        for (let currentAuction of this.auctions) {
+
+            // Let's make sure the auction is still in the table
+            let blockchainAuction: any = auctionsFromBlockchain.find((bcval) => {
+                return currentAuction.type == bcval.type;
+            });
+            if (!blockchainAuction) {
+                // This auction is no longer available
+                toRet.removed.push(currentAuction);
+            } else {
+                // See if we have ended
+                let expireUnixTime: number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
+                if ((blockchainAuction.remaining_bid_count == 0) || (expireUnixTime < blockUnixTime)) {
+                    // Yup, we ended
+                    toRet.ended.push(blockchainAuction);
+                } else {
+                    // See if this auction has changed
+                    if ((blockchainAuction.remaining_bid_count != currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id)) {
+                        // Yup, it has changed
+                        toRet.changed.push(blockchainAuction);
+                    }
+                }
+            }
         }
+
+        // Loop through our auctions from the blockchain looking for ones
+        // that need to be added.
+        for (let blockchainAuction of auctionsFromBlockchain) {
+            // Let's make sure the auction is still in the table
+            let currentAuction: any = this.auctions.find((currval) => {
+                return blockchainAuction.type == currval.type;
+            });
+            if (!currentAuction) {
+                toRet.added.push(blockchainAuction);
+            }
+        }
+
+        // We are going to use our server time as block time (assumes
+        // miners are using pretty accurate clock)
+        blockUnixTime = Math.floor(new Date().getTime() / 1000);
+
+        // Tune up our auction data
+        for (let auction of auctionsFromBlockchain) {
+            auction.prize_pool = auction.prize_pool.split(" ")[0];
+            auction.bid_price = auction.bid_price.split(" ")[0];
+            auction.expires = parseInt(moment(auction.expires + "+00:00").local().format("X"));
+            auction.creation_time = parseInt(moment(auction.creation_time + "+00:00").local().format("X"));
+            auction.block_time = blockUnixTime;
+            auction.status = ((auction.remaining_bid_count == 0) || (auction.expires < blockUnixTime)) ? "ended" : "active";
+        }
+
+        this.auctions = auctionsFromBlockchain;
         return toRet;
     }
 }

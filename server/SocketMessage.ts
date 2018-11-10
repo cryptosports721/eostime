@@ -68,6 +68,17 @@ export class SocketMessage {
         }));
     }
 
+    /**
+     * Asks the server to provide a fresh snapshot of all auctions it is
+     * managing.
+     * @param {string} referrer EOS account name of the referrer, or "" if none
+     * @param {number} rollUnder Roll under value for the bet
+     */
+    public static CTS_GET_ALL_AUCTIONS:string = "CTS_GET_ALL_AUCTIONS";
+    public ctsGetAllAuctions():void {
+        this.socket.emit(SocketMessage.CTS_GET_ALL_AUCTIONS, JSON.stringify({}));
+    }
+
     // ========================================================================
     // SERVER TO CLIENT MESSAGES
     // ========================================================================
@@ -105,7 +116,7 @@ export class SocketMessage {
      * Sends a server error message to the client only if in developer mode.
      */
     public static STC_DEV_ERROR:string = "STC_DEV_ERROR";
-    public stcDevError(message:string):void {
+    public stcDevMessage(message:string):void {
         if (Config.DEVELOPER_MODE) {
             let data: any = {...SocketMessage.standardServerDataObject(), ...{"message": message}};
             this.socket.emit(SocketMessage.STC_DEV_ERROR, JSON.stringify(data));
@@ -144,5 +155,44 @@ export class SocketMessage {
         let data:any = {...{"serverHash": serverHash}, ...SocketMessage.standardServerDataObject()};
         this.socket.emit(SocketMessage.STC_SERVER_HASH, JSON.stringify(data));
     }
+
+    /**
+     * Sends the current auction data to the client
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     */
+    public static STC_CURRENT_AUCTIONS:string = "STC_CURRENT_AUCTIONS";
+    public stcCurrentAuctions(auctions:any[]):void {
+        let data:any = {auctions, ...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_CURRENT_AUCTIONS, JSON.stringify(data));
+    }
+
+    /**
+     * Notifies client of a newly added auction
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     */
+    public static STC_ADD_AUCTION:string = "STC_ADD_AUCTION";
+
+    /**
+     * Notifies client of a newly added auction
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     */
+    public static STC_REMOVE_AUCTION:string = "STC_REMOVE_AUCTION";
+
+    /**
+     * Notifies client of a newly added auction
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     */
+    public static STC_CHANGE_AUCTION:string = "STC_CHANGE_AUCTION";
+
+    /**
+     * Notifies client of a newly added auction
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     */
+    public static STC_END_AUCTION:string = "STC_END_AUCTION";
 
 }

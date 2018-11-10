@@ -340,6 +340,7 @@ module EOSTime {
                 data = JSON.parse(data);
                 this.guiManager.onError(data.message);
             });
+
         }
 
         /**

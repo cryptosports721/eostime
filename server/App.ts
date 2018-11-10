@@ -62,8 +62,8 @@ module App {
                     let transactionData = Config.safeProperty(payload, ["data"], null);
                     if (transactionData && transactionData.to == this.serverConfig.eostimeContract) {
 
-                        // Fire an inbound EOS transfer message
-                        this.auctionManager.onBidReceived(transactionData.from);
+                        // A transfer (bid) was seen on the main contract
+
                     }
                 }
             },
@@ -79,7 +79,7 @@ module App {
 
         /**
          * Constructs our App
-         * node App.js -port 4001 -devmode true -startwatchernow true -db mongodb://localhost:27017/eostime -username node_server -password <password>
+         * node App.js -port 4001 -devmode true -startwatchernow true -db mongodb://localhost:27017/eostime -username node_server -password <password> -contractkey
          */
         constructor() {
 
@@ -98,6 +98,9 @@ module App {
             // Grab startwatchernow
             let startWatcherNow:string|boolean = <string> this.getCliParam("-startwatchernow", false);
             startWatcherNow = startWatcherNow && (startWatcherNow == "true");
+
+            // Grab contract private key
+            let contractPrivateKey:string = <string> this.getCliParam("-contractkey", false);
 
             // Create our file server config
             const file = new nodeStatic.Server('public', { // bin is the folder containing our html, etc
@@ -128,13 +131,13 @@ module App {
                 process.exit();
             }
 
-            this.eosBlockchain = new EosBlockchain(Config.EOS_CONFIG.jungle);
-
             // Open the database then start the EOS blockchain watcher
             this.dbManager.openDbConnection(db, username, password).then((result) => {
                 return this.dbManager.getConfig("serverConfig");
             }).then((serverConfig:any) => {
                 this.serverConfig = serverConfig;
+
+                this.eosBlockchain = new EosBlockchain(Config.EOS_CONFIG.jungle, this.serverConfig, contractPrivateKey);
 
                 this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
 
@@ -186,7 +189,7 @@ module App {
             this.sio.on('connect', (socket:Socket.Socket) => {
 
                 // Spawn new EOS client connection manager for this socket
-                new ClientConnection(socket, this.dbManager);
+                new ClientConnection(socket, this.dbManager, this.auctionManager);
 
             });
 
@@ -275,6 +278,7 @@ module App {
          * @returns {Promise<void>}
          */
         private rollbackToCallback(blockNumber:number):Promise<void> {
+            console.log("rollbackToCallback(" + blockNumber.toString() + ")");
             return this.dbManager.setConfig("currentBlockNumber", blockNumber).then(() => {
                 return this.auctionManager.rollbackToBlock(blockNumber);
             });

@@ -1,34 +1,23 @@
-const Eos = require('eosjs');
+import { Api, JsonRpc, RpcError, JsSignatureProvider, GetInfoResult } from 'eosjs';
 const Ecc = require('eosjs-ecc');
-
-import {Config} from "./config";
+const fetch = require('node-fetch');
+const { TextDecoder, TextEncoder } = require('text-encoding');
 
 export class EosBlockchain {
 
-    // Some sample use cases
-    //
-    // this.eos.getAccount("chassettny11").then((accountResult) => {
-    //     console.log(accountResult);
-    //     return this.eos.getBalance("chassettny11");
-    // }).then((balanceResult:any) => {
-    //     console.log(balanceResult);
-    //     return this.eos.getTransaction("02d974269aa55b0f537223a98f7acf3b8f6b6fc86e247afe48af1a4c820d908c");
-    // }).then((transaction:any) => {
-    //     console.log(transaction);
-    //     return this.eos.getActions("endlessdicex");
-    // }).then((actions:any) => {
-    //     console.log(actions);
-    // });
-
-    private config:any;
-    private eos:any;
+    private eosNetworkConfig:any;
+    private eosRpc:JsonRpc;
+    private serverConfig:any;
+    private contractPrivateKey:string = null;
 
     /**
      * Constructor
      */
-    constructor(config:any) {
-        this.config = config;
-        this.eos = Eos(config);
+    constructor(eosNetworkConfig:any, serverConfig, contractPrivateKey:string) {
+        this.eosNetworkConfig = eosNetworkConfig;
+        this.serverConfig = serverConfig;
+        this.eosRpc = new JsonRpc(eosNetworkConfig.httpEndpoint, {fetch});
+        this.contractPrivateKey = contractPrivateKey;
     }
 
     /**
@@ -36,8 +25,8 @@ export class EosBlockchain {
      * @param config
      */
     public setConfig(config:any):void {
-        this.config = config;
-        this.eos = Eos(config);
+        this.eosNetworkConfig = config;
+        this.eosRpc = new Api(config);
     }
 
     /**
@@ -45,7 +34,7 @@ export class EosBlockchain {
      * @returns {any}
      */
     public getConfig():any {
-        return this.config;
+        return this.eosNetworkConfig;
     }
 
     /**
@@ -114,7 +103,7 @@ export class EosBlockchain {
      * @returns {Promise<any>}
      */
     public getAccount(accountName:string) : Promise<any> {
-        return this.eos.getAccount(accountName);
+        return this.eosRpc.get_account(accountName);
     }
 
     /**
@@ -125,22 +114,68 @@ export class EosBlockchain {
      * @returns {Promise<any>}
      */
     public getBalance(accountName:string, contract:string = "eosio.token", symbol:string = "EOS") : Promise<any> {
-        return this.eos.getCurrencyBalance(contract, accountName, symbol);
+        return this.eosRpc.get_currency_balance(contract, accountName, symbol);
     }
 
     /**
      * Gets the head block and other info regarding the EOS blockchain
      * @returns {Promise<any>}
      */
-    public getInfo():Promise<any> {
-        return new Promise<any>((resolve, reject) => {
-            this.eos.getInfo((err, val) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(val);
+    public getInfo():Promise<GetInfoResult> {
+        return this.eosRpc.get_info();
+        // return new Promise<any>((resolve, reject) => {
+        //
+        // });
+    }
+
+    /**
+     * Calls the blockchain payout auction method
+     * @param {number} auctionId
+     * @returns {Promise<any>}
+     */
+    public payoutAuction(auctionId:number):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzpaywinner',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId,
+                    },
+                },
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzrestart',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId,
+                    }
                 }
-            });
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+    }
+
+    /**
+     * Restarts an auction of a particular type
+     * @param {number} auctionId
+     * @returns {Promise<any>}
+     */
+    public restartAuction(auctionId:number):Promise<any> {
+        return new Promise<any>((resolve, reject) => {
+
         });
     }
 
@@ -149,9 +184,9 @@ export class EosBlockchain {
      * @param {string} transactionId
      * @returns {Promise<any>}
      */
-    public getTransaction(transactionId:string) : Promise<any> {
-        return this.eos.getTransaction(transactionId);
-    }
+    // public getTransaction(transactionId:string) : Promise<any> {
+    //     return this.eos.getgetTransaction(transactionId);
+    // }
 
     /**
      * Returns a paged view of actions on a contract. The actions are returned in
@@ -165,7 +200,7 @@ export class EosBlockchain {
      * @returns {Promise<any>}
      */
     public getActions(contract:string, pos:number = 0, offset: number = 10) : Promise<any> {
-        return this.eos.getActions(contract, pos, offset);
+        return this.eosRpc.history_get_actions(contract, pos, offset);
     }
 
     /**
@@ -178,7 +213,7 @@ export class EosBlockchain {
      * @returns {Promise<any>}
      */
     public getTable(contract:string, table: string, lowerBound:number = 0, upperBound:number = -1, limit: number = 10):Promise<any> {
-        return this.eos.getTableRows(true, contract, contract, table, 0, lowerBound, upperBound, limit);
+        return this.eosRpc.get_table_rows({json:true, code:contract, scope:contract, table:table, table_key: 0, lower_bound: lowerBound, upper_bound: upperBound, limit: limit});
     }
 
     /**
