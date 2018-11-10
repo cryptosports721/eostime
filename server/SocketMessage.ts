@@ -195,4 +195,21 @@ export class SocketMessage {
      */
     public static STC_END_AUCTION:string = "STC_END_AUCTION";
 
+    /**
+     * Notifies client of a new auction winner!
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     */
+    public static STC_WINNER_AUCTION:string = "STC_WINNER_AUCTION";
+
+    /**
+     * Tells client to update its coin balances
+     * @type {string}
+     */
+    public static STC_UPDATE_BALANCES:string = "STC_UPDATE_BALANCES";
+    public stcUpdateBalances():void {
+        let data:any = {...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_UPDATE_BALANCES, JSON.stringify(data));
+    }
+
 }

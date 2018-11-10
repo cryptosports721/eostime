@@ -22,6 +22,18 @@ export class ClientConnection {
     private dbManager:DBManager = null;
     private auctionManager:AuctionManager = null;
 
+    public static socketMessageFromAccountName(accountName:string):SocketMessage {
+        let clientConnection:ClientConnection = ClientConnection.CONNECTIONS.find((val) => {
+            let accountNameToCompare:string = Config.safeProperty(val, ["accountInfo.account_name"], null);
+            return (accountNameToCompare == accountName);
+        });
+        if (clientConnection) {
+            return clientConnection.socketMessage;
+        } else {
+            return null;
+        }
+    }
+
     constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager) {
 
         this.dbManager = dbManager;
@@ -151,7 +163,7 @@ export class ClientConnection {
 
             // Create our eos instance
             this.network = data.network;
-            this.eos = new EosBlockchain(Config.EOS_CONFIG[this.network], null);
+            this.eos = new EosBlockchain(Config.EOS_CONFIG[this.network]);
 
             // Validate the scatter signature
             let host:string = data.data;

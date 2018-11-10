@@ -1,4 +1,4 @@
-import {GUIManager} from "./GUIManager";
+import {Confetti, GUIManager} from "./GUIManager";
 import {ViewStateObserver} from "./ViewStateObserver";
 import {SocketMessage} from "../server/SocketMessage";
 import {Moment} from "moment";
@@ -12,6 +12,7 @@ export class AuctionManager extends ViewStateObserver {
     private guiManager:GUIManager = null;
     private socketMessage:SocketMessage = null;
     private auctionElements:JQuery<HTMLElement>[] = null;
+    private confetti:Confetti = null;
 
     private selectors:any = {
         "auctionInstancesLoading": ".auction-instances-loading",
@@ -30,8 +31,14 @@ export class AuctionManager extends ViewStateObserver {
         "auctionInstanceInnerContainer": ".auction-instance-inner-container",
         "auctionInstanceEnded": ".auction-instance-ended",
         "auctionInstanceId": ".auction-instance-id",
-        "auctionInstanceBusy": ".auction-instance-busy"
-
+        "auctionInstanceBusy": ".auction-instance-busy",
+        "auctionWinners": ".auction-winners",
+        "auctionWinnersInner": ".auction-winners-inner",
+        "auctionWinnerInstanceTemplate": ".auction-winner-instance-template",
+        "auctionWinnerInstanceTime": ".auction-winner-time",
+        "auctionWinnerInstanceName": ".auction-winner-name",
+        "auctionWinnerInstanceDuration": ".auction-winner-duration",
+        "auctionWinnerInstanceAmount": ".auction-winner-amount"
     };
 
     /**
@@ -99,12 +106,18 @@ export class AuctionManager extends ViewStateObserver {
             });
             if ($auctionElementToUpdate) {
                 let currentAuctionData:any = $auctionElementToUpdate.data("auction");
+                let currentAuctionLastBidder:string = currentAuctionData.last_bidder;
                 let currentStatus:string = currentAuctionData.status;
                 $auctionElementToUpdate.data("auction", auction);
                 if (currentStatus != "ended") {
                     this.updateAuctionElement($auctionElementToUpdate, false);
                 }
             }
+        });
+
+        this.socketMessage.getSocket().on(SocketMessage.STC_WINNER_AUCTION, (auction:any) => {
+            auction = JSON.parse(auction);
+            this.addWinnerToLeaderBoard(auction);
         });
     }
 
@@ -117,43 +130,6 @@ export class AuctionManager extends ViewStateObserver {
             this.eos = event.detail;
             if (this.eos) {
                 this.socketMessage.ctsGetAllAuctions();
-
-                // this.eosLoadActiveAuctions().then((data) => {
-                //
-                //     let colsPerRow:number = parseInt($(this.selectors.auctionInstancesContainer).attr("data-cols-per-row"));
-                //
-                //     this.auctionElements = new Array<JQuery<HTMLElement>>();
-                //     let idx:number = 0;
-                //     let $row:JQuery<HTMLElement> = null;
-                //     for (let auction of data) {
-                //
-                //         if ($row == null) {
-                //             $row = $("<div />").addClass("row");
-                //             $(this.selectors.auctionInstancesContainer).append($row);
-                //         }
-                //
-                //         let $clone = $(this.selectors.auctionTemplate).clone()
-                //             .removeClass("d-none")
-                //             .removeClass(this.selectors.auctionTemplate.substr(1))
-                //             .attr("id", "auction_id_" + auction.auction_id);
-                //         $clone.data("auction", auction);
-                //         this.auctionElements.push($clone);
-                //         this.initializeAuctionElement($clone, auction);
-                //         $row.append($clone);
-                //
-                //         idx++;
-                //         if (idx == colsPerRow) {
-                //             $(this.selectors.auctionInstancesContainer).append($row);
-                //             $row = null;
-                //         }
-                //     }
-                //     $(this.selectors.auctionInstancesContainer).removeClass("d-none");
-                //     $(this.selectors.auctionInstancesLoading).addClass("d-none");
-                // }).catch((err) => {
-                //     // TODO Reflect error to user in GUI somehow
-                //     console.log("Error loading auctions from blockchain");
-                //     console.log(err);
-                // });
             }
         });
     }
@@ -165,6 +141,50 @@ export class AuctionManager extends ViewStateObserver {
     // ========================================================================
     // PRIVATE METHODS
     // ========================================================================
+
+    private addWinnerToLeaderBoard(auction:any):void {
+
+
+        // auto_refill: 0
+        // bid_price: "0.1000 EOS"
+        // creation_time: "2018-11-07T13:59:54"
+        // enabled: 1
+        // expires: "2018-11-07T14:58:12"
+        // id: 1
+        // init_bid_count: 250
+        // init_duration_secs: 30
+        // init_prize_pool: "10.0000 EOS"
+        // init_redzone_secs: 15
+        // instance_id: 128
+        // last_bidder: "eostimecontr"
+        // prize_pool: "10.0000 EOS"
+        // remaining_bid_count: 250
+
+        let start:Moment = moment.unix(auction.creation_time);
+        let end:Moment = moment.unix(auction.expires);
+        let diff:number = end.diff(start);
+        let duration:string = moment.utc(diff).format("HH:mm:ss.SSS");
+
+        let $clone:JQuery<HTMLElement> = $(this.selectors.auctionWinnerInstanceTemplate).clone().removeClass(this.selectors.auctionWinnerInstanceTemplate.substr(1)).removeClass("d-none");
+        $clone.find(this.selectors.auctionWinnerInstanceName).text(auction.last_bidder);
+        $clone.find(this.selectors.auctionWinnerInstanceAmount).text(auction.prize_pool);
+        $clone.find(this.selectors.auctionWinnerInstanceDuration).text(duration);
+        $clone.find(this.selectors.auctionWinnerInstanceTime).text(end.format("YYYY-MM-DD h:mm a"));
+        $(this.selectors.auctionWinnersInner).prepend($clone);
+
+        // Show confetti animation if we aren't currently running one
+        if (this.confetti === null) {
+            this.confetti = new Confetti($(this.selectors.auctionWinners)[0]);
+            this.confetti.startConfetti();
+            setTimeout(() => {
+                this.confetti.stopConfetti();
+                setTimeout(() => {
+                    this.confetti.removeConfetti();
+                    this.confetti = null;
+                }, 1500);
+            }, 1000);
+        }
+    }
 
     /**
      * Inserts a new auction into the DOM
@@ -389,7 +409,8 @@ export class AuctionManager extends ViewStateObserver {
      */
     private eosBid($auctionElement:JQuery<HTMLElement>):Promise<any> {
         return new Promise<any>((resolve, reject) => {
-            if (this.eos) {
+            let busy:boolean = !$auctionElement.find(this.selectors.auctionInstanceBusy).hasClass("d-none");
+            if (this.eos && !busy) {
 
                 let auction:any = $auctionElement.data("auction");
 

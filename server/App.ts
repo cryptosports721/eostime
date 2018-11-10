@@ -155,9 +155,13 @@ module App {
                         currentBlockNumber = Config.safeProperty(val, ["head_block_num"], null);
                     }
                     if (currentBlockNumber != null) {
+
                         // Run our EOS blockchain watcher
-                        this.eosWatcher = new EosWatcher(this.eosBlockchain.getConfig(), currentBlockNumber, this.updaters, this.effects, this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this));
-                        this.eosWatcher.run();
+                        // this.eosWatcher = new EosWatcher(this.eosBlockchain.getConfig(), currentBlockNumber, this.updaters, this.effects, this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this));
+                        // this.eosWatcher.run();
+
+                        // Use auction manager to poll the blockchain
+                        this.auctionManager.enablePolling(true);
 
                         // Finally, attach event handlers
                         this.attachEventHandlers();

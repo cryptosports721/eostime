@@ -1,7 +1,7 @@
 import {AbstractActionHandler, AbstractActionReader, BaseActionWatcher, Block, IndexState} from "demux";
 import {Effect, Updater} from "demux/dist/interfaces";
 import {NodeosBlock} from "demux-eos";
-import { JsonRpc } from 'eosjs';
+import {JsonRpc} from 'eosjs';
 import {GetInfoResult} from "eosjs/dist/eosjs-rpc-interfaces";
 
 const fetch = require('node-fetch');
@@ -9,7 +9,7 @@ const Ecc = require('eosjs-ecc');
 
 class EosActionReader extends AbstractActionReader {
 
-    private eos:JsonRpc;
+    private eosRpc:JsonRpc;
     private processedBlockCallback:(blockNumber:number, timestamp:string) => Promise<any>;
 
     /**
@@ -23,14 +23,14 @@ class EosActionReader extends AbstractActionReader {
      */
     constructor(config:any, startAtBlock: number, onlyIrreversible: boolean, maxHistoryLength: number, processedBlockCallback:(blockNumber:number, timestamp:string) => Promise<any> = null) {
         super(startAtBlock, onlyIrreversible, maxHistoryLength);
-        this.eos = new JsonRpc(config.httpEndpoint, {fetch});
+        this.eosRpc = new JsonRpc(config.httpEndpoint, {fetch});
         this.processedBlockCallback = processedBlockCallback;
     }
 
     public getHeadBlockNumber(numRetries:number = 120, waitTimeMs:number = 250): Promise<number> {
         return new Promise<number>((resolve, reject) => {
             let getInfo = function() {
-                this.eos.get_info().then((blockInfo:GetInfoResult) => {
+                this.eosRpc.get_info().then((blockInfo:GetInfoResult) => {
                     resolve(blockInfo.head_block_num);
                 }).catch((reason:any) => {
                     numRetries--;
@@ -45,21 +45,6 @@ class EosActionReader extends AbstractActionReader {
                         reject("AbstractActionReader getHeadBlockNumber() failed");
                     }
                 });
-                // this.eos.getInfo((err, blockInfo) => {
-                //     if (err) {
-                //         numRetries--;
-                //         if (numRetries > 0) {
-                //             console.log("Retrying getHeadBlockNumber()...");
-                //             setTimeout(() => {
-                //                     getInfo();
-                //                 }, waitTimeMs);
-                //         } else {
-                //             reject("AbstractActionReader getHeadBlockNumber() failed");
-                //         }
-                //     } else {
-                //         resolve(blockInfo.head_block_num);
-                //     }
-                // });
             }.bind(this);
             getInfo();
         });
@@ -68,7 +53,7 @@ class EosActionReader extends AbstractActionReader {
     public getBlock(blockNumber: number, numRetries:number = 120, waitTimeMs:number = 250): Promise<Block> {
         return new Promise<Block>((resolve, reject) => {
             let getBlock = function() {
-                this.eos.get_block(blockNumber).then((rawBlock:any) => {
+                this.eosRpc.get_block(blockNumber).then((rawBlock:any) => {
                     let block:NodeosBlock = new NodeosBlock(rawBlock);
                     if (this.processedBlockCallback) {
                         this.processedBlockCallback(blockNumber, rawBlock.timestamp).then(() => {
@@ -91,7 +76,7 @@ class EosActionReader extends AbstractActionReader {
                     }
                 });
 
-                this.eos.get_block(blockNumber, (err, rawBlock) => {
+                this.eosRpc.get_block(blockNumber, (err, rawBlock) => {
                     if (err) {
                         numRetries--;
                         if (numRetries > 0) {

@@ -31,6 +31,7 @@ export class GUIManager extends ViewStateObserver {
         "loggedInView": ".logged-in-view",
         "uiBlocker": ".uiBlocker",
         "eosBalance": ".eos-balance",
+        "coinBalance": ".eroll-balance",
         "betAmount": "#bet_amount"
     }
 
@@ -96,6 +97,10 @@ export class GUIManager extends ViewStateObserver {
 
     public updateEOSBalance(eosBalance:string):void {
         $(this.selectors.eosBalance).text(parseFloat(eosBalance).toFixed(4));
+    }
+
+    public updateCoinBalance(coinBalance:string):void {
+        $(this.selectors.coinBalance).text(parseInt(coinBalance));
     }
 
     // ========================================================================
@@ -196,5 +201,167 @@ export class GUIManager extends ViewStateObserver {
         });
 
         $(this.selectors.rollUnder).text($(this.selectors.betSlider).val().toString());
+    }
+}
+
+export class Confetti {
+
+    private elem:HTMLElement = null;
+    private maxParticleCount:number = 150;
+    private particleSpeed:number = 2;
+    private colors:string[] = ["DodgerBlue", "OliveDrab", "Gold", "Pink", "SlateBlue", "LightBlue", "Violet", "PaleGreen", "SteelBlue", "SandyBrown", "Chocolate", "Crimson"]
+    private streamingConfetti:boolean = false;
+    private animationTimer:number = null;
+    private particles:any[] = new Array<any>();
+    private waveAngle:number = 0;
+    private context:CanvasRenderingContext2D = null;
+    private canvasElement:any;
+
+    /**
+     * Constructor
+     * @param {HTMLElement} elem
+     */
+    constructor(elem:HTMLElement) {
+        this.elem = elem;
+        window["requestAnimFrame"] = (function() {
+            return window.requestAnimationFrame ||
+                window.webkitRequestAnimationFrame ||
+                window["mozRequestAnimationFrame"] ||
+                window["oRequestAnimationFrame"] ||
+                window["msRequestAnimationFrame"] ||
+                function (callback) {
+                    return window.setTimeout(callback, 16.6666667);
+                };
+        })();
+    }
+
+    /**
+     * Resets an individual particle
+     * @param particle
+     * @param width
+     * @param height
+     */
+    public resetParticle(particle, width, height):void {
+        particle.color = this.colors[(Math.random() * this.colors.length) | 0];
+        particle.x = Math.random() * width;
+        particle.y = Math.random() * height - height;
+        particle.diameter = Math.random() * 10 + 5;
+        particle.tilt = Math.random() * 10 - 10;
+        particle.tiltAngleIncrement = Math.random() * 0.07 + 0.05;
+        particle.tiltAngle = 0;
+        return particle;
+    }
+
+    /**
+     * Starts the confetti flowing
+     */
+    public startConfetti() {
+        let width:number = this.elem.clientWidth;
+        let height:number = this.elem.clientHeight
+        var existingCanvas:any = document.getElementById("confetti-canvas");
+        if (existingCanvas === null) {
+            this.canvasElement = document.createElement("canvas");
+            this.canvasElement.setAttribute("class", "confetti-canvas");
+            this.elem.appendChild(this.canvasElement);
+            this.canvasElement.width = width;
+            this.canvasElement.height = height;
+            window.addEventListener("resize", (event) => {
+                this.canvasElement.width = this.elem.clientWidth;
+                this.canvasElement.height = this.elem.clientHeight;
+            }, true);
+        }
+        this.context = this.canvasElement.getContext("2d");
+        while (this.particles.length < this.maxParticleCount) {
+            this.particles.push(this.resetParticle({}, width, height));
+        }
+        this.streamingConfetti = true;
+        if (this.animationTimer === null) {
+            this.runAnimation();
+        }
+    }
+
+    /**
+     * Stops the confetti from flowing
+     */
+    public stopConfetti() {
+        this.streamingConfetti = false;
+    }
+
+    /**
+     * Removes the confetti
+     */
+    public removeConfetti() {
+        if (this.canvasElement) {
+            this.stopConfetti();
+            this.particles = [];
+            this.context = null;
+            this.animationTimer = null;
+            this.elem.removeChild(this.canvasElement);
+            this.canvasElement = null;
+        }
+    }
+
+    private toggleConfettiInner() {
+        if (this.streamingConfetti)
+            this.stopConfetti();
+        else
+            this.startConfetti();
+    }
+
+    private drawParticles(context:CanvasRenderingContext2D) {
+        for (let i:number = 0; i < this.particles.length; i++) {
+            let particle:any = this.particles[i];
+            context.beginPath();
+            context.lineWidth = particle.diameter;
+            context.strokeStyle = particle.color;
+            let x:number = particle.x + particle.tilt;
+            context.moveTo(x + particle.diameter / 2, particle.y);
+            context.lineTo(x, particle.y + particle.tilt + particle.diameter / 2);
+            context.stroke();
+        }
+    }
+
+    private updateParticles() {
+
+        let width = this.elem.clientWidth;
+        let height = this.elem.clientHeight;
+        this.waveAngle += 0.01;
+        for (var i = 0; i < this.particles.length; i++) {
+            let particle:any = this.particles[i];
+            if (!this.streamingConfetti && particle.y < -15)
+                particle.y = height + 100;
+            else {
+                particle.tiltAngle += particle.tiltAngleIncrement;
+                particle.x += Math.sin(this.waveAngle);
+                particle.y += (Math.cos(this.waveAngle) + particle.diameter + this.particleSpeed) * 0.5;
+                particle.tilt = Math.sin(particle.tiltAngle) * 15;
+            }
+            if (particle.x > width + 20 || particle.x < -20 || particle.y > height) {
+                if (this.streamingConfetti && this.particles.length <= this.maxParticleCount)
+                    this.resetParticle(particle, width, height);
+                else {
+                    this.particles.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+    }
+
+    private runAnimation():void {
+
+        const runAnimationInner = function() {
+            if (this.canvasElement) {
+                this.context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                if (this.particles.length === 0)
+                    this.animationTimer = null;
+                else {
+                    this.updateParticles();
+                    this.drawParticles(this.context);
+                    this.animationTimer = window["requestAnimFrame"](runAnimationInner);
+                }
+            }
+        }.bind(this);
+        runAnimationInner();
+
     }
 }

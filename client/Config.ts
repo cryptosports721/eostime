@@ -32,4 +32,7 @@ export class Config extends ConfigBase {
         "host": "http://localhost",
         "port": 4001
     };
+
+    public static TIME_TOKEN_CONTRACT:string = "eostimetoken";
+    public static TIME_TOKEN_SYMBOL:string = "TIME";
 }

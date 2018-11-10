@@ -214,6 +214,13 @@ module EOSTime {
                     eosBalance = parseFloat(eosBalance).toFixed(4);
                     this.guiManager.updateEOSBalance(eosBalance);
                 }
+                this.eos.getCurrencyBalance(Config.TIME_TOKEN_CONTRACT, this.account.name, Config.TIME_TOKEN_SYMBOL).then((result:string[]) => {
+                    let coinBalance = result.find(currency => currency.indexOf(Config.TIME_TOKEN_SYMBOL) >= 0);
+                    if (coinBalance) {
+                        coinBalance = parseFloat(coinBalance).toFixed(4);
+                        this.guiManager.updateCoinBalance(coinBalance);
+                    }
+                });
             }).catch(error => console.error(error));
         }
 
@@ -229,6 +236,12 @@ module EOSTime {
                 let evt:CustomEvent = new CustomEvent("apiServerConnect", {"detail": ""});
                 document.dispatchEvent(evt);
 
+            });
+
+            // Time to update our coin balances
+            socket.on(SocketMessage.STC_UPDATE_BALANCES, (data:any) => {
+                let evt:CustomEvent = new CustomEvent("updateCoinBalances", {});
+                document.dispatchEvent(evt);
             });
 
             // Sent from the server in response to CTS_EOS_ACCOUNT with more complete
@@ -347,6 +360,10 @@ module EOSTime {
          * Attaches listeners to the GUI
          */
         private attachGUIListeners():void  {
+
+            $(document).on("updateCoinBalances", (event) => {
+                this.updateCoinBalances();
+            });
 
             $(document).on("selectNetwork", (event) => {
 

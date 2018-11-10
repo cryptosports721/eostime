@@ -13,7 +13,7 @@ export class EosBlockchain {
     /**
      * Constructor
      */
-    constructor(eosNetworkConfig:any, serverConfig, contractPrivateKey:string) {
+    constructor(eosNetworkConfig:any, serverConfig:any  = null, contractPrivateKey:string = null) {
         this.eosNetworkConfig = eosNetworkConfig;
         this.serverConfig = serverConfig;
         this.eosRpc = new JsonRpc(eosNetworkConfig.httpEndpoint, {fetch});

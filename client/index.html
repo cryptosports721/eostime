@@ -27,6 +27,14 @@
             -ms-user-select: none; /* IE10+/Edge */
             user-select: none; /* Standard */
         }
+        .confetti-canvas {
+            position:absolute;
+            top: 0px;
+            left: 15px;
+            display:block;
+            z-index:999999;
+            pointer-events:none
+        }
         .auction-game-outer-container {
             position: relative;
             margin-left: auto;
@@ -93,6 +101,17 @@
             margin-top: 5px;
             padding: 5px;
             border-radius: 5px;
+        }
+        .auction-winners {
+            position: relative;
+        }
+        .auction-winner-instance-header {
+            font-size: 1.0rem;
+            font-weight: bold;
+        }
+        .auction-winner-board-instance {
+            font-size: 0.75rem;
+            padding: 2px;
         }
         .flash {
              -moz-animation: flash ease-out;
@@ -301,7 +320,7 @@
                 <div class="col-4">
                 </div>
                 <div class="col-4 text-right">
-                    <div class="balance-label">EBID Balance</div>
+                    <div class="balance-label">TIME Balance</div>
                     <div class="eroll-balance balance-value">0.0000</div>
                 </div>
             </div>
@@ -310,10 +329,18 @@
 
             <!-- Main auctions area -->
             <div class="row pr-4 pl-4 pt-3">
-                <div class="col-9">
+                <div class="col-8">
                     <div class="auction-instances-container row"></div>
                 </div>
-                <div class="auction-chat col-3"></div>
+                <div class="auction-winners col-4">
+                    <div class="auction-winner-instance-header row">
+                        <div class="col-4">Account</div>
+                        <div class="col-5">When</div>
+                        <div class="col-3 d-none"></div>
+                        <div class="col-3">Amount</div>
+                    </div>
+                    <div class="auction-winners-inner"></div>
+                </div>
             </div>
 
             <!-- Template for an auction instance -->
@@ -337,6 +364,14 @@
                     </div>
                 </div>
                 <div class="auction-instance-busy d-none"><div><img src="./assets/images/loader-1.gif" /></div></div>
+            </div>
+
+            <!-- Template for a winner row -->
+            <div class="auction-winner-instance-template auction-winner-board-instance row d-none">
+                <div class="auction-winner-name col-4"></div>
+                <div class="auction-winner-time col-5"></div>
+                <div class="auction-winner-duration col-3 d-none"></div>
+                <div class="col-3"><span class="auction-winner-amount"></span><span style="font-size: 0.4rem"> EOS</span></div>
             </div>
 
             <!-- UI Blocker shown when waiting on server access -->
