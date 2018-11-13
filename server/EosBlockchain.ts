@@ -5,7 +5,7 @@ const { TextDecoder, TextEncoder } = require('text-encoding');
 
 export class EosBlockchain {
 
-    private eosNetworkConfig:any;
+    private eosEndpoint:string;
     private eosRpc:JsonRpc;
     private serverConfig:any;
     private contractPrivateKey:string = null;
@@ -13,28 +13,11 @@ export class EosBlockchain {
     /**
      * Constructor
      */
-    constructor(eosNetworkConfig:any, serverConfig:any  = null, contractPrivateKey:string = null) {
-        this.eosNetworkConfig = eosNetworkConfig;
+    constructor(eosEndpoint:string, serverConfig:any  = null, contractPrivateKey:string = null) {
+        this.eosEndpoint = eosEndpoint;
         this.serverConfig = serverConfig;
-        this.eosRpc = new JsonRpc(eosNetworkConfig.httpEndpoint, {fetch});
+        this.eosRpc = new JsonRpc(this.eosEndpoint, {fetch});
         this.contractPrivateKey = contractPrivateKey;
-    }
-
-    /**
-     * Recreates the Eos object
-     * @param config
-     */
-    public setConfig(config:any):void {
-        this.eosNetworkConfig = config;
-        this.eosRpc = new Api(config);
-    }
-
-    /**
-     * Returns our network config object
-     * @returns {any}
-     */
-    public getConfig():any {
-        return this.eosNetworkConfig;
     }
 
     /**
@@ -123,9 +106,6 @@ export class EosBlockchain {
      */
     public getInfo():Promise<GetInfoResult> {
         return this.eosRpc.get_info();
-        // return new Promise<any>((resolve, reject) => {
-        //
-        // });
     }
 
     /**

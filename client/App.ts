@@ -74,7 +74,13 @@ module EOSTime {
 
                 // Handle the API server connection
                 $(document).on("apiServerConnect", (event) => {
-                    this.guiManager.blockUI(false);
+
+                    // Once we have connected to the server, go and get the active auctions
+                    // and display them. This does not require Scatter or login
+                    let evt:CustomEvent = new CustomEvent("initializeGameGUI", {});
+                    document.dispatchEvent(evt);
+
+                    // Now try to log-in
                     ScatterJS.scatter.connect("EOSRoller", {initTimeout: 10000}).then((connected) => {
                         this.hasScatter = connected;
                         if (!connected) {
@@ -153,7 +159,9 @@ module EOSTime {
                             if (this.account) {
                                 this.loginInProgress = false;
                                 ScatterJS.scatter.authenticate().then((sig: string) => {
-                                    this.socketMessage.ctsEOSAccount(this.account, this.eosNetwork, location.host, this.identity.publicKey, sig);
+                                    const urlParams:any = new URLSearchParams(window.location.search);
+                                    const referrer:string = urlParams.get('ref');
+                                    this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, location.host, this.identity.publicKey, sig);
                                 }).catch(error => {
                                     this.account = null;
                                     // TODO HANDLE Authentication Failed!
@@ -188,6 +196,7 @@ module EOSTime {
         private logout():Promise<any> {
             this.updateViewState(ViewState.LOGGED_OUT);
             this.guiManager.updateEOSBalance("0");
+            this.guiManager.updateCoinBalance("0");
             this.clearScatterReferences();
             if (ScatterJS.scatter.identity) {
                 return ScatterJS.scatter.forgetIdentity();
@@ -196,12 +205,20 @@ module EOSTime {
             }
         }
 
-        // Updates our view based on our state
-        private updateViewState(state:ViewState):void {
+        /**
+         * Updates our view state
+         * @param {ViewState} state
+         * @param {number} cpu
+         * @param {number} net
+         */
+        private updateViewState(state:ViewState, cpu:number = null, net: number = null):void {
             let data:any = {"viewState" : state, "account": this.account, "accountInfo": this.accountInfo};
             let evt:CustomEvent = new CustomEvent("updateViewState", {"detail": data});
             if (state == ViewState.LOGGED_IN) {
                 this.updateCoinBalances();
+                this.guiManager.showEOSStakedResources(true, cpu, net);
+            } else {
+                this.guiManager.showEOSStakedResources(false, null, null);
             }
             document.dispatchEvent(evt);
         }
@@ -328,7 +345,10 @@ module EOSTime {
             //
             socket.on(SocketMessage.STC_ACCOUNT_INFO, (data: any) => {
                 this.accountInfo = JSON.parse(data);
-                this.updateViewState(ViewState.LOGGED_IN);
+                this.auctionManager.setReferrer(this.accountInfo.referrer);
+                let cpu:number = Math.floor(this.accountInfo.cpu_limit.used*100/this.accountInfo.cpu_limit.available);
+                let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.available);
+                this.updateViewState(ViewState.LOGGED_IN, cpu, net);
             });
 
             // Indicates the server wants this client to operate in developer mode

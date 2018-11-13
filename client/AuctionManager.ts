@@ -3,6 +3,7 @@ import {ViewStateObserver} from "./ViewStateObserver";
 import {SocketMessage} from "../server/SocketMessage";
 import {Moment} from "moment";
 import {Config} from "./Config";
+import set = Reflect.set;
 
 var moment = require('moment');
 
@@ -13,8 +14,10 @@ export class AuctionManager extends ViewStateObserver {
     private socketMessage:SocketMessage = null;
     private auctionElements:JQuery<HTMLElement>[] = null;
     private confetti:Confetti = null;
+    private referrer:string = null;
 
     private selectors:any = {
+        "mainAuctionArea": ".main-auction-area",
         "auctionInstancesLoading": ".auction-instances-loading",
         "auctionInstancesContainer": ".auction-instances-container",
         "auctionTemplate": ".auction-instance-template",
@@ -62,13 +65,23 @@ export class AuctionManager extends ViewStateObserver {
     }
 
     /**
+     * Sets our referrer value to be sent up with bids
+     * @param {string} referrer
+     */
+    public setReferrer(referrer:string) : void {
+        this.referrer = referrer;
+    }
+
+    /**
      * Listen for socket events sent from the back-end server
      */
     protected attachSocketListeners():void {
         this.socketMessage.getSocket().on(SocketMessage.STC_CURRENT_AUCTIONS, (data:any) => {
             data = JSON.parse(data);
+            this.guiManager.blockUI(false);
             this.createAuctionElements(data.auctions);
         });
+
         this.socketMessage.getSocket().on(SocketMessage.STC_REMOVE_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
             let $auctionElementToRemove: JQuery<HTMLElement> = this.auctionElements.find(($elem:JQuery<HTMLElement>) => {
@@ -96,6 +109,10 @@ export class AuctionManager extends ViewStateObserver {
                 $auctionElementToUpdate.data("auction", auction);
                 this.updateAuctionElement($auctionElementToUpdate);
             }
+            if (auction.last_bidder == this.accountInfo.account_name) {
+                let evt:CustomEvent = new CustomEvent("updateCoinBalances", {});
+                document.dispatchEvent(evt);
+            }
         });
 
         this.socketMessage.getSocket().on(SocketMessage.STC_END_AUCTION, (auction:any) => {
@@ -118,12 +135,22 @@ export class AuctionManager extends ViewStateObserver {
         this.socketMessage.getSocket().on(SocketMessage.STC_WINNER_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
             this.addWinnerToLeaderBoard(auction);
+            if (auction.last_bidder == this.accountInfo.account_name) {
+                setTimeout(() => {
+                    let evt:CustomEvent = new CustomEvent("updateCoinBalances", {});
+                    document.dispatchEvent(evt);
+                }, 3000);
+            }
         });
     }
 
     protected attachGUIHandlers():void {
 
         super.attachGUIHandlers();
+
+        $(document).on("initializeGameGUI", (event) => {
+            this.socketMessage.ctsGetAllAuctions();
+        });
 
         // Listen for a new eos blockchain object
         $(document).on("updateEos", (event) => {
@@ -245,6 +272,7 @@ export class AuctionManager extends ViewStateObserver {
                 return 0;
             }
         });
+        $(this.selectors.auctionInstancesContainer).empty();
         this.auctionElements = new Array<JQuery<HTMLElement>>();
         for (let auction of auctions) {
             let $clone = $(this.selectors.auctionTemplate).clone()
@@ -256,7 +284,7 @@ export class AuctionManager extends ViewStateObserver {
             this.initializeAuctionElement($clone, auction);
             $(this.selectors.auctionInstancesContainer).append($clone);
         }
-        $(this.selectors.auctionInstancesContainer).removeClass("d-none");
+        $(this.selectors.mainAuctionArea).removeClass("d-none");
         $(this.selectors.auctionInstancesLoading).addClass("d-none");
     }
 
@@ -266,7 +294,7 @@ export class AuctionManager extends ViewStateObserver {
      * @param auction
      */
     private initializeAuctionElement($elem:JQuery<HTMLElement>, auction: any): void {
-        $elem.find(this.selectors.auctionInstanceId).text(auction.id.toString());
+        $elem.find(this.selectors.auctionInstanceId).text(auction.type.toString() + "-" + auction.id.toString());
         $elem.find(this.selectors.auctionInstanceBidder).text(auction.last_bidder);
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
         $elem.find(this.selectors.auctionInstanceRemainingBids).text(auction.remaining_bid_count);
@@ -306,10 +334,11 @@ export class AuctionManager extends ViewStateObserver {
         let auction:any = $elem.data("auction");
         $elem.data("lastUpdateTime", Math.floor(new Date().getTime()/1000));
         this.updateRemainingTime($elem);
-        $elem.find(this.selectors.auctionInstanceId).text(auction.id.toString());
+        $elem.find(this.selectors.auctionInstanceId).text(auction.type.toString() + "-" + auction.id.toString());
         $elem.find(this.selectors.auctionInstanceRemainingBids).text(auction.remaining_bid_count);
         $elem.find(this.selectors.auctionInstanceBidder).text(auction.last_bidder);
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
+        $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
         if (auction.status == "ended") {
             $elem.find(this.selectors.auctionInstanceBidButton).addClass("d-none");
             $elem.find(this.selectors.auctionInstanceEnded).removeClass("d-none");
@@ -368,11 +397,7 @@ export class AuctionManager extends ViewStateObserver {
             if (!isNaN(days)) {
                 if (days > 0) {
                     $elem.find(this.selectors.daysContainer).removeClass("d-none");
-                    if (days > 1) {
-                        $elem.find(this.selectors.daysContainer).text(days.toString() + " days");
-                    } else {
-                        $elem.find(this.selectors.daysContainer).text(days.toString() + " day");
-                    }
+                    $elem.find(this.selectors.daysContainer).html(days.toString() + "<span style='font-size:75%' class='grey-text'>d </span>");
                 } else {
                     $elem.find(this.selectors.daysContainer).addClass("d-none");
                 }
@@ -413,15 +438,11 @@ export class AuctionManager extends ViewStateObserver {
             if (this.eos && !busy) {
 
                 let auction:any = $auctionElement.data("auction");
-
-                const urlParams:any = new URLSearchParams(window.location.search);
-                const referrer:string = urlParams.get('ref');
-
                 const options = {authorization: [`${this.account.name}@${this.account.authority}`]};
                 const assetAndQuantity:string = auction.bid_price + " EOS";
                 let memo:string = "RZBID-" + auction.id;
-                if (referrer) {
-                    memo += "-" + referrer;
+                if (this.referrer) {
+                    memo += "-" + this.referrer;
                 }
                 try {
                     $auctionElement.find(this.selectors.auctionInstanceBusy).removeClass("d-none");

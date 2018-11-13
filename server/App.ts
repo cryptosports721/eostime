@@ -102,6 +102,13 @@ module App {
             // Grab contract private key
             let contractPrivateKey:string = <string> this.getCliParam("-contractkey", false);
 
+            let eosEndpoint:string = <string> this.getCliParam("-eosendpoint", false);
+            if (!eosEndpoint) {
+                eosEndpoint = Config.EOS_ENDPOINTS.localhost;
+            } else {
+                eosEndpoint = Config.safeProperty(Config.EOS_ENDPOINTS, [eosEndpoint], Config.EOS_ENDPOINTS.localhost);
+            }
+
             // Create our file server config
             const file = new nodeStatic.Server('public', { // bin is the folder containing our html, etc
                 cache: 0,	// don't cache
@@ -137,7 +144,7 @@ module App {
             }).then((serverConfig:any) => {
                 this.serverConfig = serverConfig;
 
-                this.eosBlockchain = new EosBlockchain(Config.EOS_CONFIG.jungle, this.serverConfig, contractPrivateKey);
+                this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey);
 
                 this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
 
@@ -193,7 +200,7 @@ module App {
             this.sio.on('connect', (socket:Socket.Socket) => {
 
                 // Spawn new EOS client connection manager for this socket
-                new ClientConnection(socket, this.dbManager, this.auctionManager);
+                new ClientConnection(socket, this.dbManager, this.auctionManager, () => {return this.eosBlockchain});
 
             });
 

@@ -16,7 +16,7 @@ export class ClientConnection {
     // Private class members
     private ipAddress;
     private socketMessage:SocketMessage;
-    private eos:EosBlockchain;
+    private eos: () => EosBlockchain;
     private network:string = null;
     private accountInfo:any = null;
     private dbManager:DBManager = null;
@@ -34,10 +34,11 @@ export class ClientConnection {
         }
     }
 
-    constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager) {
+    constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager, eos: () => EosBlockchain) {
 
         this.dbManager = dbManager;
         this.auctionManager = auctionManager;
+        this.eos = eos;
 
         if (!this.isBlockedIPAddress(_socket.handshake.address)) {
             this.ipAddress = _socket.handshake.address;
@@ -80,16 +81,21 @@ export class ClientConnection {
      * Sends new accountInfo object to client
      * @param accountName
      */
-    public sendAccountInfo(accountName:string):void {
+    public sendAccountInfo(accountName:string, referrer:string):void {
         // Send EOS account info to the client
         let retryCount:number = 0;
         const getAccoutFromBlockchain = function() {
             // Send account information to the client
-            this.eos.getAccount(accountName).then((accountInfo: any) => {
-                this.socketMessage.stcDevMessage("Sent account info for " + accountName + " to client");
+            this.eos().getAccount(accountName).then((accountInfo: any) => {
                 this.accountInfo = accountInfo;
-                this.registerClientAccount(accountInfo);
-                this.socketMessage.stcAccountInfo(accountInfo);
+                return this.eos().getBalance(this.accountInfo.account_name, "eostimetoken", "TIME");
+            }).then((data: any) => {
+                let timeBalance:string = data.length == 1 && data[0].length > 1 ? data[0] : "0.0000 TIME";
+                this.accountInfo.timeBalance = timeBalance;
+                return this.registerClientAccount(this.accountInfo, referrer);
+            }).then((data: any) => {
+                this.socketMessage.stcDevMessage("Sent account info for " + this.accountInfo.account_name + " to client");
+                this.socketMessage.stcAccountInfo(this.accountInfo);
             }).catch((err: any) => {
                 if (err) {
                     if (err.status == 500) {
@@ -160,10 +166,10 @@ export class ClientConnection {
 
             data = JSON.parse(data);
             let account:any = data.account;
+            let referrer:string = data.referrer;
 
             // Create our eos instance
             this.network = data.network;
-            this.eos = new EosBlockchain(Config.EOS_CONFIG[this.network]);
 
             // Validate the scatter signature
             let host:string = data.data;
@@ -171,7 +177,7 @@ export class ClientConnection {
             if (portStart > 0) {
                 host = host.substr(0, portStart);
             }
-            if (this.eos.verifySignature(host, data.publicKey, data.sig)) {
+            if (this.eos().verifySignature(host, data.publicKey, data.sig)) {
 
                 let timestamp:string = moment().format();
                 console.log("[" + account.name + "] CONNECTED from IP " + this.socketMessage.getSocket().handshake.address + " at " + timestamp);
@@ -180,7 +186,7 @@ export class ClientConnection {
                 this.network = data.network;
 
                 // Send the account info structure to the client
-                this.sendAccountInfo(account.name);
+                this.sendAccountInfo(account.name, referrer);
             } else {
                 // TODO BAD SCATTER SIGNATURE
                 this.socketMessage.stcDevMessage("[" + account.name + "] BAD SIGNATURE from IP " + this.socketMessage.getSocket().handshake.address);
@@ -205,9 +211,12 @@ export class ClientConnection {
 
     /**
      * Registers an account in the database if it has not already been registered.
+     *
      * @param accountInfo
+     * @param {string} referrer
+     * @returns {Promise<void>}
      */
-    private registerClientAccount(accountInfo:any) : Promise<void> {
+    private registerClientAccount(accountInfo:any, referrer:string) : Promise<void> {
         return this.dbManager.getDocumentByKey("users", {accountName: accountInfo.account_name}).then((user) => {
             if (user) {
                 // We have already seen this guy
@@ -215,12 +224,17 @@ export class ClientConnection {
                     user.ipAddresses.push(this.ipAddress);
                 }
                 user.eosBalance = accountInfo.core_liquid_balance;
+                user.timeBalance = accountInfo.timeBalance;
                 user.lastConnectedTime = moment().format();
+                accountInfo.referrer = user.referrer;
+                user.connectionCount++;
                 return this.dbManager.updateDocumentByKey("users", {accountName: accountInfo.account_name}, user);
             } else {
                 // This is a new user
                 let user:any = {
                     accountName: accountInfo.account_name,
+                    referrer: referrer,
+                    connectionCount: 1,
                     eosBalance: accountInfo.core_liquid_balance,
                     lastConnectedTime: moment().format(),
                     ipAddresses: [this.ipAddress]

@@ -5,6 +5,12 @@ export class Config extends ConfigBase {
 
     public static DEVELOPER_MODE:boolean = true;
 
+    public static EOS_ENDPOINTS:any = {
+        "localhost": "http://localhost:8888",
+        "jungle": "http://dev.cryptolions.io:18888",
+    };
+
+    /*
     public static EOS_CONFIG:any = {
         "mainnet": {
             expireInSeconds: 60,
@@ -45,7 +51,18 @@ export class Config extends ConfigBase {
             httpEndpoint: 'http://54.164.95.106:18888',
             // jungle chainId
             chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca'
+        },
+        "localhost": {
+            expireInSeconds: 60,
+            broadcast: true,
+            debug: false,
+            sign: true,
+            // jungle bp endpoint
+            httpEndpoint: 'http://localhost:8888',
+            // jungle chainId
+            chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca'
         }
     };
+    */
 
 }

@@ -29,7 +29,8 @@ export class Config extends ConfigBase {
     };
 
     public static API_SERVER:any = {
-        "host": "http://localhost",
+        // "host": "http://localhost",
+        "host": "http://54.164.95.106",
         "port": 4001
     };
 

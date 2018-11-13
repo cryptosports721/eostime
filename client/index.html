@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="">
     <meta name="author" content="">
-    <title>EOSRoller</title>
+    <title>EOSTime</title>
     <link rel="icon" href="favicon.ico">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
+    <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/themes/smoothness/jquery-ui.css">
 </head>
 <body>
     <style type="text/css">
@@ -279,6 +280,8 @@
                 </li>
             </ul>
             <form class="form-inline my-2 my-lg-0">
+                <div class="cpu-gauge d-none"><canvas width="40" height="40"></canvas></div>
+                <div class="net-gauge d-none pl-2 pr-2"><canvas width="40" height="40"></canvas></div>
                 <div class="developer-mode d-none" style="position: relative; cursor: pointer;">
                     <a class="nav-link dropdown-toggle" id="network_selector" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Network</a>
                     <div class="dropdown-menu" aria-labelledby="dropdown01">
@@ -328,16 +331,16 @@
             <div class="auction-instances-loading pt-2 text-center">Loading bidEOS...</div>
 
             <!-- Main auctions area -->
-            <div class="row pr-4 pl-4 pt-3">
+            <div class="main-auction-area d-none row pr-4 pl-4 pt-3">
                 <div class="col-8">
                     <div class="auction-instances-container row"></div>
                 </div>
                 <div class="auction-winners col-4">
                     <div class="auction-winner-instance-header row">
-                        <div class="col-4">Account</div>
+                        <div class="col-3">Account</div>
                         <div class="col-5">When</div>
                         <div class="col-3 d-none"></div>
-                        <div class="col-3">Amount</div>
+                        <div class="col-4">Amount</div>
                     </div>
                     <div class="auction-winners-inner"></div>
                 </div>
@@ -356,7 +359,7 @@
                         <span class="days-container"></span>
                         <span class="formatted-timer-string"></span>
                     </div>
-                    <div class="auction-instance-small-text">REMAINING BIDS</div>
+                    <div class="auction-instance-small-text"><span class="english">REMAINING BIDS</span><span class="chinese d-none">剩餘投標數</span></div>
                     <div class="auction-instance-remaining-bids auction-instance-med-text"><span></span></div>
                     <div style="height: 42px;">
                         <div class="auction-instance-ended no-user-select d-none"><span>ENDED</span></div>
@@ -368,10 +371,10 @@
 
             <!-- Template for a winner row -->
             <div class="auction-winner-instance-template auction-winner-board-instance row d-none">
-                <div class="auction-winner-name col-4"></div>
+                <div class="auction-winner-name col-3"></div>
                 <div class="auction-winner-time col-5"></div>
                 <div class="auction-winner-duration col-3 d-none"></div>
-                <div class="col-3"><span class="auction-winner-amount"></span><span style="font-size: 0.4rem"> EOS</span></div>
+                <div class="col-4"><span class="auction-winner-amount"></span><span style="font-size: 0.4rem"> EOS</span></div>
             </div>
 
             <!-- UI Blocker shown when waiting on server access -->
@@ -440,6 +443,7 @@
 
     <!-- Scripting needed to support the eosroller app -->
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/bootstrap-slider.min.js" crossorigin="anonymous"></script>
@@ -448,7 +452,6 @@
     <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-    <script src="js/eosroller-bundle.js"></script>
-
+    <script src="js/eostime-bundle.min.js"></script>
 </body>
 </html>

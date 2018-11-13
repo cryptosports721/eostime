@@ -49,9 +49,29 @@ export class SocketMessage {
      * @param {string} sig
      */
     public static CTS_EOS_ACCOUNT:string = "CTS_EOS_ACCOUNT";
-    public ctsEOSAccount(account:any, network:string, dataToVerify:string, publicKey:string, sig:string):void {
-        let data:any = {"account": account, "network": network, "data": dataToVerify, "publicKey": publicKey, "sig": sig};
+    public ctsEOSAccount(account:any, referrer:string, network:string, dataToVerify:string, publicKey:string, sig:string):void {
+        let data:any = {"account": account, "referrer": referrer, "network": network, "data": dataToVerify, "publicKey": publicKey, "sig": sig};
         this.socket.emit(SocketMessage.CTS_EOS_ACCOUNT, JSON.stringify(data));
+    }
+
+    /**
+     * Asks the server for dividend information for the current user.
+     * @param {string} referrer EOS account name of the referrer, or "" if none
+     * @param {number} rollUnder Roll under value for the bet
+     */
+    public static CTS_GET_DIVIDEND_INFO:string = "CTS_GET_DIVIDEND_INFO";
+    public ctsGetDividendInfo():void {
+        this.socket.emit(SocketMessage.CTS_GET_DIVIDEND_INFO, JSON.stringify({}));
+    }
+
+    /**
+     * Asks the server for dividend information for the current user.
+     * @param {string} referrer EOS account name of the referrer, or "" if none
+     * @param {number} rollUnder Roll under value for the bet
+     */
+    public static CTS_GET_FAUCET_EOS:string = "CTS_GET_FAUCET_EOS";
+    public ctsGetFaucetEos():void {
+        this.socket.emit(SocketMessage.CTS_GET_FAUCET_EOS, JSON.stringify({}));
     }
 
     /**

@@ -32,7 +32,9 @@ export class GUIManager extends ViewStateObserver {
         "uiBlocker": ".uiBlocker",
         "eosBalance": ".eos-balance",
         "coinBalance": ".eroll-balance",
-        "betAmount": "#bet_amount"
+        "betAmount": "#bet_amount",
+        "cpuGuage": ".cpu-gauge",
+        "netGuage": ".net-gauge"
     }
 
     constructor() {
@@ -101,6 +103,18 @@ export class GUIManager extends ViewStateObserver {
 
     public updateCoinBalance(coinBalance:string):void {
         $(this.selectors.coinBalance).text(parseInt(coinBalance));
+    }
+
+    public showEOSStakedResources(show:boolean, cpu:number, net: number):void {
+        if (show && (cpu !== null) && (net !== null)) {
+            $(this.selectors.cpuGuage).removeClass("d-none");
+            $(this.selectors.netGuage).removeClass("d-none");
+            new Guage($(this.selectors.cpuGuage + " > canvas"), cpu, {textVal: "CPU"});
+            new Guage($(this.selectors.netGuage + " > canvas"), net, {textVal: "NET"});
+        } else {
+            $(this.selectors.cpuGuage).addClass("d-none");
+            $(this.selectors.netGuage).addClass("d-none");
+        }
     }
 
     // ========================================================================
@@ -204,6 +218,9 @@ export class GUIManager extends ViewStateObserver {
     }
 }
 
+/**
+ * Class to produce a confetti effect on a div
+ */
 export class Confetti {
 
     private elem:HTMLElement = null;
@@ -362,6 +379,195 @@ export class Confetti {
             }
         }.bind(this);
         runAnimationInner();
+
+    }
+}
+
+/**
+ * Class to draw a guage
+ */
+export class Guage {
+
+    private guageRenderer:GuageRenderer;
+
+    constructor($canvas:JQuery<HTMLElement>, val:number, options:any) {
+
+        let guageType:string = Config.safeProperty(options, ["type"], "default");
+        if (guageType == "default") {
+            this.guageRenderer = new DefaultGuageRenderer($canvas, val, options);
+        } else {
+            this.guageRenderer = new HalfCircleGuageRenderer($canvas, val, options);
+        }
+        this.guageRenderer.draw();
+    }
+}
+
+/**
+ * Inner class to render a guage
+ */
+abstract class GuageRenderer {
+
+    protected val;
+    protected settings:any
+    protected ctx:CanvasRenderingContext2D;
+    protected W;
+    protected H;
+    protected centerW;
+    protected position;
+    protected new_position;
+    protected difference;
+    protected text:string;
+    protected animation_loop;
+    protected redraw_loop;
+
+    constructor($canvas:JQuery<HTMLElement>, val:number, options:any) {
+        this.settings = $.extend({
+            min: 0,
+            max: 100,
+            unit: "%",
+            color: "lightgreen",
+            colorAlpha: 1,
+            bgcolor: "#222",
+            type: "default",
+            textVal: null,
+        }, options);
+
+        this.val = val;
+
+        let htmlElement:any = <any> $canvas[0];
+        this.ctx = htmlElement.getContext("2d");
+
+        this.W = htmlElement.width;
+        this.H = htmlElement.height;
+        this.centerW = (this.W/2);
+
+        this.position = 0;
+        this.new_position = 0;
+        this.difference = 0;
+    }
+
+    // Angle in radians = angle in degrees * PI / 180
+    protected radians(degrees) {
+        return degrees * Math.PI / 180;
+    }
+
+    protected animateTo(): void {
+        // Clear animation loop if degrees reaches the new_degrees
+        if (this.position == this.new_position) {
+            clearInterval(this.animation_loop);
+        }
+
+        if (this.position < this.new_position)
+            this.position++;
+        else
+            this.position--;
+
+        this.update();
+    }
+
+    public abstract draw():void;
+    protected abstract update():void;
+}
+
+/**
+ * Implementation of a circular guage renderer
+ */
+class DefaultGuageRenderer extends GuageRenderer {
+
+    constructor($canvas:JQuery<HTMLElement>, val:number, options:any) {
+        super($canvas, val, options);
+    };
+
+    public draw():void {
+        // Cancel any animation if a new chart is requested
+        if (typeof this.animation_loop !== undefined) {
+            clearInterval(this.animation_loop);
+        }
+        this.new_position = Math.round((this.val / (this.settings.max - this.settings.min)) * 270);
+        this.difference = this.new_position - this.position;
+        this.animation_loop = setInterval(this.animateTo.bind(this), 100 / this.difference);
+    }
+
+    protected update():void {
+        this.ctx.clearRect(0, 0, this.W, this.H);
+
+        // The gauge will be an arc
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.settings.bgcolor;
+        this.ctx.lineWidth = this.W*0.13;
+        this.ctx.arc(this.centerW, this.H - (this.centerW - this.ctx.lineWidth), (this.centerW) - this.ctx.lineWidth, this.radians(135), this.radians(45), false);
+        this.ctx.stroke();
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.settings.color;
+        this.ctx.lineWidth = this.W*0.13;
+
+        if (this.position > 0) {
+            this.ctx.globalAlpha = this.settings.colorAlpha;
+            this.ctx.arc(this.centerW, this.H - (this.centerW - this.ctx.lineWidth), (this.centerW) - this.ctx.lineWidth, this.radians(135), this.radians(135 + this.position), false);
+            this.ctx.stroke();
+            this.ctx.globalAlpha = 1;
+        }
+
+        // Add the text
+        this.ctx.fillStyle = this.settings.color;
+        let fontArgs = this.ctx.font.split(' ');
+        this.ctx.font = (this.W*0.15) + ' ' + fontArgs[fontArgs.length - 1];
+        this.text = this.settings.textVal == null ? this.val + this.settings.unit : this.settings.textVal;
+        // Center the text, deducting half of text width from position x
+        let text_width = this.ctx.measureText(this.text).width;
+        this.ctx.fillText(this.text, this.centerW - text_width / 2, this.H - (this.centerW - this.ctx.lineWidth) + 3);
+    }
+
+}
+
+/**
+ * Implementation of a half circle guage renderer
+ */
+class HalfCircleGuageRenderer extends GuageRenderer {
+
+    constructor($canvas:JQuery<HTMLElement>, val:number, options:any) {
+        super($canvas, val, options);
+    };
+
+    public draw():void {
+        // Cancel any animation if a new chart is requested
+        if (typeof this.animation_loop !== undefined) {
+            clearInterval(this.animation_loop);
+        }
+
+        this.new_position = Math.round((this.val / (this.settings.max - this.settings.min)) * 180);
+        this.difference = this.new_position - this.position;
+        this.animation_loop = setInterval(this.animateTo.bind(this), 100 / this.difference);
+    }
+
+    protected update():void {
+        this.ctx.clearRect(0, 0, this.W, this.H);
+
+        // The gauge will be an arc
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.settings.bgcolor;
+        this.ctx.lineWidth = this.W * 0.13;
+        this.ctx.arc(this.centerW, this.H, (this.centerW) - this.ctx.lineWidth, this.radians(180), this.radians(0), false);
+        this.ctx.stroke();
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.settings.color;
+        this.ctx.lineWidth = this.W * 0.13;
+
+        if (this.position > 0) {
+            this.ctx.arc(this.centerW, this.H, (this.centerW) - this.ctx.lineWidth, this.radians(180), this.radians(180 + this.position), false);
+            this.ctx.stroke();
+        }
+
+        // Add the text
+        this.ctx.fillStyle = this.settings.color;
+        var fontArgs = this.ctx.font.split(' ');
+        this.ctx.font = (this.W*0.16) + ' ' + fontArgs[fontArgs.length - 1];
+        this.text = this.val + this.settings.unit;
+        // Center the text, deducting half of text width from position x
+        let text_width = this.ctx.measureText(this.text).width;
+        this.ctx.fillText(this.text, this.centerW - text_width / 2, this.H - 10);
 
     }
 }
