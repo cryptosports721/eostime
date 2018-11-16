@@ -1,0 +1,695 @@
+:root{
+    --blue:#48dbfb;
+    --yellow:#f6c522;
+    --muted-grey:#282828;
+    --dark-grey:#060606;
+}
+html{
+    position: relative;
+    min-height: 100%;
+}
+body {
+    padding-top: 5rem;
+    color: #f1f1f1;
+    margin-bottom: 60px;
+    /* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#141414+1,010101+100 */
+    background: #141414; /* Old browsers */
+    background: -moz-radial-gradient(center, ellipse cover, #141414 1%, #010101 100%); /* FF3.6-15 */
+    background: -webkit-radial-gradient(center, ellipse cover, #141414 1%,#010101 100%); /* Chrome10-25,Safari5.1-6 */
+    background: radial-gradient(ellipse at center, #141414 1%,#010101 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#141414', endColorstr='#010101',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+}
+@media (max-width: 990px) {
+    body{
+        padding-top:7rem;
+    }
+}
+.grey-text {
+    color: #aaaaaa;
+}
+.no-user-select {
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+.confetti-canvas {
+    position:absolute;
+    top: 0px;
+    left: 15px;
+    display:block;
+    z-index:999999;
+    pointer-events:none
+}
+.auction-game-outer-container {
+    position: relative;
+    margin-left: auto;
+    margin-right: auto;
+}
+.auction-instances-loading {
+    font-size: 1.5rem;
+}
+.auction-group-background {
+    background: rgba(42, 146, 115, 0.67);
+    border-radius: 10px;
+}
+.auction-instance {
+    position: relative;
+}
+.auction-instance-inner-container {
+    border: 1px solid white;
+    border-radius: 10px;
+    text-align: center;
+}
+.auction-instance-small-text {
+    font-size: 0.5rem;
+}
+.auction-instance-med-text {
+    font-size: 1.2rem;
+    line-height: 1;
+    padding-bottom: 8px;
+}
+.auction-instance-prize-pool {
+    font-size: 2.5rem;
+    line-height: 1;
+    padding-bottom: 12px;
+}
+.auction-instance-prize-pool > span {
+    font-size: 2rem;
+    border-radius: 5px;
+}
+.auction-instance-remaining-time {
+    font-family: "Courier New", Courier, monospace;
+    font-weight: bold;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding-bottom: 8px;
+}
+.formatted-timer-string {
+    border-radius: 5px;
+}
+.auction-instance-remaining-bids > span {
+    border-radius: 5px;
+}
+.auction-instance-bidder > span {
+    border-radius: 5px;
+}
+.auction-instance-ended {
+    padding-top: 7px;
+}
+.auction-instance-ended > span {
+    font-size: 1.0rem;
+    line-height: 1;
+    border: 1px solid whitesmoke;
+    margin-top: 5px;
+    padding: 5px;
+    border-radius: 5px;
+}
+.auction-winners {
+    position: relative;
+}
+.auction-winner-instance-header {
+    font-size: 1.0rem;
+    font-weight: bold;
+}
+.flash {
+     -moz-animation: flash ease-out;
+     -moz-animation-iteration-count: 1;
+
+     -webkit-animation: flash 1s ease-out;
+     -webkit-animation-duration: 500ms;
+     -webkit-animation-iteration-count: 1;
+
+     -ms-animation: flash ease-out;
+     -ms-animation-iteration-count: 1;
+}
+@keyframes flash {
+    0% { background-color: transparent; }
+    50% { background-color: #5AA4CC; }
+    100% { background-color: transparent; }
+}
+@-webkit-keyframes flash {
+    0% { background-color: transparent; }
+    50% { background-color: #5AA4CC; }
+    100% { background-color: transparent; }
+}
+@-moz-keyframes flash {
+    0% { background-color: transparent; }
+    50% { background-color: #5AA4CC; }
+    100% { background-color: transparent; }
+}
+@-ms-keyframes flash {
+    0% { background-color: transparent; }
+    50% { background-color: #5AA4CC; }
+    100% { background-color: transparent; }
+}
+.flash-border {
+    -moz-animation: flash-border ease-out;
+    -moz-animation-iteration-count: 1;
+
+    -webkit-animation: flash-border 1s ease-out;
+    -webkit-animation-duration: 500ms;
+    -webkit-animation-iteration-count: 1;
+
+    -ms-animation: flash-border ease-out;
+    -ms-animation-iteration-count: 1;
+}
+@keyframes flash-border {
+    0% { border-color: white; }
+    50% { border-color: #5AA4CC; }
+    100% { border-color: white; }
+}
+@-webkit-keyframes flash-border {
+    0% { border-color: white; }
+    50% { border-color: #5AA4CC; }
+    100% { border-color: white; }
+}
+@-moz-keyframes flash-border {
+    0% { border-color: white; }
+    50% { border-color: #5AA4CC; }
+    100% { border-color: white; }
+}
+@-ms-keyframes flash-border {
+    0% { border-color: white; }
+    50% { border-color: #5AA4CC; }
+    100% { border-color: white; }
+}
+.auction-instance-busy {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 5000;
+    border-radius: .3rem;
+}
+.auction-instance-busy div {
+    position: relative;
+    top: 0px;
+    left: 0px;
+}
+.auction-instance-busy img {
+    width: 25px;
+    height: auto;
+}
+.uiBlocker {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 5000;
+    border-radius: .3rem;
+    background-color: #007bff78;
+    padding: 10px;
+}
+.uiBlocker div {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+}
+.uiBlocker img {
+    width: 75px;
+    height: auto;
+}
+footer.developer-mode {
+    background-color: rgba(255,255,255,0.2);
+    font-size: 8pt;
+    padding-bottom: 0px;
+    padding-top: 4px;
+    line-height: 2.2;
+    padding-right: 20px;
+    padding-left: 20px;
+}
+.dev-clear-errors {
+    line-height: 1;
+    color: #99dbff;
+    cursor: pointer;
+}
+.dev-error-message {
+    color: #ff999b;
+}
+.balance-label {
+    font-size: 0.75rem;
+    color: #cbcbcb;
+}
+.betting-area-container {
+    position: relative;
+    border: 1px solid #bdbdbd;
+    margin-left: auto;
+    margin-right: auto;
+    width: 700px;
+    padding: 10px;
+}
+#bet_slider_instance {
+    width: 75%;
+}
+.roll-under {
+    width: 2rem;
+}
+.roll-button {
+    font-size: 1.25rem;
+    width: 15rem;
+}
+.card.dark{
+/* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#141414+1,010101+100 */
+background: #141414; /* Old browsers */
+background: -moz-radial-gradient(center, ellipse cover, #141414 1%, #010101 100%); /* FF3.6-15 */
+background: -webkit-radial-gradient(center, ellipse cover, #141414 1%,#010101 100%); /* Chrome10-25,Safari5.1-6 */
+background: radial-gradient(ellipse at center, #141414 1%,#010101 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#141414', endColorstr='#010101',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+    border-radius:0.25rem;
+    border:none;
+    overflow:hidden;
+    background-clip: unset;
+    box-shadow:0 2px 10px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+.card.red{
+    background: #cc0000
+}
+.card-modal{
+    border: 1px solid var(--blue) !important;
+    border-radius: 5px !important;
+    animation: glowing-modal 5000ms infinite;  
+}
+.card-modal .modal-body{
+    font-size:1.2rem; 
+}
+@keyframes glowing-modal {
+  0% { border-color: var(--blue); }
+  50% { border-color: var(--yellow); }
+  100% { border-color: var(--blue); }
+}
+.card-body{
+    /*padding:10px;*/
+    background: #2c2c2c;
+    /*background: linear-gradient(to right bottom, #282828 50%, #222 50%);*/
+    /*background: linear-gradient(to right bottom, #2828287a 50%, #2229 50%);*/
+    background: linear-gradient(to right bottom, #ffffff17 50%, #8c8c8c1f 50%);
+}
+@font-face {
+  font-family: 'icomoon';
+  src:  url('../fonts/icomoon.eot?j9jwq1');
+  src:  url('../fonts/icomoon.eot?j9jwq1#iefix') format('embedded-opentype'),
+    url('../fonts/icomoon.ttf?j9jwq1') format('truetype'),
+    url('../fonts/icomoon.woff?j9jwq1') format('woff'),
+    url('../fonts/icomoon.svg?j9jwq1#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-steemit:before {
+  content: "\e903";
+}
+.icon-time_token1:before {
+  content: "\e900";
+}
+.icon-time_token:before {
+  content: "\e901";
+}
+.icon-eos_icon:before {
+  content: "\e902";
+}
+.icon-eos_icon{
+  color: var(--blue);
+  animation: glowing 5000ms infinite;   
+}
+@keyframes glowing {
+  0% { text-shadow: 0 0 10px var(--blue); }
+  40% { text-shadow: 0 0 40px var(--blue); }
+  60% { text-shadow: 0 0 40px var(--blue); }
+  100% { text-shadow: 0 0 10px var(--blue); }
+}
+.icon-eos_icon.white-glow{
+  color: white;
+  animation: white-glowing 1500ms infinite;   
+}
+@keyframes white-glowing {
+  0% { text-shadow: 0 0 10px white; }
+  40% { text-shadow: 0 0 40px white; }
+  60% { text-shadow: 0 0 40px white; }
+  100% { text-shadow: 0 0 10px white; }
+}
+.font-24{
+    font-size:24px !important;
+}
+.font-36{
+    font-size:36px !important;
+}
+.font-16{
+     font-size:16px !important;
+} 
+.font-bold{
+    font-weight:bold;
+}
+.font-muted{
+    color:rgba(255,255,255,0.5);
+}
+.font-blue-glow{
+    text-shadow:0 0 20px var(--blue);;
+}
+.flex-center{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.flex-left{
+    display:flex;
+    align-items:baseline;
+    justify-content:left;
+}
+.flex-center-row{
+    display:flex;
+    align-items: center;
+    flex-direction:row;
+}
+.flex-space-between{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+.flex-column{
+    flex-direction:column;
+}
+.flex-fill{
+    flex: 1;
+}
+.col-white{
+    color:white !important;
+}
+.col-blue{
+    color:var(--blue) !important;
+}
+.col-yellow{
+    color:var(--yellow) !important;
+}
+.m-r-10{
+    margin-right:10px;
+}
+.m-r-20{
+    margin-right:20px;
+}
+.m-b-20{
+    margin-bottom:20px
+}
+.m-t-20{
+    margin-top:20px;
+}
+.no-m{
+    margin:0;
+}
+.count_down {
+    display: flex;
+    align-items:center;
+    justify-content:center;
+    font-family: 'Microsoft YaHei', 'Arial', 'Verdana';
+    font-size: 18px;
+}
+.count_down_box {
+    border: 2px solid #f6c522;
+    border-radius: 5px;
+    color: white;
+    margin: 4px;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    padding:5px;
+}
+
+.count_down_box:first-child{
+    margin:5px 5px 5px 0px;
+}
+.count_down.medium{
+    font-size:2.5rem;
+}
+.count_down.medium .count_down_box{
+    border: 2px solid #f6c522;
+    padding:3px 10px;
+}
+.count_down.big{
+    font-size:5rem;
+}
+.count_down.big .count_down_box{
+    border: 3px solid #f6c522;
+    padding:5px 20px;
+}
+
+.btn-outline-yellow {
+    color: var(--yellow);
+    background-color: transparent;
+    background-image: none;
+    border-color: var(--yellow);
+    transition: all 0.2s ease;
+}
+.btn-outline-yellow:hover{
+   background-color: var(--yellow);
+   color:white;
+}
+.btn-outline-yellow:hover,
+.btn-outline-yellow:active,
+.btn-outline-yellow:visited,
+.btn-outline-yellow:focus {
+   box-shadow: 0 0 2rem (--yellow);
+/* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#f6c522+0,f5a40d+100 */
+background: #f6c522; /* Old browsers */
+background: -moz-linear-gradient(45deg, #f6c522 0%, #f5a40d 100%); /* FF3.6-15 */
+background: -webkit-linear-gradient(45deg, #f6c522 0%,#f5a40d 100%); /* Chrome10-25,Safari5.1-6 */
+background: linear-gradient(45deg, #f6c522 0%,#f5a40d 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f6c522', endColorstr='#f5a40d',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+}
+.btn-outline-yellow:active,
+.btn-outline-yellow:visited,
+.btn-outline-yellow:focus{
+    box-shadow: 0 0px 3px rgba(0,0,0,0.8);
+    color:white;
+}
+.user-tokens{
+    font-size:1rem;
+    font-weight:bold;
+}
+.blue-flash{ 
+  animation: blue-flash 1000ms infinite;   
+}
+@keyframes blue-flash {
+  0% { 
+      color: var(--white); 
+      text-shadow:0 0 1px var(--blue);
+  }
+  40% { 
+      color: var(--blue); 
+      text-shadow:0 0 20px var(--blue);
+  }
+  60% { 
+      color: var(--blue); 
+      text-shadow:0 0 20px var(--blue);
+  }
+  100% { 
+      color: var(--white); 
+      text-shadow:0 0 1px var(--blue);
+  }
+}
+.info-row{
+    padding: 3px;
+    background: rgba(13,13,13,1);
+    border-radius: 0.25rem;
+}
+.info-row hr{
+    border:1px solid var(--muted-grey);
+}
+.info-row.light{
+    padding: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 0.25rem;
+}
+ul.referral-table{
+    list-style:none;
+    padding:10px;
+}
+ul.referral-table li{
+    display:flex;
+    align-items:center;
+    justify-content:space-around;
+    margin-bottom:5px;
+    white-space: nowrap;
+}
+ul.referral-table li > span{
+    flex:0 0 20%;
+    text-align:center;
+}
+.table-row{
+    display:flex;
+}
+.table-row > span{
+    flex:0 0 33%;
+    text-align:center;
+}
+ul.referral-table.header{
+    border-top:1px solid rgba(0,0,0,0.3);
+    border-bottom:1px solid rgba(0,0,0,0.3);
+    padding:0 5px;
+}
+ul.referral-table.header li{
+    margin-top:10px;
+    margin-bottom:10px;
+    white-space: nowrap;
+}
+ul.referral-table.leaders{
+    border-bottom:1px solid rgba(0,0,0,0.3);
+}
+ul.referral-table li .rank{
+    font-weight: bold;
+    text-align: center;
+    color: #ddd;
+    border-radius: 50%;
+    margin: auto;
+    height: 48px;
+    width: 48px;
+    font-size: 18px; 
+    background:url(/storage/app/media/eostime/place.svg) center center no-repeat;
+    background-size:contain;
+}
+ul.referral-table.leaders li:first-child .rank{
+    /*background:url(/storage/app/media/eostime/first_place.svg) center center no-repeat;
+    background-size:contain;
+    color:transparent;*/
+}
+ul.referral-table.leaders li:nth-child(2) .rank{
+    /*background:url(/storage/app/media/eostime/second_place.svg) center center no-repeat;
+    background-size:contain;
+    color:transparent;*/
+}
+ul.referral-table.leaders li:nth-child(3) .rank{
+    /*background:url(/storage/app/media/eostime/third_place.svg) center center no-repeat;
+    background-size:contain;
+    color:transparent;*/
+}
+ul.scrollable{
+    height:360px;
+    overflow-y:auto;
+}
+ul.scrollable::-webkit-scrollbar {
+    width: 9px;
+    height:9px;
+}
+ul.scrollable::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.1);
+    background-clip: padding-box;
+    min-height: 28px;
+    border-radius: 4px;
+}
+ul.no-scroll{
+    overflow-y:unset;
+}
+ul.yellow{
+    background:var(--yellow);
+    color:var(--dark-grey) !important;
+    font-weight:bold;
+    font-size:1.2rem;
+    text-shadow:0 1px 3px rgba(0,0,0,0.3);
+}
+li.big{
+    line-height:48px;
+}
+.shadow-x{
+    box-shadow: 0 2px 10px rgba(0,0,0,0.8);
+}
+.no-bg{
+    background:transparent;
+}
+.abs-corner{
+    position:absolute;
+    top:5px;
+    right:5px;
+}
+.abs-corner i{
+    cursor:pointer;
+    -webkit-appearance: unset;
+    transition:all ease 0.2s;
+}
+.abs-corner i:hover,
+.abs-corner i:active,
+.abs-corner i:focus{
+    color:white !important;;
+    text-shadow:0 0 5px white;
+}
+.referral-link .dark{
+    display:flex;
+    background:rgba(13,13,13,1);
+    padding:10px;
+    border-radius:0.25rem;
+    width:100%;
+}
+.referral-link input,
+.referral-link input:active,
+.referral-link input:focus{
+    border:none;
+    background:transparent;
+    color:white;
+    box-shadow:unset;
+}
+
+.navbar-brand{
+    font-size:unset;
+}
+.subnav{
+    top: 54px;
+    background: rgba(255,255,255,0.1);
+}
+.footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 61px;
+    line-height: 60px;
+    background-color: #060606 !important;
+    border-top: 1px solid #282828;
+}
+
+.social a{
+    color: #282828;
+    border: 2px solid #282828;
+    max-width: 92px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 21px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-left:10px;
+    transition:all 0.2s ease;
+}
+.social.blue a{
+    color:var(--blue);
+    border: 2px solid var(--blue);
+    width:64px;
+    height:64px;
+    font-size:24px;
+}
+.social a:hover,
+.social a:active,
+.social a:focus{
+    color:white;
+    border: 2px solid white;
+    text-decoration:none;
+}
+.close{
+    opacity:unset !important;
+}
+.dropdown-menu{
+    min-width:unset;
+}
