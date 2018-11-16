@@ -176,6 +176,7 @@ module EOSTime {
                                 ScatterJS.scatter.authenticate().then((sig: string) => {
                                     const urlParams:any = new URLSearchParams(window.location.search);
                                     const referrer:string = urlParams.get('ref');
+                                    this.guiManager.updateReferralLink(this.account.name);
                                     this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, location.host, this.identity.publicKey, sig);
                                 }).catch(error => {
                                     this.account = null;

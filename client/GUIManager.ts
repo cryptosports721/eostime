@@ -30,7 +30,8 @@ export class GUIManager extends ViewStateObserver {
         "coinBalance": ".coin-balance",
         "betAmount": "#bet_amount",
         "cpuGuage": ".cpu-gauge",
-        "netGuage": ".net-gauge"
+        "netGuage": ".net-gauge",
+        "referrerLinkTag": ".referrer-link-tag"
     };
 
     constructor() {
@@ -90,6 +91,10 @@ export class GUIManager extends ViewStateObserver {
 
     public setPublicKey(val:string):void {
         $(this.selectors.publicKey).html(val);
+    }
+
+    public updateReferralLink(accountName:string) {
+        $(this.selectors.referrerLinkTag).attr("value", Config.REFERRAL_LINK_PREFIX + accountName);
     }
 
     public updateEOSBalance(eosBalance:string):void {

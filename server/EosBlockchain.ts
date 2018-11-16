@@ -9,17 +9,20 @@ export class EosBlockchain {
     private eosEndpoint:string;
     private eosRpc:JsonRpc;
     private serverConfig:any;
-    private contractPrivateKey:string = null;
-    private faucetPrivateKey:string = "5KNRA9GU2KzvWLmLA1k2hSkZ7Jwyrxgr3NaQgYAd9zvruamDi8m";
+    private contractPrivateKey:string;
+    private faucetPrivateKey:string;
+    private housePrivateKey:string;
 
     /**
      * Constructor
      */
-    constructor(eosEndpoint:string, serverConfig:any  = null, contractPrivateKey:string = null, faucetPrivateKey:string) {
+    constructor(eosEndpoint:string, serverConfig:any  = null, contractPrivateKey:string = null, faucetPrivateKey:string = null, housePrivateKey:string = null) {
         this.eosEndpoint = eosEndpoint;
         this.serverConfig = serverConfig;
         this.eosRpc = new JsonRpc(this.eosEndpoint, {fetch});
         this.contractPrivateKey = contractPrivateKey;
+        this.faucetPrivateKey = faucetPrivateKey;
+        this.housePrivateKey = housePrivateKey;
     }
 
     /**

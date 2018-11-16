@@ -56,7 +56,7 @@
             
                 <div class="collapse navbar-collapse" id="navLeft">
                     <ul class="navbar-nav mr-auto">
-                        <li class="nav-item active">
+                        <li class="nav-item">
                             <a class="nav-link english lang" href="index.html">HOME</a>
                             <a class="nav-link chinese lang d-none" href="index.html">HOME</a>
                         </li>
@@ -68,7 +68,7 @@
                             <a class="nav-link english lang" href="airdrops.html">AIRDROPS</a>
                             <a class="nav-link chinese lang d-none" href="airdrops.html">AIRDROPS</a>
                         </li>
-                        <li class="nav-item">
+                        <li class="nav-item active">
                             <a class="nav-link english lang" href="referrals.html">REFERRALS</a>
                             <a class="nav-link chinese lang d-none" href="referrals.html">REFERRALS</a>
                         </li>
@@ -131,158 +131,62 @@
         
         <main id="games_container" roll="main" class="container pt-3 pb-5">
         
-            <!-- GUI for auctionGame -->
-            <div id="auctionGame" class="auction-game-outer-container">
-        
-                <div class="auction-instances-loading pt-2 text-center d-none">Loading EOSTime...</div>
-        
-                <!-- Main auctions area -->
-                <div class="main-auction-area row">
-                    <div class="col-lg-6 col-md-12 col-sm-12 col-12">
-                        <div class="auction-instances-container row">
-        
-                        </div>
-                    </div>
-                    
-                    <!-- winners -->
-                    <div class="col-lg-6 col-md-12 col-sm-12 col-12">
-                        <div class="row">
-                        
-                            <!-- TIME give ratio -->
-                            <div class="col-12 px-2 mb-3">
-                                <div class="card dark">
-                                    <div class="card-body p-4">
-                                        <div class="flex-center">
-                                            <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
-                                            <div class="flex-left flex-column">
-                                                <span class="font-24 english lang">Bid to earn TIME</span>
-                                                <span class="font-24 chinese lang d-none">Bid to earn TIME</span>
-                                                <span class="col-yellow english lang">Current payout: 1 EOS = 20 TIME</span>
-                                                <span class="col-yellow chinese lang d-none">Current payout: 1 EOS = 20 TIME</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="abs-corner">
-                                        <i class="far fa-question-circle font-16 text-muted" data-id="TIME"></i>
-                                    </div> 
-                                </div>
-                            </div>
-                            <!-- /end TIME give ratio -->
-                            
-                            <!-- winners table -->
-                            <div class="auction-winners col-12 px-2 mb-3">
-                                <div class="card dark">
-                                    <div class="card-body p-0">
-                                        <h5 class="my-4 text-center english lang">Auction Winners</h5>
-                                        <h5 class="my-4 text-center chinese lang d-none">??</h5>
-                                        
-                                        <ul class="referral-table header mt-3 mb-0">
-                                            <li class="info-row no-bg font-muted m-r-10">
-                                                <span class="english lang">User</span>
-                                                <span class="chinese lang d-none">???</span>
-                                                <span class="english lang">Time</span>
-                                                <span class="chinese lang d-none">?</span>
-                                                <span class="english lang">Prize</span>
-                                                <span class="chinese lang d-none">??</span>
-                                            </li>
-                                        </ul>
-                                        
-                                        <div class="auction-winners">
-                                        <ul class="auction-winners-inner referral-table leaders scrollable mb-0">
-                                
-                                        </ul>
-                                        </div>
-                                        <div class="font-muted text-left small px-2 py-2 english lang">* Prizes are paid out automatically</div>
-                                        <div class="font-muted text-left small px-2 py-2 chinese lang d-none">* Prizes are paid out automatically</div>
-                                    </div>
-                                    <div class="abs-corner">
-                                        <i class="far fa-question-circle font-16 text-muted" data-id="comp"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- /end winners table -->
-                            
-                        </div>
-                    </div>
-                    <!-- / end winners -->
-                    
-                </div>
-                <!-- /end Main auctions area -->
-        
-            </div>
-            <!-- /end GUI -->
+			<!-- referrals page -->
+			<div class="row justify-content-md-center">
+				<div class="col-8">
+					<div class="card dark mb-3">
+						<div class="card-body">
+							<div class="card-title font-muted english lang">Referral Link</div>
+							<div class="card-title font-muted chinese lang d-none">Referral Link</div>
+							<div class="referral-link my-4">
+								<div class="flex-space-between dark">
+									<div class="flex-left flex-center-row flex-fill">
+										<i class="fas fa-link m-r-10 font-24 text-muted"></i>
+                                        <div class="logged-out-view d-none english lang">Log in to see link</div>
+										<input class="referrer-link-tag d-none logged-in-view form-control form-control-lg" type="text" value="" id="referral-link">
+									</div>
+									<div onclick="copyAddress();"class="btn btn-outline-yellow copy-button english lang">Copy</div>
+									<div onclick="copyAddress();"class="btn btn-outline-yellow copy-button chinese lang d-none">Copy</div>
+								</div>
+							</div>
+							
+							<span class="english lang">Refer friends and earn 0.375% of every bid they make</span>
+							<span class="chinese lang d-none">Refer friends and earn 0.375% of every bid they make</span>
+						</div>
+					</div>
+				</div>
+				<div class="col-8">
+					<div class="card dark mb-3">
+						<div class="card-body">
+							<div class="card-title flex-center-row">
+								<i class="fab fa-youtube font-24 mr-3"></i>
+								<h5 class="my-0">Youtuber?</h5>
+							</div>
+							<div class="mb-2 info-row px-4 py-4">
+								<span class="english lang">Create a video promoting our site and you could earn even more with a higher referral percentage. Contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP <i class="far fa-smile-wink"></i></span>
+								<span class="chinese lang d-none">Create a video promoting our site and you could earn even more with a higher referral percentage. Contact us here info@eostie.io. We will respond to you ASAP <i class="far fa-smile-wink"></i></span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-8">
+					<div class="card dark mb-3">
+						<div class="card-body">
+							<div class="card-title flex-center-row">
+								<i class="fas fa-pencil-alt font-24 mr-3"></i>
+								<h5 class="my-0">Blogger?</h5>
+							</div>
+							<div class="mb-2 info-row px-4 py-4">
+                                <span class="english lang">If you are thinking about promoting the site via a blog post and would like to earn even more from your referral link, contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP and will be more than happy to give you any details your require for your article.</span>
+								<span class="chinese lang d-none">If you are thinking about promoting the site via a blog post and would like to earn even more from your referral link, contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP and will be more than happy to give you any details your require for your article.</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<!-- /end referrals page -->
         
         </main>
-        
-        <!-- Template for an auction instance -->
-        <div class="auction-instance-template auction-instance col-lg-6 col-md-4 col-sm-6 col-12 pb-3 pr-2 pl-2 d-none">
-            <div class="card dark text-white auction-instance-inner-container">
-                <div class="card-body">
-                    <div class="abs-corner">
-                        <i class="far fa-question-circle font-16 text-muted" data-id="comp"></i>
-                    </div>
-                    <div class="auction-instance-busy d-none">
-                        <div><img src="assets/images/loading.svg"></div>
-                    </div>
-                    <!--<div class="auction-instance-small-text text-right font-muted abs-corner">ID: <span class="auction-instance-id">76</span></div>-->
-                    <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
-                    <div class="flex-center">
-                        <div>
-                            <div class="auction-instance-bidder auction-instance-med-text flex-center-row"><i class="far fa-user font-16 m-r-10 font-muted"></i><span class="col-blue"></span></div>
-                            <div class="auction-instance-remaining-time flex-center-row">
-                                <div class="count_down" class="flex-center">
-                                    <i class="far fa-clock font-16 m-r-10 font-muted"></i>
-                                    <div class="flex-center">
-                                        <div class="days-container d-none flex-center">
-                                        	<div class="count_down_box"><div class="box auction-instance-days"></div></div>
-                                        	<div class="dots">:</div>
-                                    	</div>
-                                    	<div class="count_down_box"><div class="box auction-instance-hours"></div></div>
-                                    	<div class="dots">:</div>
-                                    	<div class="count_down_box"><div class="box auction-instance-minutes"></div></div>
-                                    	<div class="dots">:</div>
-                                    	<div class="count_down_box"><div class="box auction-instance-seconds"></div></div>
-                                	</div>
-                                </div>
-                            </div>
-                            <div class="auction-instance-remaining-bids auction-instance-med-text flex-center-row">
-                                <i class="fas fa-ticket-alt font-16 m-r-10 font-muted"></i>
-                                <span>12</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="height: 42px;" class="m-t-20 flex-center">
-                        <div class="auction-instance-ended no-user-select d-none">
-                            <span class="english lang">ENDED</span>
-                            <span class="chinese lang d-none">??</span>
-                        </div>
-                        <button type="button" class="auction-instance-login-button btn btn-small btn-outline-yellow shadow-x d-none">
-                            <span class="english lang">Login</span>
-                            <span class="chinese lang d-none">??</span>
-                        </button>
-                        <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-yellow shadow-x">
-                            <span class="english lang">Bid </span>
-                            <span class="chinese lang d-none">?? </span>
-                            <span class="auction-instance-bid-amount">0.0100</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- /end auction template -->
-        
-        <!-- winners row template -->
-        <li class="info-row big auction-winner-instance-template auction-winner-board-instance d-none">
-            <span class="auction-winner-name col-blue"></span>
-            <span class="auction-winner-time"></span>
-            <span class="auction-winner-amount">
-                <div class="flex-center">
-                    <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
-                    <span></span>
-                </div>
-            </span>
-        </li>
-        <!--/end winners row template -->
         
         <!-- modal -->
         <div class="modal fade" id="modal">
@@ -321,6 +225,22 @@
         </footer>
         <!-- /end footer -->
 
+		<script>
+			function copyAddress() {
+			  /* Get the text field */
+			  var copyText = document.getElementById("referral-link");
+
+			  /* Select the text field */
+			  copyText.select();
+
+			  /* Copy the text inside the text field */
+			  document.execCommand("copy");
+
+			  /* Alert the copied text */
+			  $('.copy-button').html('<i class="fas fa-check"></i> Copied');
+			}
+		</script> 
+        
         <!-- Dev Mode Footer -->
         <footer class="fixed-bottom developer-mode d-none">
             <div class="row">
@@ -347,7 +267,7 @@
     <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-    <script src="assets/js/eostime-bundle.min.js"></script>
+    <script src="assets/js/eostime-bundle.js"></script>
     <script src="assets/js/faucet.js"></script>
     <script src="assets/js/modals.js"></script>
     <script src="assets/js/lang.js"></script>

@@ -1,232 +1,313 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
-    <title>EOSTime Faucet</title>
-    <link rel="icon" href="favicon.ico">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
-    <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/themes/smoothness/jquery-ui.css">
-</head>
-<body>
-<style type="text/css">
-    body {
-        padding-top: 5rem;
-        background: black;
-        color: white;
-    }
-    .grey-text {
-        color: #aaaaaa;
-    }
-    .no-user-select {
-        -webkit-user-select: none; /* Safari */
-        -moz-user-select: none; /* Firefox */
-        -ms-user-select: none; /* IE10+/Edge */
-        user-select: none; /* Standard */
-    }
-    .uiBlocker {
-        position: absolute;
-        top: 0px;
-        left: 0px;
-        width: 100%;
-        height: 100%;
-        z-index: 5000;
-        border-radius: .3rem;
-        background-color: #007bff78;
-        padding: 10px;
-    }
-    .uiBlocker div {
-        position: relative;
-        top: 50%;
-        transform: translateY(-50%);
-        text-align: center;
-    }
-    .uiBlocker img {
-        width: 75px;
-        height: auto;
-    }
-    footer {
-        background-color: rgba(255,255,255,0.2);
-        font-size: 8pt;
-        padding-bottom: 0px;
-        padding-top: 4px;
-        line-height: 2.2;
-        padding-right: 20px;
-        padding-left: 20px;
-    }
-    .dev-clear-errors {
-        line-height: 1;
-        color: #99dbff;
-        cursor: pointer;
-    }
-    .dev-error-message {
-        color: #ff999b;
-    }
-</style>
-
-<script type="text/javascript">
-
-    window.addEventListener('load', function(event) {
-
-        var animationTimer = null;
-
-        $( document ).on("updateTimeTillDraw", function(event) {
-            var timeTillDraw = event.detail;
-
-            // timeTillDraw is an object that looks like this:
-            //
-            // {hours: "01", minutes: "05", seconds: "09"}
-            //
-            // This object should update your time till next draw UI element. You will only
-            // receive these while the user is eligible to draw (or just prior to a
-            // canDrawNow => false message);
-            $(".next-draw-hours").text(timeTillDraw.hours);
-            $(".next-draw-minutes").text(timeTillDraw.minutes);
-            $(".next-draw-seconds").text(timeTillDraw.seconds);
-        });
-
-        $( document ).on("canDrawNow", function(event) {
-            var canDraw = event.detail;
-
-            // canDraw is a boolean that indicates whether or not the user
-            // can currently draw or not. Should update your UI accordly
-            if (canDraw) {
-                $(".cannot-draw-now").addClass("d-none");
-                $(".can-draw-now").removeClass("d-none");
-            } else {
-                $(".cannot-draw-now").removeClass("d-none");
-                $(".can-draw-now").addClass("d-none");
-            }
-        });
-
-        // Do this and we will attempt to draw.
-        $(".draw-button").on("click", function(event) {
-
-            if (!animationTimer) {
-                animationTimer = setInterval(function() {
-                    var randomValue = Math.floor(Math.random()*10000);
-                    $(".draw-button").text(randomValue.toString());
-                }, 100);
-            }
-
-            // Let the animation play for a couple of seconds just for kicks,
-            // this is demo only, you would not do this in the real page.
-            setTimeout(function() {
-                var evt = new CustomEvent("faucetDraw", {});
-                document.dispatchEvent(evt);
-            }, 2000);
-        });
-
-        $( document ).on("faucetAward", function(event) {
-            var award = event.detail;
-            console.log(award);
-
-            // awardAmount is a float indicating the EOS awarded by the faucet. Do
-            // whatever you want (animation, set a value someplace, or nothing). The
-            // user's EOS balance would have already been updated.
-            //
-            // A value of 0 for award.eosAward and award.randomDraw indicates that
-            // the request was made before the waiting period expired.
-            //
-            $(".draw-button").text("Draw");
-            if (animationTimer) {
-                clearInterval(animationTimer);
-                animationTimer = null;
-            }
-
-            $(".next-draw-hours").text(award.nextDraw.hours);
-            $(".next-draw-minutes").text(award.nextDraw.minutes);
-            $(".next-draw-seconds").text(award.nextDraw.seconds);
-
-            if (award.eosAward == 0) {
-                alert("Can't draw again for " + award.nextDraw.nextDrawSecs + " seconds!");
-            } else {
-                alert("You just got " + award.eosAward + " for a roll of " + award.randomDraw + " in the faucet!");
-            }
-        });
-
-    });
-
-</script>
-
-<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-    <a class="navbar-brand" href="#">EOSTime</a>
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div class="collapse navbar-collapse" id="navbarsExampleDefault">
-        <ul class="navbar-nav mr-auto">
-            <li class="nav-item">
-                <a class="nav-link" href="index.html">Home</a>
-            </li>
-            <li class="nav-item active">
-                <a class="nav-link" href="#">Faucet <span class="sr-only">(current)</span></a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link disabled" href="#">Disabled</a>
-            </li>
-        </ul>
-        <form class="form-inline my-2 my-lg-0">
-            <div class="cpu-gauge d-none"><canvas width="40" height="40"></canvas></div>
-            <div class="net-gauge d-none pl-2 pr-2"><canvas width="40" height="40"></canvas></div>
-            <div class="developer-mode d-none" style="position: relative; cursor: pointer;">
-                <a class="nav-link dropdown-toggle" id="network_selector" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Network</a>
-                <div class="dropdown-menu" aria-labelledby="dropdown01">
-                    <a id="select_mainnet" class="dropdown-item" href="#">Main Net</a>
-                    <a id="select_jungle" class="dropdown-item" href="#">Jungle</a>
+<html lang="en" class="gr__eostime_io">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="">
+        <meta name="author" content="">
+        <title>EOSTime</title>
+        <link rel="icon" href="favicon.ico">
+        <link rel="stylesheet" href="assets/css/bootstrap_darkly.min.css"/>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
+        <link rel="stylesheet" href="assets/css/custom_css.css"/>
+        <link rel="stylesheet" href="assets/css/flag_icons.min.css"/>
+    </head>
+    <body data-gr-c-s-loaded="true">
+    
+        <!-- right nav -->
+        <nav class="navbar navbar-expand d-lg-none navbar-dark fixed-top subnav">
+            <div class="container">
+                    <ul class="navbar-nav ml-auto">
+                        <!--<li class="nav-item d-flex">
+                            <div class="cpu-gauge"><canvas width="40" height="40"></canvas></div>
+                        </li>
+                        <li class="nav-item d-flex">
+                            <div class="net-gauge"><canvas width="40" height="40"></canvas></div>
+                        </li>-->
+                        <li class="nav-item d-flex">
+                            <div class="flex-center m-r-20 user-tokens">
+                                <span class="icon-eos_icon font-24 font-blue-glow mr-2"></span>
+                                <span class="eos-balance balance-value">0</span>
+                            </div>
+                        </li>
+                        <li class="nav-item d-flex">
+                            <div class="flex-center user-tokens">
+                                <span class="icon-time_token1 font-24 col-yellow mr-2"></span>
+                                <span class="eroll-balance balance-value">0</span>
+                            </div>
+                        </li>
+                    </ul>
+            </div>
+        </nav>
+        <!-- /end right nav
+        
+        <!-- left nav -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+            <div class="container">
+        
+          <a class="navbar-brand" href="index.html">
+            <img src="assets/images/eostime_text_logo.svg" height="20" alt="EOSTime">
+          </a>
+          
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navLeft" aria-controls="navLeft" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            
+                <div class="collapse navbar-collapse" id="navLeft">
+                    <ul class="navbar-nav mr-auto">
+                        <li class="nav-item">
+                            <a class="nav-link english lang" href="index.html">HOME</a>
+                            <a class="nav-link chinese lang d-none" href="index.html">HOME</a>
+                        </li>
+                        <li class="nav-item active">
+                            <a class="nav-link english lang" href="faucet.html">FAUCET</a>
+                            <a class="nav-link chinese lang d-none" href="faucet.html">FAUCET</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link english lang" href="airdrops.html">AIRDROPS</a>
+                            <a class="nav-link chinese lang d-none" href="airdrops.html">AIRDROPS</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link english lang" href="referrals.html">REFERRALS</a>
+                            <a class="nav-link chinese lang d-none" href="referrals.html">REFERRALS</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link blue-flash english lang" href="dividend.html">DIVIDEND</a>
+                            <a class="nav-link blue-flash chinese lang d-none" href="dividend.html">DIVIDEND</a>
+                        </li>
+                    </ul>
+                    
+                    <ul class="navbar-nav mx-auto">
+                        <li class="nav-item">
+                            <div class="cpu-gauge"><canvas width="40" height="40"></canvas></div>
+                        </li>
+                        <li class="nav-item">
+                            <div class="net-gauge"><canvas width="40" height="40"></canvas></div>
+                        </li>
+                    </ul>
+            
+                    <ul class="navbar-nav ml-auto">
+        
+                        <li class="nav-item d-none d-lg-flex">
+                            <div class="flex-center m-r-20 user-tokens">
+                                <span class="icon-eos_icon font-16 font-blue-glow mr-2"></span>
+                                <span class="eos-balance balance-value">0</span>
+                            </div>
+                        </li>
+                        <li class="nav-item d-none d-lg-flex">
+                            <div class="flex-center m-r-20 user-tokens">
+                                <span class="icon-time_token1 font-16 col-yellow mr-2"></span>
+                                <span class="eroll-balance balance-value">0</span>
+                            </div>
+                        </li>
+                        <li class="nav-item d-flex align-items-center">
+                            <div class="developer-mode" style="position: relative; cursor: pointer;">
+                                <a class="nav-link dropdown-toggle" id="network_selector" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Jungle</a>
+                                <div class="dropdown-menu" aria-labelledby="dropdown01">
+                                    <a id="select_mainnet" class="dropdown-item" href="#">Main Net</a>
+                                    <a id="select_jungle" class="dropdown-item" href="#">Jungle</a>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="nav-item d-flex align-items-center mr-2">
+                            <div class="language" style="position: relative; cursor: pointer;">
+                                <a class="nav-link dropdown-toggle" id="language_selector" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="flag-icon flag-icon-gb"></span> EN</a>
+                                <div class="dropdown-menu" aria-labelledby="dropdown02">
+                                    <a class="dropdown-item select-lang" href="javascript:;" data-lang="EN"><span class="flag-icon flag-icon-gb"></span> EN</a>
+                                    <a class="dropdown-item select-lang" href="javascript:;" data-lang="CN"><span class="flag-icon flag-icon-cn"></span> CN</a>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="nav-item d-flex align-items-center">
+                            <button class="login-button logged-out-view btn btn-outline-yellow my-2 my-sm-0 d-none" type="button">Log In</button>
+                            <button class="logout-button logged-in-view btn btn-outline-yellow my-2 my-sm-0" type="button">Log Out</button>
+                        </li>
+                    </ul>
                 </div>
             </div>
-            <button class="login-button logged-out-view d-none btn btn-outline-success my-2 my-sm-0" type="button">Log In</button>
-            <button class="logout-button logged-in-view d-none btn btn-outline-success my-2 my-sm-0" type="button">Log Out</button>
-        </form>
-    </div>
-</nav>
-
-<!-- Dev Mode Footer -->
-<footer class="fixed-bottom developer-mode d-none">
-    <div class="row">
-        <div id="dev_error_message_container" class="col-5 text-left"></div>
-        <div class="col-7 text-right">
-            <b>DEVELOPER MODE</b> -- Current Key: <span class="account-name"></span> [<span class="public-key"></span>]
+        </nav>
+        <!-- /end left nav-->
+        
+        <main id="games_container" roll="main" class="container pt-3 pb-5">
+        
+            <!-- faucet page -->
+            <div class="row justify-content-center">
+                <div class="col-8 flex-center flex-column">
+                
+                    <!-- card -->
+                    <div class="card dark mb-3 align-self-stretch">
+                        <div class="card-body p-0">
+                            <h5 class="my-4 text-center english lang">EOS Faucet</h5>
+                            <h5 class="my-4 text-center chinese lang d-none">EOS Faucet</h5>
+                            
+                            <ul class="referral-table header yellow mt-3 mb-0">
+                                <li class="info-row no-bg">
+                                <span class="english lang">Lucky Number</span>
+                                <span class=" chinese lang d-none">Payout</span>
+                                </li>
+                            </ul>
+                            
+                            <ul class="referral-table leaders mb-0 font-24">
+                                <li class="info-row big mt-1">
+                                    <span>0-9885</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                            <span>0.0005</span>
+                                        </div>
+                                    </span>
+                                </li>
+                                <li class="info-row big">
+                                    <span>9886-9985</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                            <span>0.0050</span>
+                                        </div>
+                                    </span>
+                                </li>
+                                <li class="info-row big">
+                                    <span>9986-9993</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                            <span>0.0500</span>
+                                        </div>
+                                    </span>
+                                </li>
+                                <li class="info-row big">
+                                    <span>9994-9997</span>
+          
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                            <span>0.500</span>
+                                        </div>
+                                    </span>
+                                </li>
+                                <li class="info-row big">
+                                    <span>9998-9999</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                            <span>5.0000</span>
+                                        </div>
+                                    </span>
+                                </li>
+                                <li class="info-row big">
+                                    <span>10000</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                            <span>50.0000</span>
+                                        </div>
+                                    </span>
+                                </li>
+                            </ul>
+        
+                            <div class="font-muted text-left small px-2 py-2 english lang">* Prizes are paid out automatically</div>
+                            <div class="font-muted text-left small px-2 py-2 chinese lang d-none">* Prizes are paid out automatically</div>
+                        </div>
+                        <div class="abs-corner">
+                            <i class="far fa-question-circle font-16 text-muted" data-id="faucet"></i>
+                        </div>
+                    </div>
+                    <!-- /card end -->
+                    
+                    <div class="cannot-draw-now d-none text-center">
+                        <h5 class="english">NEXT DRAW</h5>
+                        <h5 class="chinese d-none">?????</h5>
+                        <div class="count_down medium">
+                        	<div class="count_down_box"><div class="box next-draw-hours">12</div></div>
+                        	<div class="dots">:</div>
+                        	<div class="count_down_box"><div class="box next-draw-minutes">05</div></div>
+                        	<div class="dots">:</div>
+                        	<div class="count_down_box"><div class="box next-draw-seconds">56</div></div>
+                        </div>
+                        <span class="mb-2 english lang">You can use this faucet once every hour</span>
+                        <span class="mb-2 chinese lang d-none">You can use this faucet once every hour</span>
+                    </div>
+                    
+                    <div class="can-draw-now flex-center flex-column">
+                        <span class="mb-2 english lang">You can use this faucet once every hour</span>
+                        <span class="mb-2 chinese lang d-none">You can use this faucet once every hour</span>
+                        <button type="button" class="draw-button btn btn-lg btn-primary english lang">Draw</button>
+                        <button type="button" class="draw-button btn btn-lg btn-primary chinese lang d-none">Draw</button>
+                    </div>
+            
+                </div>
+            </div>
+            <!-- /end faucet page -->
+        
+        </main>
+        
+        <!-- modal -->
+        <div class="modal fade" id="modal">
+          <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="card dark card-modal">
+                    <div class="card-body">
+                        <div class="card-title font-muted modal-title mb-3">Referral Link</div>
+                        <div class="info-row px-4 py-4 modal-body"></div>
+                    </div>
+                    <div class="abs-corner flex-center">
+                        <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
+                    </div>
+                </div>
+                </div>
+          </div>
         </div>
-    </div>
-</footer>
-<div class="dev-error-message-row-template row pb-1 d-none">
-    <div class="dev-clear-errors col-1 text-left" style="line-height: 1;"></div>
-    <div class="dev-error-message col-11 text-left" style="line-height: 1;"></div>
-</div>
+        <!-- /end modal -->
+        
+        
+        <!-- footer -->
+        <footer class="footer mt-5">
+          <div class="container flex-center-row flex-space-between">
+              <a href="#">
+                <img src="assets/images/eostime_text_logo.svg" height="20" alt="EOSTime">
+              </a>
+              <div class="social flex-center-row flex-space-between">
+                  <a href="#" class="flex-center"><i class="fab fa-twitter"></i></a>
+                  <a href="#" class="flex-center"><i class="fab fa-facebook-f"></i></a>
+                  <a href="#" class="flex-center"><i class="fab fa-medium-m"></i></a>
+                  <a href="#" class="flex-center"><i class="fab fa-telegram-plane"></i></a>
+                  <a href="#" class="flex-center"><i class="fab fa-reddit-alien"></i></a>
+                  <a href="#" class="flex-center"><span class="icon-steemit"></span></a>
+              </div>
+          </div>
+        </footer>
+        <!-- /end footer -->
+        
+        
+        <!-- Dev Mode Footer -->
+        <footer class="fixed-bottom developer-mode d-none">
+            <div class="row">
+                <div id="dev_error_message_container" class="col-5 text-left"></div>
+                <div class="col-7 text-right">
+                    <b>DEVELOPER MODE</b> -- Current Key: <span class="account-name"></span> [<span class="public-key"></span>]
+                </div>
+            </div>
+        </footer>
+        <div class="dev-error-message-row-template row pb-1 d-none">
+            <div class="dev-clear-errors col-1 text-left" style="line-height: 1;"></div>
+            <div class="dev-error-message col-11 text-left" style="line-height: 1;"></div>
+        </div> 
+        
+    </body>
 
-<main id="faucet_container" roll="main" class="container">
-
-    <div>EOS Balance: <span class="eos-balance"></span></div>
-    <div>TIME Balance: <span class="coin-balance"></span></div>
-    <div class="logged-in-view">
-        <div class="cannot-draw-now pt-1 d-none">Content you want shown when the user cannot draw</div>
-        <div class="cannot-draw-now d-none">Next Draw Time:
-                <span class="next-draw-hours"></span>:<span class="next-draw-minutes"></span>:<span class="next-draw-seconds"></span>
-        </div>
-        <div class="can-draw-now pt-1 d-none">Content you want shown only when the user can draw.</div>
-        <button type="button" class="draw-button can-draw-now d-none btn btn-primary">Draw</button>
-    </div>
-
-</main>
-
-<!-- Scripting needed to support the eosroller app -->
-<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/bootstrap-slider.min.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
-<script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-core.min.js"></script>
-<script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-<script src="js/eostime-bundle.min.js"></script>
-</body>
+    <!-- Scripting needed to support the eosroller app -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/bootstrap-slider.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+    <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-core.min.js"></script>
+    <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
+    <script src="assets/js/eostime-bundle.min.js"></script>
+    <script src="assets/js/faucet.js"></script>
+    <script src="assets/js/modals.js"></script>
+    <script src="assets/js/lang.js"></script>
 </html>

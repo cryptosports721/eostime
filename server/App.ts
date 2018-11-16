@@ -99,11 +99,14 @@ module App {
             let startWatcherNow:string|boolean = <string> this.getCliParam("-startwatchernow", false);
             startWatcherNow = startWatcherNow && (startWatcherNow == "true");
 
-            // Grab contract private key
-            let contractPrivateKey:string = <string> this.getCliParam("-contractkey", false);
-
-            // Grab the faucet private key
-            let faucetPrivateKey:string = <string> this.getCliParam("-faucetkey", false);
+            // Grab private keys
+            let contractPrivateKey:string = process.env.PKEY_EOSTIMECONTR; // <string> this.getCliParam("-contractkey", false);
+            let faucetPrivateKey:string = process.env.PKEY_EOSTIMECONTR; // <string> this.getCliParam("-faucetkey", false);
+            let housePrivateKey:string = process.env.PKEY_EOSTIMEHOUSE;
+            if (!contractPrivateKey || !faucetPrivateKey || !housePrivateKey) {
+                console.log("Invalid EOS keys");
+                process.exit();
+            }
 
             let eosEndpoint:string = <string> this.getCliParam("-eosendpoint", false);
             if (!eosEndpoint) {
@@ -131,13 +134,13 @@ module App {
             this.sio.serveClient(true); // the server will serve the client js file
             this.sio.attach(httpServer);
 
-            const db:string = <string> this.getCliParam("-db", false, "mongodb://localhost:27017/eostime");
-            const username:string = <string> this.getCliParam("-username", false, "node_server");
-            const password:string = <string> this.getCliParam("-password", false);
-            if (password) {
+            const db:string = <string> process.env.MONGO_DATABASE;
+            const username:string = <string> process.env.MONGO_USERNAME;
+            const password:string = <string> process.env.MONGO_PASSWORD;
+            if (db && password && password) {
                 this.dbManager = new DBManager();
             } else {
-                console.log("-password is a required command line option");
+                console.log("Cannot connect to database");
                 process.exit();
             }
 
@@ -147,7 +150,7 @@ module App {
             }).then((serverConfig:any) => {
                 this.serverConfig = serverConfig;
 
-                this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey);
+                this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
 
                 this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
 

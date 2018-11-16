@@ -56,7 +56,7 @@
             
                 <div class="collapse navbar-collapse" id="navLeft">
                     <ul class="navbar-nav mr-auto">
-                        <li class="nav-item active">
+                        <li class="nav-item">
                             <a class="nav-link english lang" href="index.html">HOME</a>
                             <a class="nav-link chinese lang d-none" href="index.html">HOME</a>
                         </li>
@@ -72,7 +72,7 @@
                             <a class="nav-link english lang" href="referrals.html">REFERRALS</a>
                             <a class="nav-link chinese lang d-none" href="referrals.html">REFERRALS</a>
                         </li>
-                        <li class="nav-item">
+                        <li class="nav-item active">
                             <a class="nav-link blue-flash english lang" href="dividend.html">DIVIDEND</a>
                             <a class="nav-link blue-flash chinese lang d-none" href="dividend.html">DIVIDEND</a>
                         </li>
@@ -131,158 +131,211 @@
         
         <main id="games_container" roll="main" class="container pt-3 pb-5">
         
-            <!-- GUI for auctionGame -->
-            <div id="auctionGame" class="auction-game-outer-container">
+            <!-- dividend page -->
+            <div class="row">
+            
+                <div class="col-12 text-center mb-5">
+                <h5 class="english lang">NEXT PAYOUT</h5>
+                <h5 class="chinese lang d-none">?????</h5>
+                <div class="count_down big">
+                	<div class="count_down_box" id="hours"><div class="box">12</div></div>
+                	<div class="dots">:</div>
+                	<div class="count_down_box" id="minutes"><div class="box">05</div></div>
+                	<div class="dots">:</div>
+                	<div class="count_down_box" id="seconds"><div class="box">56</div></div>
+                </div>
+                </div>
+                
+                <div class="col-6 px-2">
         
-                <div class="auction-instances-loading pt-2 text-center d-none">Loading EOSTime...</div>
-        
-                <!-- Main auctions area -->
-                <div class="main-auction-area row">
-                    <div class="col-lg-6 col-md-12 col-sm-12 col-12">
-                        <div class="auction-instances-container row">
-        
-                        </div>
-                    </div>
-                    
-                    <!-- winners -->
-                    <div class="col-lg-6 col-md-12 col-sm-12 col-12">
-                        <div class="row">
-                        
-                            <!-- TIME give ratio -->
-                            <div class="col-12 px-2 mb-3">
-                                <div class="card dark">
-                                    <div class="card-body p-4">
-                                        <div class="flex-center">
-                                            <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
-                                            <div class="flex-left flex-column">
-                                                <span class="font-24 english lang">Bid to earn TIME</span>
-                                                <span class="font-24 chinese lang d-none">Bid to earn TIME</span>
-                                                <span class="col-yellow english lang">Current payout: 1 EOS = 20 TIME</span>
-                                                <span class="col-yellow chinese lang d-none">Current payout: 1 EOS = 20 TIME</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="abs-corner">
-                                        <i class="far fa-question-circle font-16 text-muted" data-id="TIME"></i>
-                                    </div> 
+                    <div class="card dark mb-3">
+                        <div class="card-body">
+                            <div class="card-title font-muted english lang">Dividend Pool</div>
+                            <div class="card-title font-muted chinese lang d-none">???</div>
+                            <div class="flex-center mb-5 mt-5">
+                                <span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span>
+                                <h3 class="no-m">1789.0978</h3>
+                            </div>
+                            
+                            <div class="flex-space-between mb-2 info-row px-2 py-1">
+                                <span class="english lang">Your Expected Payout</span>
+                                <span class="chinese lang d-none">??????</span>
+                                <div class="flex-center">
+                                    <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                    2.0098
                                 </div>
                             </div>
-                            <!-- /end TIME give ratio -->
                             
-                            <!-- winners table -->
-                            <div class="auction-winners col-12 px-2 mb-3">
-                                <div class="card dark">
-                                    <div class="card-body p-0">
-                                        <h5 class="my-4 text-center english lang">Auction Winners</h5>
-                                        <h5 class="my-4 text-center chinese lang d-none">??</h5>
-                                        
-                                        <ul class="referral-table header mt-3 mb-0">
-                                            <li class="info-row no-bg font-muted m-r-10">
-                                                <span class="english lang">User</span>
-                                                <span class="chinese lang d-none">???</span>
-                                                <span class="english lang">Time</span>
-                                                <span class="chinese lang d-none">?</span>
-                                                <span class="english lang">Prize</span>
-                                                <span class="chinese lang d-none">??</span>
-                                            </li>
-                                        </ul>
-                                        
-                                        <div class="auction-winners">
-                                        <ul class="auction-winners-inner referral-table leaders scrollable mb-0">
-                                
-                                        </ul>
-                                        </div>
-                                        <div class="font-muted text-left small px-2 py-2 english lang">* Prizes are paid out automatically</div>
-                                        <div class="font-muted text-left small px-2 py-2 chinese lang d-none">* Prizes are paid out automatically</div>
-                                    </div>
-                                    <div class="abs-corner">
-                                        <i class="far fa-question-circle font-16 text-muted" data-id="comp"></i>
-                                    </div>
+                            <div class="flex-space-between mb-2 info-row px-2 py-1">
+                                <span class="english lang">Expected Payout per 10k TIME</span>
+                                <span class="chinese lang d-none">???10K TIME??</span>
+                                <div class="flex-center">
+                                    <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
+                                    2.0098
                                 </div>
                             </div>
-                            <!-- /end winners table -->
-                            
                         </div>
                     </div>
-                    <!-- / end winners -->
                     
                 </div>
-                <!-- /end Main auctions area -->
         
+                <div class="col-6 px-2">
+                    <div class="card dark mb-3">
+                        <div class="card-body">
+                            <div class="card-title font-muted english lang">Your Dividends</div>
+                            <div class="card-title font-muted chinese lang d-none">????</div>
+                            <div class="flex-center mb-5 mt-5">
+                                <span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span>
+                                <h3 class="no-m">1789.0978</h3>
+                            </div>
+        
+                            <div class="flex-space-between mb-2 info-row px-2 py-1">
+                                <span class="english lang">Your TIME Tokens</span>
+                                <span class="chinese lang d-none">Your TIME Tokens</span>
+                                <div class="flex-center">
+                                    <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
+                                    2.0098
+                                </div>
+                            </div>
+                            
+                            <div class="flex-space-between mb-2 info-row px-2 py-1">
+                                <span class="english lang">Total TIME Tokens Issued</span>
+                                <span class="chinese lang d-none">Total TIME Tokens Issued</span>
+                                <div class="flex-center">
+                                    <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
+                                    47892048.9887
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
-            <!-- /end GUI -->
+            
+            <div class="row">
+                <div class="col-6 px-2">
+                    <div class="card dark mb-3">
+                        <div class="card-body">
+                            <div class="card-title font-muted english lang">How Does it Works?</div>
+                            <div class="card-title font-muted chinese lang d-none">???</div>
+                            
+                            <!-- english -->
+                            <div class="mb-2 info-row px-4 py-4 english lang">
+                                Every hour we payout 100% of the profits to TIME token holders in the form of dividends. There is no need to stake your TIME tokens, simply owning them will earn you a payout.
+                                <br/>
+                                All payouts are handled automatically by our system. There is no need to claim.
+                                <hr/>
+                                <span class="badge badge-primary">Example</span>
+                                <br/>
+                                <ol>
+                                    <li>Dividends pool is 400 EOS</li>
+                                    <li>You own 1000 TIME Tokens</li>
+                                    <li>A total of 4000 TIME Tokens have been issued</li>
+                                    <li>You will earn 25% of the divided pool - 100 EOS</li>
+                                </ol>
+                            </div>
+                            <!-- /english end -->
+        
+                            <!-- chinese -->
+                            <div class="mb-2 info-row px-4 py-4 chinese lang d-none">
+                                Every hour we payout 100% of the profits to TIME token holders in the form of dividends. There is no need to stake your TIME tokens, simply owning them will earn you a payout.
+                                <br/>
+                                All payouts are handled automatically by our system. There is no need to claim.
+                                <hr/>
+                                <span class="badge badge-primary">Example</span>
+                                <br/>
+                                <ol>
+                                    <li>Dividends pool is 400 EOS</li>
+                                    <li>You own 1000 TIME Tokens</li>
+                                    <li>A total of 4000 TIME Tokens have been issued</li>
+                                    <li>You will earn 25% of the divided pool - 100 EOS</li>
+                                </ol>
+                            </div>
+                            <!-- /chinese end -->
+                            
+                        </div>
+                    </div>
+                </div>  
+                
+              <div class="col-6 px-2">
+                  <div class="card dark">
+                        <div class="card-body p-0">
+                            <h5 class="my-4 text-center english lang">TIME Token Distribution</h5>
+                            <h5 class="my-4 text-center chinese lang d-none">TIME Token Distribution</h5>
+                            <div class="flex-center flex-column mb-5 mt-5">
+                                <div class="flex-center">
+                                    <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
+                                    <h3 class="no-m">88,800,000,000</h3>
+                                </div>
+                                <small class="font-muted english lang">Total Tokens</small>
+                                <small class="font-muted chinese lang d-none">Total Tokens</small>
+                            </div>
+                            <ul class="referral-table header yellow mt-3 mb-0 px-3">
+                                <li class="info-row no-bg">
+                                <span class="english lang">Distribution</span>
+                                <span class="chinese lang d-none">??</span>
+                                <span class="english lang">Amount</span>
+                                <span class="chinese lang d-none">??</span>
+                                <span class="english lang">More Info</span>
+                                <span class="chinese lang d-none">????</span>
+                                </li>
+                            </ul>
+                            
+                            <ul class="referral-table leaders mb-0">
+                                <li class="info-row big mt-1">
+                                    <span class="english lang">Play to Earn</span>
+                                    <span class="chinese lang d-none">Play to Earn</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
+                                            <span>70.59%</span>
+                                        </div>
+                                    </span>
+                                    <span><i class="far fa-question-circle text-muted"></i></span>
+                                </li>
+                                <li class="info-row big">
+                                    <span class="english lang">Win to Earn</span>
+                                    <span class="chinese lang d-none">??</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
+                                            <span>11.76%</span>
+                                        </div>
+                                    </span>
+                                    <span><i class="far fa-question-circle text-muted"></i></span>
+                                </li>
+                                <li class="info-row big">
+                                    <span class="english lang">Airdrops</span>
+                                    <span class="chinese lang d-none">???</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
+                                            <span>11.76%</span>
+                                        </div>
+                                    </span>
+                                    <span><i class="far fa-question-circle text-muted"></i></span>
+                                </li>
+                                <li class="info-row big">
+                                    <span class="english lang">Subscribe to Earn</span>
+                                    <span class="chinese lang d-none">??</span>
+                                    <span>        
+                                        <div class="flex-center">
+                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
+                                            <span>5.88%</span>
+                                        </div>
+                                    </span>
+                                    <span><i class="far fa-question-circle text-muted"></i></span>
+                                </li>
+                            </ul>
+        
+        
+                        </div>
+                    </div>        
+                </div>
+            </div>
+            <!-- /end dividend page -->
         
         </main>
-        
-        <!-- Template for an auction instance -->
-        <div class="auction-instance-template auction-instance col-lg-6 col-md-4 col-sm-6 col-12 pb-3 pr-2 pl-2 d-none">
-            <div class="card dark text-white auction-instance-inner-container">
-                <div class="card-body">
-                    <div class="abs-corner">
-                        <i class="far fa-question-circle font-16 text-muted" data-id="comp"></i>
-                    </div>
-                    <div class="auction-instance-busy d-none">
-                        <div><img src="assets/images/loading.svg"></div>
-                    </div>
-                    <!--<div class="auction-instance-small-text text-right font-muted abs-corner">ID: <span class="auction-instance-id">76</span></div>-->
-                    <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
-                    <div class="flex-center">
-                        <div>
-                            <div class="auction-instance-bidder auction-instance-med-text flex-center-row"><i class="far fa-user font-16 m-r-10 font-muted"></i><span class="col-blue"></span></div>
-                            <div class="auction-instance-remaining-time flex-center-row">
-                                <div class="count_down" class="flex-center">
-                                    <i class="far fa-clock font-16 m-r-10 font-muted"></i>
-                                    <div class="flex-center">
-                                        <div class="days-container d-none flex-center">
-                                        	<div class="count_down_box"><div class="box auction-instance-days"></div></div>
-                                        	<div class="dots">:</div>
-                                    	</div>
-                                    	<div class="count_down_box"><div class="box auction-instance-hours"></div></div>
-                                    	<div class="dots">:</div>
-                                    	<div class="count_down_box"><div class="box auction-instance-minutes"></div></div>
-                                    	<div class="dots">:</div>
-                                    	<div class="count_down_box"><div class="box auction-instance-seconds"></div></div>
-                                	</div>
-                                </div>
-                            </div>
-                            <div class="auction-instance-remaining-bids auction-instance-med-text flex-center-row">
-                                <i class="fas fa-ticket-alt font-16 m-r-10 font-muted"></i>
-                                <span>12</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="height: 42px;" class="m-t-20 flex-center">
-                        <div class="auction-instance-ended no-user-select d-none">
-                            <span class="english lang">ENDED</span>
-                            <span class="chinese lang d-none">??</span>
-                        </div>
-                        <button type="button" class="auction-instance-login-button btn btn-small btn-outline-yellow shadow-x d-none">
-                            <span class="english lang">Login</span>
-                            <span class="chinese lang d-none">??</span>
-                        </button>
-                        <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-yellow shadow-x">
-                            <span class="english lang">Bid </span>
-                            <span class="chinese lang d-none">?? </span>
-                            <span class="auction-instance-bid-amount">0.0100</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- /end auction template -->
-        
-        <!-- winners row template -->
-        <li class="info-row big auction-winner-instance-template auction-winner-board-instance d-none">
-            <span class="auction-winner-name col-blue"></span>
-            <span class="auction-winner-time"></span>
-            <span class="auction-winner-amount">
-                <div class="flex-center">
-                    <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
-                    <span></span>
-                </div>
-            </span>
-        </li>
-        <!--/end winners row template -->
         
         <!-- modal -->
         <div class="modal fade" id="modal">
@@ -320,7 +373,7 @@
           </div>
         </footer>
         <!-- /end footer -->
-
+        
         <!-- Dev Mode Footer -->
         <footer class="fixed-bottom developer-mode d-none">
             <div class="row">

@@ -37,6 +37,8 @@ export class Config extends ConfigBase {
     public static TIME_TOKEN_CONTRACT:string = "eostimetoken";
     public static TIME_TOKEN_SYMBOL:string = "TIME";
 
+    public static REFERRAL_LINK_PREFIX:string = "http://eostime.io?ref=";
+
     // public static DEFAULT_GUAGE_OPTIONS:any = {
     //     min: 0,
     //     max: 100,
