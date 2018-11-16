@@ -71,12 +71,38 @@ export class DBManager {
     }
 
     /**
-     * Returns a document from the specified collection by filter
+     * Returns a sorted array of documents
      * @param {string} collectionName
      * @param filter
-     * @returns {Promise<string>}
+     * @param orderBy
+     * @param {number} limit
+     * @returns {Promise<any[]>}
      */
-    public getDocumentByKey(collectionName:string, filter:any):Promise<any> {
+    public getDocuments(collectionName:string, filter:any = null, orderBy:any, limit:number):Promise<any[]> {
+        return new Promise<any[]>((resolve, reject) => {
+            if (this.dbConnection != null) {
+                this.dbo.collection(collectionName).find(filter).sort(orderBy).limit(limit).toArray( function(err, result:any[]) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(result);
+                    }
+                });
+            } else {
+                reject(new Error("No Database Connection"));
+            }
+        });
+    }
+
+    /**
+     * Returns a document from the specified collection by filter
+     *
+     * @param {string} collectionName
+     * @param filter
+     * @param orderBy
+     * @returns {Promise<any>}
+     */
+    public getDocumentByKey(collectionName:string, filter:any = null):Promise<any> {
         return new Promise<string>((resolve, reject) => {
             if (this.dbConnection != null) {
                 this.dbo.collection(collectionName).findOne(filter, function(err, result) {

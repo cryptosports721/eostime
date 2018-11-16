@@ -57,6 +57,7 @@ export class AuctionManager {
     private outstandingPayoutRestartTransactions:any = {};
     private pollingTimer:any = null;
     private lastPayoutTime:number = 0;
+    private recentWinners:any[] = null;
 
     /**
      * Constructs our auction manager
@@ -68,6 +69,27 @@ export class AuctionManager {
         this.sio = sio;
         this.dbManager = dbManager;
         this.eosBlockchain = eosBlockchain;
+
+        // Retrieve the most recent list of auction winners from the database
+        dbManager.getDocuments("auctions", {}, {expires: -1}, Config.WINNERS_LIST_LIMIT).then((recentWinners:any[]) => {
+            if (recentWinners && recentWinners.length > 0) {
+                this.recentWinners = recentWinners;
+                console.log("Recent Winners at startup: ");
+                for (let winner of this.recentWinners) {
+                    let expires:string = moment.unix(winner.expires).format();
+                    console.log(winner.last_bidder + " won " + winner.prize_pool + " at " + expires);
+                }
+            } else {
+                this.recentWinners = Array<any>();
+            }
+        }, (reason) => {
+            console.log("Unable to retrieve most recent list of auctions");
+            console.log(reason);
+        });
+    }
+
+    public getRecentWinners():any[] {
+        return this.recentWinners;
     }
 
     /**
@@ -156,6 +178,12 @@ export class AuctionManager {
                                     this.lastPayoutTime = new Date().getTime();
                                     this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
 
+                                    // Store this winner auction in our list of recent winners
+                                    this.recentWinners.unshift(auctionToPayout);
+                                    if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
+                                        this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
+                                    }
+
                                     // Delay this so payout transaction is confirmed on the blockchain, and
                                     // send 2 - one at 7.5 seconds and another at 15 seconds after the payout
                                     // was completed.
@@ -169,7 +197,15 @@ export class AuctionManager {
                                             }, 7500);
                                         }
                                     }, 7500);
+
+                                    // Save our auction that we won
+                                    return this.dbManager.insertDocument("auctions", auctionToPayout);
+                                } else {
+                                    return Promise.resolve(null);
                                 }
+                            }).then((result) => {
+
+                                // Do something if we want to
 
                             }).catch((error: any) => {
                                 delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];

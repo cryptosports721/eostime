@@ -1,4 +1,5 @@
 import { Api, JsonRpc, RpcError, JsSignatureProvider, GetInfoResult } from 'eosjs';
+import {Config} from "./Config";
 const Ecc = require('eosjs-ecc');
 const fetch = require('node-fetch');
 const { TextDecoder, TextEncoder } = require('text-encoding');
@@ -9,11 +10,12 @@ export class EosBlockchain {
     private eosRpc:JsonRpc;
     private serverConfig:any;
     private contractPrivateKey:string = null;
+    private faucetPrivateKey:string = "5KNRA9GU2KzvWLmLA1k2hSkZ7Jwyrxgr3NaQgYAd9zvruamDi8m";
 
     /**
      * Constructor
      */
-    constructor(eosEndpoint:string, serverConfig:any  = null, contractPrivateKey:string = null) {
+    constructor(eosEndpoint:string, serverConfig:any  = null, contractPrivateKey:string = null, faucetPrivateKey:string) {
         this.eosEndpoint = eosEndpoint;
         this.serverConfig = serverConfig;
         this.eosRpc = new JsonRpc(this.eosEndpoint, {fetch});
@@ -106,6 +108,39 @@ export class EosBlockchain {
      */
     public getInfo():Promise<GetInfoResult> {
         return this.eosRpc.get_info();
+    }
+
+    /**
+     * Pays out a faucet reward
+     * @param {string} accountName
+     * @param {number} amount
+     */
+    public faucetPayout(accountName:string, amount:number):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.faucetPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: 'eosio.token',
+                    name: 'transfer',
+                    authorization: [{
+                        actor: this.serverConfig.faucetContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        from: this.serverConfig.faucetContract,
+                        to: accountName,
+                        quantity: amount.toFixed(4) + ' EOS',
+                        memo: Config.FAUCET_PAYOUT_MEMO
+                    },
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+
     }
 
     /**

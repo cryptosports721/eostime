@@ -65,16 +65,6 @@ export class SocketMessage {
     }
 
     /**
-     * Asks the server for dividend information for the current user.
-     * @param {string} referrer EOS account name of the referrer, or "" if none
-     * @param {number} rollUnder Roll under value for the bet
-     */
-    public static CTS_GET_FAUCET_EOS:string = "CTS_GET_FAUCET_EOS";
-    public ctsGetFaucetEos():void {
-        this.socket.emit(SocketMessage.CTS_GET_FAUCET_EOS, JSON.stringify({}));
-    }
-
-    /**
      * Asks the server for the next server seed hash, will result in a corresponding
      * STC_SERVER_HASH message.
      * @param {string} referrer EOS account name of the referrer, or "" if none
@@ -99,6 +89,32 @@ export class SocketMessage {
         this.socket.emit(SocketMessage.CTS_GET_ALL_AUCTIONS, JSON.stringify({}));
     }
 
+    /**
+     * Asks the server to provide current list of past winners sorted by
+     * expires in decending order.
+     * @param {number} count
+     */
+    public static CTS_GET_WINNERS_LIST:string = "CTS_GET_WINNERS_LIST";
+    public ctsGetWinnersList():void {
+        this.socket.emit(SocketMessage.CTS_GET_WINNERS_LIST, JSON.stringify({}));
+    }
+
+    /**
+     * Request current faucet info
+     */
+    public static CTS_GET_FAUCET_INFO:string = "CTS_GET_FAUCET_INFO";
+    public ctsGetFaucetInfo():void {
+        this.socket.emit(SocketMessage.CTS_GET_FAUCET_INFO, JSON.stringify({}));
+    }
+
+    /**
+     * Request for EOS from our faucet
+     */
+    public static CTS_FAUCET_DRAW:string = "CTS_FAUCET_DRAW";
+    public ctsFaucetDraw():void {
+        this.socket.emit(SocketMessage.CTS_FAUCET_DRAW, JSON.stringify({}));
+    }
+
     // ========================================================================
     // SERVER TO CLIENT MESSAGES
     // ========================================================================
@@ -121,6 +137,16 @@ export class SocketMessage {
     public stcAccountInfo(accountInfo:any):void {
         let data:any = {...SocketMessage.standardServerDataObject(), ...accountInfo};
         this.socket.emit(SocketMessage.STC_ACCOUNT_INFO, JSON.stringify(data));
+    }
+
+    /**
+     * Sends the STC_PAST_WINNERS message to the client with the
+     * last 100 winners from the database.
+     */
+    public static STC_PAST_WINNERS:string = "STC_PAST_WINNERS";
+    public stcSendPastWinners(winners:any[]):void {
+        let data:any = {...SocketMessage.standardServerDataObject(), ...{winners: winners}};
+        this.socket.emit(SocketMessage.STC_PAST_WINNERS, JSON.stringify(data));
     }
 
     /**
@@ -230,6 +256,26 @@ export class SocketMessage {
     public stcUpdateBalances():void {
         let data:any = {...SocketMessage.standardServerDataObject()};
         this.socket.emit(SocketMessage.STC_UPDATE_BALANCES, JSON.stringify(data));
+    }
+
+    /**
+     * Tells client info on current faucet state
+     * @type {string}
+     */
+    public static STC_FAUCET_INFO:string = "STC_FAUCET_INFO";
+    public stcFaucetInfo(faucetInfo:any):void {
+        let data:any = {...faucetInfo, ...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_FAUCET_INFO, JSON.stringify(data));
+    }
+
+    /**
+     * Tells client about the result of a faucet draw
+     * @type {string}
+     */
+    public static STC_FAUCET_AWARD:string = "STC_FAUCET_AWARD";
+    public stcFaucetAward(faucetAward:any):void {
+        let data:any = {...faucetAward, ...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_FAUCET_AWARD, JSON.stringify(data));
     }
 
 }

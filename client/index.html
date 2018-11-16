@@ -262,7 +262,7 @@
         }
     </style>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="#">Navbar</a>
+        <a class="navbar-brand" href="#">EOSTime</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -273,7 +273,7 @@
                     <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Link</a>
+                    <a class="nav-link" href="faucet.html">Faucet</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link disabled" href="#">Disabled</a>
@@ -324,7 +324,7 @@
                 </div>
                 <div class="col-4 text-right">
                     <div class="balance-label">TIME Balance</div>
-                    <div class="eroll-balance balance-value">0.0000</div>
+                    <div class="coin-balance balance-value">0.0000</div>
                 </div>
             </div>
 
@@ -351,7 +351,7 @@
                 <div class="auction-instance-inner-container">
                     <div class="auction-instance-small-text text-right">ID: <span class="auction-instance-id"></span></div>
                     <div class="auction-instance-small-text">JACKPOT</div>
-                    <div class="auction-instance-prize-pool"><span></span> EOS</div>
+                    <div class="auction-instance-prize-pool"><span></span><span></span> EOS</div>
                     <div class="auction-instance-small-text">MOST RECENT BIDDER</div>
                     <div class="auction-instance-bidder auction-instance-med-text"><span></span></div>
                     <div class="auction-instance-small-text">REMAINING TIME</div>
@@ -363,6 +363,7 @@
                     <div class="auction-instance-remaining-bids auction-instance-med-text"><span></span></div>
                     <div style="height: 42px;">
                         <div class="auction-instance-ended no-user-select d-none"><span>ENDED</span></div>
+                        <button type="button" class="auction-instance-login-button d-none btn btn-small btn-outline-success">Login to Bid</button>
                         <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-success">Bid <span class="auction-instance-bid-amount"></span></button>
                     </div>
                 </div>
@@ -374,7 +375,7 @@
                 <div class="auction-winner-name col-3"></div>
                 <div class="auction-winner-time col-5"></div>
                 <div class="auction-winner-duration col-3 d-none"></div>
-                <div class="col-4"><span class="auction-winner-amount"></span><span style="font-size: 0.4rem"> EOS</span></div>
+                <div class="col-4"><span class="auction-winner-amount"><span></span><span></span><span></span><span></span></span><span style="font-size: 0.4rem"> EOS</span></div>
             </div>
 
             <!-- UI Blocker shown when waiting on server access -->
@@ -398,7 +399,7 @@
                     </div>
                     <div class="col-4">
                         <div class="balance-label">EROLL Balance</div>
-                        <div id="eroll_balance" class="balance-value">0.0000</div>
+                        <div class="coin-balance balance-value">0.0000</div>
                     </div>
                 </div>
 
@@ -452,6 +453,6 @@
     <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-    <script src="js/eostime-bundle.min.js"></script>
+    <script src="js/eostime-bundle.js"></script>
 </body>
 </html>

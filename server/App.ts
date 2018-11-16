@@ -102,6 +102,9 @@ module App {
             // Grab contract private key
             let contractPrivateKey:string = <string> this.getCliParam("-contractkey", false);
 
+            // Grab the faucet private key
+            let faucetPrivateKey:string = <string> this.getCliParam("-faucetkey", false);
+
             let eosEndpoint:string = <string> this.getCliParam("-eosendpoint", false);
             if (!eosEndpoint) {
                 eosEndpoint = Config.EOS_ENDPOINTS.localhost;
@@ -144,7 +147,7 @@ module App {
             }).then((serverConfig:any) => {
                 this.serverConfig = serverConfig;
 
-                this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey);
+                this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey);
 
                 this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
 
@@ -168,6 +171,7 @@ module App {
                         // this.eosWatcher.run();
 
                         // Use auction manager to poll the blockchain
+                        // Todo REMOVE comment this before deploying to AWS
                         this.auctionManager.enablePolling(true);
 
                         // Finally, attach event handlers

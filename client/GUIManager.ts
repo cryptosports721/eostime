@@ -21,26 +21,21 @@ export class GUIManager extends ViewStateObserver {
         "devErrorMessage": ".dev-error-message",
         "devErrorMessageRowTemplate": ".dev-error-message-row-template",
         "clearDevErrors": ".dev-clear-errors",
-        "betSlider": "#bet_slider",
-        "betSliderContainer": "#bet_slider_container",
-        "rollUnder": ".roll-under",
-        "rollUnderButton": "#roll_under_button",
         "loginButton": ".login-button",
         "logoutButton": ".logout-button",
         "loggedOutView": ".logged-out-view",
         "loggedInView": ".logged-in-view",
         "uiBlocker": ".uiBlocker",
         "eosBalance": ".eos-balance",
-        "coinBalance": ".eroll-balance",
+        "coinBalance": ".coin-balance",
         "betAmount": "#bet_amount",
         "cpuGuage": ".cpu-gauge",
         "netGuage": ".net-gauge"
-    }
+    };
 
     constructor() {
         super();
         this.attachEventHandlers();
-        this.setupSlider();
     }
 
     // ========================================================================
@@ -102,11 +97,11 @@ export class GUIManager extends ViewStateObserver {
     }
 
     public updateCoinBalance(coinBalance:string):void {
-        $(this.selectors.coinBalance).text(parseInt(coinBalance));
+        $(this.selectors.coinBalance).text(parseInt(coinBalance).toFixed(4));
     }
 
     public showEOSStakedResources(show:boolean, cpu:number, net: number):void {
-        if (show && (cpu !== null) && (net !== null)) {
+        if (show && (cpu !== null) && (net !== null) && ($(this.selectors.cpuGuage).children().length > 0) && ($(this.selectors.cpuGuage).children().length > 0)) {
             $(this.selectors.cpuGuage).removeClass("d-none");
             $(this.selectors.netGuage).removeClass("d-none");
             new Guage($(this.selectors.cpuGuage + " > canvas"), cpu, {textVal: "CPU"});
@@ -196,25 +191,6 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loggedOutView).removeClass("d-none");
         $(this.selectors.publicKey).html("");
         $(this.selectors.accountName).html("");
-    }
-
-    private setupSlider():void {
-
-        $(this.selectors.betSliderContainer).removeClass("d-none");
-
-        $(this.selectors.betSlider).slider({
-            "tooltip": "always",
-            "tooltip_position": "bottom",
-            "formatter": function(value:number) {
-                return value.toString();
-            }
-        });
-
-        $(this.selectors.betSlider).on("slide", (slideEvt:any) => {
-            $(this.selectors.rollUnder).text(slideEvt.value);
-        });
-
-        $(this.selectors.rollUnder).text($(this.selectors.betSlider).val().toString());
     }
 }
 
@@ -418,20 +394,9 @@ abstract class GuageRenderer {
     protected difference;
     protected text:string;
     protected animation_loop;
-    protected redraw_loop;
 
     constructor($canvas:JQuery<HTMLElement>, val:number, options:any) {
-        this.settings = $.extend({
-            min: 0,
-            max: 100,
-            unit: "%",
-            color: "lightgreen",
-            colorAlpha: 1,
-            bgcolor: "#222",
-            type: "default",
-            textVal: null,
-        }, options);
-
+        this.settings = $.extend({}, Config.GUAGE_OPTIONS.yellow, options);
         this.val = val;
 
         let htmlElement:any = <any> $canvas[0];
@@ -499,7 +464,7 @@ class DefaultGuageRenderer extends GuageRenderer {
         this.ctx.stroke();
 
         this.ctx.beginPath();
-        this.ctx.strokeStyle = this.settings.color;
+        this.ctx.strokeStyle = this.settings.activeColor;
         this.ctx.lineWidth = this.W*0.13;
 
         if (this.position > 0) {

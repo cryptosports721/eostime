@@ -5,7 +5,7 @@ import {Socket} from "socket.io";
 import {SocketMessage} from "../server/SocketMessage";
 import {Config, ViewState} from "./config";
 import {GUIManager} from "./GUIManager";
-import {DiceManager} from "./DiceManager";
+import {FaucetManager} from "./FaucetManager";
 import {AuctionManager} from "./AuctionManager";
 
 module EOSTime {
@@ -29,8 +29,8 @@ module EOSTime {
         private socketMessage:SocketMessage = null;
         private guiManager:GUIManager = null;
         private loginInProgress:boolean = false;
-        private diceManager:DiceManager = null;
         private auctionManager:AuctionManager = null;
+        private faucetManager:FaucetManager = null;
 
         private eosNetwork:string = "mainnet"; // "mainnet" or "jungle";
 
@@ -65,9 +65,8 @@ module EOSTime {
                 this.guiManager = new GUIManager();
                 this.attachGUIListeners();
 
-                // Create our supporting game manager(s)
-                this.diceManager = new DiceManager(this.socketMessage, this.guiManager);
-                this.auctionManager = new AuctionManager(this.socketMessage, this.guiManager);
+                // Create needed page handler objects
+                this.createPageHandlers();
 
                 // Let all know that we are logged out
                 this.updateViewState(ViewState.LOGGED_OUT);
@@ -98,6 +97,22 @@ module EOSTime {
 
             // Kill console logging if so desired.
             // console.log = (message?:any, ...optionalParams: any[]) => {};
+        }
+
+        /**
+         * Create page handler objects depending on what page we are on.
+         */
+        private createPageHandlers():void {
+
+            // Home Page
+            if ((window.location.pathname == "/") || (window.location.pathname.indexOf("index") >= 0) || (window.location.pathname.indexOf("eostime") >= 0)) {
+                this.auctionManager = new AuctionManager(this.socketMessage, this.guiManager);
+            } else {
+                // Faucet page
+                if (window.location.pathname.indexOf("index")) {
+                    this.faucetManager = new FaucetManager(this.socketMessage, this.guiManager);
+                }
+            }
         }
 
         /**
@@ -212,14 +227,14 @@ module EOSTime {
          * @param {number} net
          */
         private updateViewState(state:ViewState, cpu:number = null, net: number = null):void {
-            let data:any = {"viewState" : state, "account": this.account, "accountInfo": this.accountInfo};
-            let evt:CustomEvent = new CustomEvent("updateViewState", {"detail": data});
             if (state == ViewState.LOGGED_IN) {
                 this.updateCoinBalances();
                 this.guiManager.showEOSStakedResources(true, cpu, net);
             } else {
                 this.guiManager.showEOSStakedResources(false, null, null);
             }
+            let data:any = {"viewState" : state, "account": this.account, "accountInfo": this.accountInfo};
+            let evt:CustomEvent = new CustomEvent("updateViewState", {"detail": data});
             document.dispatchEvent(evt);
         }
 
@@ -236,6 +251,8 @@ module EOSTime {
                     if (coinBalance) {
                         coinBalance = parseFloat(coinBalance).toFixed(4);
                         this.guiManager.updateCoinBalance(coinBalance);
+                    } else {
+                        this.guiManager.updateCoinBalance("0.0000");
                     }
                 });
             }).catch(error => console.error(error));
@@ -345,7 +362,12 @@ module EOSTime {
             //
             socket.on(SocketMessage.STC_ACCOUNT_INFO, (data: any) => {
                 this.accountInfo = JSON.parse(data);
-                this.auctionManager.setReferrer(this.accountInfo.referrer);
+                let referrerEvt:CustomEvent = new CustomEvent("setReferrer", {"detail": this.accountInfo.referrer});
+                document.dispatchEvent(referrerEvt);
+                let userLogInEvt:CustomEvent = new CustomEvent("userLogIn", {"detail": this.accountInfo});
+                document.dispatchEvent(userLogInEvt);
+
+
                 let cpu:number = Math.floor(this.accountInfo.cpu_limit.used*100/this.accountInfo.cpu_limit.available);
                 let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.available);
                 this.updateViewState(ViewState.LOGGED_IN, cpu, net);

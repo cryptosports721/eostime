@@ -20,6 +20,7 @@ export class ViewStateObserver {
 
     protected setLoggedOutView():void {
         this.accountInfo = null;
+        this.account = null;
     }
 
     protected socketConnected():void {

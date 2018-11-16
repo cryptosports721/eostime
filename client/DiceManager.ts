@@ -5,6 +5,13 @@ import {SocketMessage} from "../server/SocketMessage";
 
 export class DiceManager extends ViewStateObserver {
 
+    private selectors:any = {
+        "betSlider": "#bet_slider",
+        "betSliderContainer": "#bet_slider_container",
+        "rollUnder": ".roll-under",
+        "rollUnderButton": "#roll_under_button"
+    };
+
     private eos:any = null;
     private guiManager:any = null;
     private socketMessage:SocketMessage = null;
@@ -16,6 +23,7 @@ export class DiceManager extends ViewStateObserver {
         super();
         this.socketMessage = socketMessage;
         this.guiManager = guiManager;
+        this.setupSlider();
     }
 
     protected attachGUIHandlers():void {
@@ -56,5 +64,24 @@ export class DiceManager extends ViewStateObserver {
             }
 
         });
+    }
+
+    private setupSlider():void {
+
+        $(this.selectors.betSliderContainer).removeClass("d-none");
+
+        $(this.selectors.betSlider).slider({
+            "tooltip": "always",
+            "tooltip_position": "bottom",
+            "formatter": function(value:number) {
+                return value.toString();
+            }
+        });
+
+        $(this.selectors.betSlider).on("slide", (slideEvt:any) => {
+            $(this.selectors.rollUnder).text(slideEvt.value);
+        });
+
+        $(this.selectors.rollUnder).text($(this.selectors.betSlider).val().toString());
     }
 }

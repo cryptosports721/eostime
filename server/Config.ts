@@ -10,6 +10,13 @@ export class Config extends ConfigBase {
         "jungle": "http://dev.cryptolions.io:18888",
     };
 
+    public static WINNERS_LIST_LIMIT:number = 100;
+
+    // TODO Make this 1 hour
+    public static FAUCET_FREQUENCY_SECS = 20; // 3600; // 1 hour
+
+    public static FAUCET_PAYOUT_MEMO:string = 'eostime.io faucet payout';
+
     /*
     public static EOS_CONFIG:any = {
         "mainnet": {

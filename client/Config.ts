@@ -36,4 +36,41 @@ export class Config extends ConfigBase {
 
     public static TIME_TOKEN_CONTRACT:string = "eostimetoken";
     public static TIME_TOKEN_SYMBOL:string = "TIME";
+
+    // public static DEFAULT_GUAGE_OPTIONS:any = {
+    //     min: 0,
+    //     max: 100,
+    //     unit: "%",
+    //     color: "lightgreen",
+    //     colorAlpha: 1,
+    //     bgcolor: "#222",
+    //     type: "default",
+    //     textVal: null,
+    // };
+    public static GUAGE_OPTIONS:any = {
+        "default": {
+            min: 0,
+            max: 100,
+            unit: "%",
+            color: "lightgreen",
+            colorAlpha: 1,
+            activeColor: "lightgreen",
+            bgcolor: "#222",
+            type: "default",
+            textVal: null
+        }, "yellow": {
+            min: 0,
+            max: 100,
+            unit: "%",
+            color: "#f6c522",
+            colorAlpha: 1,
+            activeColor: "#77b300",
+            bgcolor: "#222",
+            type: "default",
+            textVal: null
+        }
+    };
+
+    // TODO Make this 100
+    public static MAX_WINNERS_IN_GUI:number = 15;
 }

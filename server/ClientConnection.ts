@@ -51,6 +51,7 @@ export class ClientConnection {
 
             // Let the client know that we are connected
             this.socketMessage.stcConnected();
+
         } else {
             // Kill the socket and associated resources
             _socket.disconnect();
@@ -63,6 +64,14 @@ export class ClientConnection {
      */
     public getSocket():Socket.Socket {
         return this.socketMessage.getSocket();
+    }
+
+    /**
+     * Returns our socket message object
+     * @returns {SocketMessage}
+     */
+    public getSocketMessage():SocketMessage {
+        return this.socketMessage;
     }
 
     /**
@@ -96,6 +105,8 @@ export class ClientConnection {
             }).then((data: any) => {
                 this.socketMessage.stcDevMessage("Sent account info for " + this.accountInfo.account_name + " to client");
                 this.socketMessage.stcAccountInfo(this.accountInfo);
+            }).then((data:any) => {
+
             }).catch((err: any) => {
                 if (err) {
                     if (err.status == 500) {
@@ -172,13 +183,8 @@ export class ClientConnection {
             this.network = data.network;
 
             // Validate the scatter signature
-            let host:string = data.data;
-            let portStart:number = host.indexOf(":");
-            if (portStart > 0) {
-                host = host.substr(0, portStart);
-            }
+            let host:string = this.extractRootDomain(data.data);
             if (this.eos().verifySignature(host, data.publicKey, data.sig)) {
-
                 let timestamp:string = moment().format();
                 console.log("[" + account.name + "] CONNECTED from IP " + this.socketMessage.getSocket().handshake.address + " at " + timestamp);
 
@@ -197,6 +203,105 @@ export class ClientConnection {
             this.socketMessage.stcCurrentAuctions(this.auctionManager.getAuctions());
         });
 
+        socket.on(SocketMessage.CTS_GET_WINNERS_LIST, (data:any) => {
+            let recentWinners:any[] = this.auctionManager.getRecentWinners();
+            this.socketMessage.stcSendPastWinners(recentWinners);
+        });
+
+        socket.on(SocketMessage.CTS_GET_FAUCET_INFO, (data:any) => {
+            if (this.accountInfo) {
+                this.dbManager.getDocumentByKey("users", {accountName: this.accountInfo.account_name}).then((user) => {
+                    if (user) {
+                        let faucetInfo:any = null;
+                        if (user.lastFaucetTime) {
+                            let deltaSecs:number = Math.floor(new Date().getTime()/1000) - user.lastFaucetTime;
+                            if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
+                                faucetInfo = {
+                                    account: this.accountInfo.account_name,
+                                    nextDrawSecs: deltaSecs
+                                };
+                            }
+                        }
+                        if (!faucetInfo) {
+                            faucetInfo = {
+                                account: this.accountInfo.account_name,
+                                nextDrawSecs: 0
+                            };
+                        }
+                        this.socketMessage.stcFaucetInfo(faucetInfo);
+                    } else {
+                        this.socketMessage.stcDevMessage("CTS_GET_FAUCET_INFO: Did not find user " + this.accountInfo.account_name + " in database");
+                    }
+                }).catch((err) => {
+                    console.log(err);
+                });
+            }
+        });
+
+        socket.on(SocketMessage.CTS_FAUCET_DRAW, (data:any) => {
+            if (this.accountInfo) {
+                this.dbManager.getDocumentByKey("users", {accountName: this.accountInfo.account_name}).then((user) => {
+                    if (user) {
+                        let faucetAward:any = null;
+                        let now = Math.floor(new Date().getTime()/1000);
+                        if (user.lastFaucetTime) {
+                            let deltaSecs:number = now - user.lastFaucetTime;
+                            if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
+                                faucetAward = {
+                                    account: this.accountInfo.account_name,
+                                    nextDrawSecs: deltaSecs
+                                };
+                                this.socketMessage.stcFaucetAward(faucetAward);
+                            }
+                        }
+                        if (!faucetAward) {
+
+                            // We can award the faucet
+                            let award:number;
+                            let randomDraw:number = Math.floor(Math.random()*10001);
+                            if (randomDraw <= 9885) {
+                                award = 0.0005;
+                            } else if (randomDraw <= 9985) {
+                                award = 0.005;
+                            } else if (randomDraw <= 9993) {
+                                award = 0.05;
+                            } else if (randomDraw <= 9997) {
+                                award = 0.5;
+                            } else if (randomDraw <= 9999) {
+                                award = 5;
+                            } else {
+                                award = 50;
+                            }
+
+                            let currentFaucetAwards:number = Config.safeProperty(user, ["totalFaucetAwards"], 0);
+                            let newFaucetAwards:number = currentFaucetAwards + award;
+                            this.dbManager.updateDocumentByKey("users", {accountName: this.accountInfo.account_name}, {lastFaucetTime: now, totalFaucetAwards: newFaucetAwards}).then((result) => {
+
+                                // Pay the faucet recipient
+                                this.eos().faucetPayout(this.accountInfo.account_name, award).then((result) => {
+                                    faucetAward = {
+                                        account: this.accountInfo.account_name,
+                                        randomDraw: randomDraw,
+                                        eosAward: award,
+                                        totalEosAwards: newFaucetAwards,
+                                        nextDrawSecs: Config.FAUCET_FREQUENCY_SECS
+                                    };
+                                    this.socketMessage.stcFaucetAward(faucetAward);
+                                }).catch((reason) => {
+                                    console.log(reason);
+                                    this.socketMessage.stcDevMessage("Could not payout faucet award.");
+                                });
+
+                            });
+                        }
+                    } else {
+                        this.socketMessage.stcDevMessage("CTS_FAUCET_DRAW: Did not find user " + this.accountInfo.account_name + " in database");
+                    }
+                }).catch((err) => {
+                    console.log(err);
+                });
+            }
+        })
     }
 
     /**
@@ -207,6 +312,40 @@ export class ClientConnection {
     private isBlockedIPAddress(ipAddress:string):boolean {
         // TODO NEED TO CHECK IP AGAINST BLOCKED ONES
         return false;
+    }
+
+    private extractHostname(url:string) {
+        let hostname:string;
+        //find & remove protocol (http, ftp, etc.) and get hostname
+        if (url.indexOf("//") > -1) {
+            hostname = url.split('/')[2];
+        }
+        else {
+            hostname = url.split('/')[0];
+        }
+        //find & remove port number
+        hostname = hostname.split(':')[0];
+        //find & remove "?"
+        hostname = hostname.split('?')[0];
+        return hostname;
+    }
+
+    private extractRootDomain(url:string) {
+        var domain:string = this.extractHostname(url),
+            splitArr = domain.split('.'),
+            arrLen = splitArr.length;
+
+        //extracting the root domain here
+        //if there is a subdomain
+        if (arrLen > 2) {
+            domain = splitArr[arrLen - 2] + '.' + splitArr[arrLen - 1];
+            //check to see if it's using a Country Code Top Level Domain (ccTLD) (i.e. ".me.uk")
+            if (splitArr[arrLen - 2].length == 2 && splitArr[arrLen - 1].length == 2) {
+                //this is using a ccTLD
+                domain = splitArr[arrLen - 3] + '.' + domain;
+            }
+        }
+        return domain;
     }
 
     /**
@@ -227,7 +366,6 @@ export class ClientConnection {
                 user.timeBalance = accountInfo.timeBalance;
                 user.lastConnectedTime = moment().format();
                 accountInfo.referrer = user.referrer;
-                user.connectionCount++;
                 return this.dbManager.updateDocumentByKey("users", {accountName: accountInfo.account_name}, user);
             } else {
                 // This is a new user
@@ -236,6 +374,8 @@ export class ClientConnection {
                     referrer: referrer,
                     connectionCount: 1,
                     eosBalance: accountInfo.core_liquid_balance,
+                    timeBalance: 0,
+                    lastFaucetTime: null,
                     lastConnectedTime: moment().format(),
                     ipAddresses: [this.ipAddress]
                 }
