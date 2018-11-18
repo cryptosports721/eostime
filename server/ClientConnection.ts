@@ -22,6 +22,9 @@ export class ClientConnection {
     private dbManager:DBManager = null;
     private auctionManager:AuctionManager = null;
 
+    // Used to handle someone banging at the faucet
+    private static faucetCache:any = {};
+
     public static socketMessageFromAccountName(accountName:string):SocketMessage {
         let clientConnection:ClientConnection = ClientConnection.CONNECTIONS.find((val) => {
             let accountNameToCompare:string = Config.safeProperty(val, ["accountInfo.account_name"], null);
@@ -165,7 +168,7 @@ export class ClientConnection {
         });
 
         // Sent when the client knows the EOS account associated with this socket
-        socket.on(SocketMessage.CTS_EOS_ACCOUNT, (data:any) => {
+        socket.on(SocketMessage.CTS_EOS_ACCOUNT, (payload:any) => {
 
             // TODO Need to verify the expected properties of data
 
@@ -175,23 +178,27 @@ export class ClientConnection {
                 this.socketMessage.stcClearDevErrors();
             }
 
-            data = JSON.parse(data);
-            let account:any = data.account;
-            let referrer:string = data.referrer;
-
-            // Create our eos instance
-            this.network = data.network;
+            payload = JSON.parse(payload);
+            let account:any = Config.safeProperty(payload, ["account"], null);
+            let data:any = Config.safeProperty(payload, ["data"], null);
+            let network:any = Config.safeProperty(payload, ["network"], null);
+            if (!account || !data || !network) {
+                // We must specify an account, data, and network in the payload.
+                this.socketMessage.stcDevMessage("[" + account.name + "] BAD PAYLOAD from IP " + this.socketMessage.getSocket().handshake.address);
+                return;
+            }
 
             // Validate the scatter signature
-            let host:string = this.extractRootDomain(data.data);
-            if (this.eos().verifySignature(host, data.publicKey, data.sig)) {
+            let host:string = this.extractRootDomain(payload.data);
+            if (this.eos().verifySignature(host, payload.publicKey, payload.sig)) {
                 let timestamp:string = moment().format();
                 console.log("[" + account.name + "] CONNECTED from IP " + this.socketMessage.getSocket().handshake.address + " at " + timestamp);
 
                 // Save our network
-                this.network = data.network;
+                this.network = payload.network;
 
                 // Send the account info structure to the client
+                let referrer:string = Config.safeProperty(payload, ["referrer"], null);
                 this.sendAccountInfo(account.name, referrer);
             } else {
                 // TODO BAD SCATTER SIGNATURE
@@ -210,16 +217,29 @@ export class ClientConnection {
 
         socket.on(SocketMessage.CTS_GET_FAUCET_INFO, (data:any) => {
             if (this.accountInfo) {
+
+                this.purgeFaucetCache();
+
+                // Check the cache
+                let faucetInfo:any = this.checkFaucetCache();
+                if (faucetInfo) {
+                    this.socketMessage.stcDevMessage("CTS_GET_FAUCET_INFO returning from cache!");
+                    this.socketMessage.stcFaucetInfo(faucetInfo);
+                    return;
+                }
+
+                // Hit the database
                 this.dbManager.getDocumentByKey("users", {accountName: this.accountInfo.account_name}).then((user) => {
                     if (user) {
-                        let faucetInfo:any = null;
+                        let faucetInfo: any = null;
                         if (user.lastFaucetTime) {
-                            let deltaSecs:number = Math.floor(new Date().getTime()/1000) - user.lastFaucetTime;
+                            let deltaSecs: number = Math.floor(new Date().getTime() / 1000) - user.lastFaucetTime;
                             if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
                                 faucetInfo = {
                                     account: this.accountInfo.account_name,
-                                    nextDrawSecs: deltaSecs
+                                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs
                                 };
+                                ClientConnection.faucetCache[this.accountInfo.account_name] = faucetInfo;
                             }
                         }
                         if (!faucetInfo) {
@@ -235,11 +255,24 @@ export class ClientConnection {
                 }).catch((err) => {
                     console.log(err);
                 });
+            } else {
+                // TODO We should block the IP because this should not happen on our website
             }
         });
 
         socket.on(SocketMessage.CTS_FAUCET_DRAW, (data:any) => {
             if (this.accountInfo) {
+
+                this.purgeFaucetCache();
+
+                // Check the cache
+                let faucetInfo:any = this.checkFaucetCache();
+                if (faucetInfo) {
+                    this.socketMessage.stcDevMessage("CTS_FAUCET_DRAW returning from cache!");
+                    this.socketMessage.stcFaucetInfo(faucetInfo);
+                    return;
+                }
+
                 this.dbManager.getDocumentByKey("users", {accountName: this.accountInfo.account_name}).then((user) => {
                     if (user) {
                         let faucetAward:any = null;
@@ -249,7 +282,7 @@ export class ClientConnection {
                             if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
                                 faucetAward = {
                                     account: this.accountInfo.account_name,
-                                    nextDrawSecs: deltaSecs
+                                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs
                                 };
                                 this.socketMessage.stcFaucetAward(faucetAward);
                             }
@@ -272,6 +305,15 @@ export class ClientConnection {
                             } else {
                                 award = 50;
                             }
+
+                            // Create our faucet cache entry to eliminate the need to
+                            // check the database on future requests (which should not
+                            // happen from our website).
+                            ClientConnection.faucetCache[this.accountInfo.account_name] = {
+                                lastFaucetTime: now,
+                                cacheHitTime: now,
+                                cacheHits: 0
+                            };
 
                             let currentFaucetAwards:number = Config.safeProperty(user, ["totalFaucetAwards"], 0);
                             let newFaucetAwards:number = currentFaucetAwards + award;
@@ -300,8 +342,59 @@ export class ClientConnection {
                 }).catch((err) => {
                     console.log(err);
                 });
+            } else {
+                // TODO We should block the IP because this should not happen on our website
             }
         })
+    }
+
+    /**
+     * Checks our faucet cache to see if we are blocked from receiving a faucet award
+     * @returns {any}
+     */
+    private checkFaucetCache() : any {
+
+        let faucetInfo:any = null;
+        if (ClientConnection.faucetCache.hasOwnProperty(this.accountInfo.account_name)) {
+            let cacheEntry:any = ClientConnection.faucetCache[this.accountInfo.account_name];
+            let deltaSecs:number = Math.floor(new Date().getTime()/1000) - cacheEntry.lastFaucetTime;
+            if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
+
+                // Check, for abuse
+                let now = Math.floor(new Date().getTime()/1000);
+                let secsSinceLastCacheCheck:number = now - cacheEntry.cacheHitTime;
+                if (secsSinceLastCacheCheck < 5) {
+                    if (++cacheEntry.cacheHits > 3) {
+                        // TODO block this IP because they are banging at the faucet
+                        this.socketMessage.stcDevMessage("checkFaucetCache(): " + this.accountInfo.account_name + " is abusing the faucet");
+                    }
+                } else {
+                    cacheEntry.cacheHits = 0;
+                    cacheEntry.cacheHitTime = now;
+                }
+
+                // Return the faucet information
+                faucetInfo = {
+                    account: this.accountInfo.account_name,
+                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs
+                };
+            }
+        }
+        return faucetInfo;
+    }
+
+    /**
+     * Purges the faucetCache of entries that are no longer in the waiting zone
+     */
+    private purgeFaucetCache():void {
+        for (let key in ClientConnection.faucetCache) {
+            let cacheEntry = ClientConnection.faucetCache[key];
+            let deltaSecs:number = Math.floor(new Date().getTime()/1000) - cacheEntry.lastFaucetTime;
+            if (deltaSecs >= Config.FAUCET_FREQUENCY_SECS) {
+                this.socketMessage.stcDevMessage("Purged " + key + " from faucet cache");
+                delete ClientConnection.faucetCache[key];
+            }
+        }
     }
 
     /**
@@ -369,7 +462,7 @@ export class ClientConnection {
                 return this.dbManager.updateDocumentByKey("users", {accountName: accountInfo.account_name}, user);
             } else {
                 // This is a new user
-                let user:any = {
+                let user: any = {
                     accountName: accountInfo.account_name,
                     referrer: referrer,
                     connectionCount: 1,
@@ -378,8 +471,23 @@ export class ClientConnection {
                     lastFaucetTime: null,
                     lastConnectedTime: moment().format(),
                     ipAddresses: [this.ipAddress]
+                };
+                if (referrer) {
+                    return this.dbManager.getDocumentByKey("users", {accountName: accountInfo.account_name}).then((referrer) => {
+                       if (referrer) {
+                           // Referrer exists in the database, so it's a go!
+                           user.referrer = referrer;
+                       }  else {
+                           // Referrer did not exist in the database - so we ignore
+                           user.referrer = null;
+                       }
+                       return this.dbManager.insertDocument("users", user);
+                    });
+                } else {
+                    // No referrer passed in
+                    user.referrer = null;
+                    return this.dbManager.insertDocument("users", user);
                 }
-                return this.dbManager.insertDocument("users", user);
             }
         }).catch((err) => {
             console.log(err);

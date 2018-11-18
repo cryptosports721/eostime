@@ -33,6 +33,12 @@ body {
     -ms-user-select: none; /* IE10+/Edge */
     user-select: none; /* Standard */
 }
+.tooltip .tooltip-inner {
+    border: 1px solid #f6c522;
+}
+.tooltip .arrow {
+    color: #f6c522;
+}
 .confetti-canvas {
     position:absolute;
     top: 0px;
@@ -610,12 +616,12 @@ li.big{
 .no-bg{
     background:transparent;
 }
-.abs-corner{
+.abs-corner {
     position:absolute;
     top:5px;
     right:5px;
 }
-.abs-corner i{
+.abs-corner i {
     cursor:pointer;
     -webkit-appearance: unset;
     transition:all ease 0.2s;

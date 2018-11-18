@@ -9,6 +9,7 @@ export class FaucetManager extends ViewStateObserver {
     private guiManager: GUIManager;
     private nextDrawTime:number = null;
     private drawTimer:any = null;
+    private rollAnimationTimer:any = null;
 
     constructor(socketMessage:SocketMessage, guiManager:GUIManager) {
         super();
@@ -31,8 +32,85 @@ export class FaucetManager extends ViewStateObserver {
         $(document).on("faucetDraw", () => {
             this.socketMessage.ctsFaucetDraw();
         })
+
+        $(document).on("updateTimeTillDraw", function(event) {
+            var timeTillDraw = <any> event.detail;
+
+            // timeTillDraw is an object that looks like this:
+            //
+            // {hours: "01", minutes: "05", seconds: "09"}
+            //
+            // This object should update your time till next draw UI element. You will only
+            // receive these while the user is eligible to draw (or just prior to a
+            // canDrawNow => false message);
+            $(".next-draw-hours").text(timeTillDraw.hours);
+            $(".next-draw-minutes").text(timeTillDraw.minutes);
+            $(".next-draw-seconds").text(timeTillDraw.seconds);
+        });
+
+        $(document).on("canDrawNow", function(event) {
+            var canDraw = event.detail;
+
+            // canDraw is a boolean that indicates whether or not the user
+            // can currently draw or not. Should update your UI accordly
+            if (canDraw) {
+                $(".cannot-draw-now").addClass("d-none");
+                $(".can-draw-now").removeClass("d-none");
+            } else {
+                $(".cannot-draw-now").removeClass("d-none");
+                $(".can-draw-now").addClass("d-none");
+            }
+        });
+
+        // Do this and we will attempt to draw.
+        $(".draw-button").on("click", (event) => {
+
+            if (!this.rollAnimationTimer) {
+                this.rollAnimationTimer = setInterval(function() {
+                    var randomValue = Math.floor(Math.random()*10000);
+                    $(".draw-button").text(randomValue.toString());
+                }, 100);
+            }
+
+            // Let the animation play for a couple of seconds just for kicks,
+            // this is demo only, you would not do this in the real page.
+            setTimeout(function() {
+                var evt = new CustomEvent("faucetDraw", {});
+                document.dispatchEvent(evt);
+            }, 2000);
+        });
+
+        $(document).on("faucetAward", (event) => {
+            var award = <any> event.detail;
+
+            // awardAmount is a float indicating the EOS awarded by the faucet. Do
+            // whatever you want (animation, set a value someplace, or nothing). The
+            // user's EOS balance would have already been updated.
+            //
+            // A value of 0 for award.eosAward and award.randomDraw indicates that
+            // the request was made before the waiting period expired.
+            //
+            $(".draw-button").text("Draw");
+            if (this.rollAnimationTimer) {
+                clearInterval(this.rollAnimationTimer);
+                this.rollAnimationTimer = null;
+            }
+
+            $(".next-draw-hours").text(award.nextDraw.hours);
+            $(".next-draw-minutes").text(award.nextDraw.minutes);
+            $(".next-draw-seconds").text(award.nextDraw.seconds);
+
+            if (award.eosAward == 0) {
+                alert("Can't draw again for " + award.nextDraw.nextDrawSecs + " seconds!");
+            } else {
+                alert("You just got " + award.eosAward + " for a roll of " + award.randomDraw + " in the faucet!");
+            }
+        });
     }
 
+    /**
+     * Attach our socket listeners
+     */
     private attachSocketListeners():void {
 
         /**

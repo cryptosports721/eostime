@@ -7,14 +7,18 @@ export enum EOS_NETWORK {
     JUNGLE
 }
 
+export enum LANGUAGE {
+    ENGLISH = "english",
+    CHINESE = "chinese"
+}
+
 export class GUIManager extends ViewStateObserver {
 
     private selectors:any = {
         "developerMode": ".developer-mode",
-        "networkMenuContainer": "#network_selector_containerr",
-        "networkMenuDropdown": "#network_selector",
-        "mainNetSelected": "#select_mainnet",
-        "jungleSelected": "#select_jungle",
+        "networkMenuDropdown": ".network-selector",
+        "mainNetSelected": ".select-mainnet",
+        "jungleSelected": ".select-jungle",
         "publicKey": ".public-key",
         "accountName": ".account-name",
         "devErrorMessageContainer": "#dev_error_message_container",
@@ -31,12 +35,29 @@ export class GUIManager extends ViewStateObserver {
         "betAmount": "#bet_amount",
         "cpuGuage": ".cpu-gauge",
         "netGuage": ".net-gauge",
-        "referrerLinkTag": ".referrer-link-tag"
+        "referrerLinkTag": ".referrer-link-tag",
+        "languageSelector": ".select-lang",
+        "languageElement": ".lang",
+        "languageChinese": ".chinese",
+        "languageEnglish": ".english"
     };
+
+    private currentLanguage:string = LANGUAGE.ENGLISH;
+    private eosNetwork:EOS_NETWORK = EOS_NETWORK.MAINNET;
 
     constructor() {
         super();
         this.attachEventHandlers();
+
+        if (typeof(Storage) !== "undefined") {
+            let currentLanguage:string = localStorage.getItem("currentLanguage");
+            if (currentLanguage) {
+                this.setLanguage(<LANGUAGE> currentLanguage);
+            } else {
+                this.setLanguage(<LANGUAGE> this.currentLanguage);
+                localStorage.setItem("currentLanguage", this.currentLanguage);
+            }
+        }
     }
 
     // ========================================================================
@@ -74,18 +95,13 @@ export class GUIManager extends ViewStateObserver {
         // TODO HANDLE ERROR MESSAGES IN USER GUI
     }
 
-    public setNetworkMenu(val:string):void {
-        $(this.selectors.networkMenuDropdown).text(val);
-    }
-
     public updateConnectedNetwork(val:EOS_NETWORK):void {
-        switch (val) {
-            case EOS_NETWORK.JUNGLE:
-                $(this.selectors.networkMenuDropdown).text("Jungle");
-                break;
-            case EOS_NETWORK.MAINNET:
-                $(this.selectors.networkMenuDropdown).text("MainNet");
-                break;
+        this.eosNetwork = val;
+        $(".network-selector").addClass("d-none");
+        if (val == EOS_NETWORK.MAINNET) {
+            $(".network-selector.mainnet." + this.currentLanguage).removeClass("d-none");
+        } else {
+            $(".network-selector.jungle." + this.currentLanguage).removeClass("d-none");
         }
     }
 
@@ -109,6 +125,10 @@ export class GUIManager extends ViewStateObserver {
         if (show && (cpu !== null) && (net !== null) && ($(this.selectors.cpuGuage).children().length > 0) && ($(this.selectors.cpuGuage).children().length > 0)) {
             $(this.selectors.cpuGuage).removeClass("d-none");
             $(this.selectors.netGuage).removeClass("d-none");
+            $(this.selectors.cpuGuage).attr("data-toggle", "tooltip").attr("data-placement","left").attr("title", cpu.toString() + "% CPU");
+            $(this.selectors.netGuage).attr("data-toggle", "tooltip").attr("data-placement","right").attr("title", net.toString() + "% NET");
+            (<any> $(this.selectors.cpuGuage)).tooltip();
+            (<any> $(this.selectors.netGuage)).tooltip();
             new Guage($(this.selectors.cpuGuage + " > canvas"), cpu, {textVal: "CPU"});
             new Guage($(this.selectors.netGuage + " > canvas"), net, {textVal: "NET"});
         } else {
@@ -153,11 +173,19 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loginButton).on("click", (event) => {
             let evt:CustomEvent = new CustomEvent("logIn", {"detail": ""});
             document.dispatchEvent(evt);
+
+            $(this.selectors.loginButton).addClass("d-none");
+            $(this.selectors.logoutButton).addClass("d-none");
+            $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
         });
 
         $(this.selectors.logoutButton).on("click", (event) => {
             let evt:CustomEvent = new CustomEvent("logOut", {"detail": ""});
             document.dispatchEvent(evt);
+
+            $(this.selectors.loginButton).addClass("d-none");
+            $(this.selectors.logoutButton).addClass("d-none");
+            $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
         });
 
         $(this.selectors.betAmount).on("keypress", (event) => {
@@ -166,6 +194,22 @@ export class GUIManager extends ViewStateObserver {
                 return false;
             }
             return true;
+        });
+
+        // Handles language selection (done with direct references to selectors because
+        // I copped it from Tom's JS code and didn't feel like mapping it).
+        $('.select-lang').on('click', (event) => {
+            var lang:string = $(event.currentTarget).data("lang");
+            this.setLanguage(<LANGUAGE> lang);
+        });
+
+        $('.fa-question-circle').on('click', (event) => {
+            $('#info_modal').find(".modal-title-inner").addClass("d-none");
+            $('#info_modal').find(".modal-body-inner").addClass("d-none");
+
+            let modalIdentifier:string = $(event.currentTarget).attr('data-id');
+            $('#info_modal').find("." + modalIdentifier + "." + this.currentLanguage).removeClass("d-none");
+            (<any> $('#info_modal')).modal('show');
         });
     }
 
@@ -188,6 +232,10 @@ export class GUIManager extends ViewStateObserver {
 
             $(this.selectors.accountName).html(accountInfo.account_name);
         }
+
+        $(this.selectors.loginButton).addClass("d-none");
+        $(this.selectors.logoutButton).addClass("d-none");
+        $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
     }
 
     protected setLoggedOutView():void {
@@ -196,6 +244,33 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loggedOutView).removeClass("d-none");
         $(this.selectors.publicKey).html("");
         $(this.selectors.accountName).html("");
+
+        $(this.selectors.loginButton).addClass("d-none");
+        $(this.selectors.logoutButton).addClass("d-none");
+        $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
+    }
+
+    /**
+     * Updates the GUI to reflect the specified language
+     * @param {LANGUAGE} language
+     */
+    private setLanguage(language:LANGUAGE) {
+        this.currentLanguage = language;
+        localStorage.setItem("currentLanguage", language);
+
+        $('.lang').addClass('d-none');
+        $("." + this.currentLanguage).removeClass('d-none');
+
+        this.updateConnectedNetwork(this.eosNetwork);
+
+        // Updates the login / logout buttons
+        $(this.selectors.loginButton).addClass("d-none");
+        $(this.selectors.logoutButton).addClass("d-none");
+        if (this.accountInfo) {
+            $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
+        } else {
+            $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
+        }
     }
 }
 

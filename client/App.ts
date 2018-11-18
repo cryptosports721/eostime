@@ -4,7 +4,7 @@
 import {Socket} from "socket.io";
 import {SocketMessage} from "../server/SocketMessage";
 import {Config, ViewState} from "./config";
-import {GUIManager} from "./GUIManager";
+import {EOS_NETWORK, GUIManager} from "./GUIManager";
 import {FaucetManager} from "./FaucetManager";
 import {AuctionManager} from "./AuctionManager";
 
@@ -175,7 +175,7 @@ module EOSTime {
                                 this.loginInProgress = false;
                                 ScatterJS.scatter.authenticate().then((sig: string) => {
                                     const urlParams:any = new URLSearchParams(window.location.search);
-                                    const referrer:string = urlParams.get('ref');
+                                    const referrer:string = urlParams.get('ref');  // Comes back null if none - which is OK!
                                     this.guiManager.updateReferralLink(this.account.name);
                                     this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, location.host, this.identity.publicKey, sig);
                                 }).catch(error => {
@@ -377,7 +377,7 @@ module EOSTime {
             // Indicates the server wants this client to operate in developer mode
             socket.on(SocketMessage.STC_DEV_MODE, (data:any) => {
                 this.guiManager.enableDevGui();
-                this.guiManager.setNetworkMenu(this.eosNetwork == "mainnet" ? "MainNet" : "Jungle");
+                this.guiManager.updateConnectedNetwork(this.eosNetwork == "mainnet" ? EOS_NETWORK.MAINNET : EOS_NETWORK.JUNGLE);
             });
 
             // Server has sent a developer error message
