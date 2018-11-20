@@ -118,7 +118,7 @@ export class GUIManager extends ViewStateObserver {
     }
 
     public updateCoinBalance(coinBalance:string):void {
-        $(this.selectors.coinBalance).text(parseInt(coinBalance).toFixed(4));
+        $(this.selectors.coinBalance).text(parseFloat(coinBalance).toFixed(4));
     }
 
     public showEOSStakedResources(show:boolean, cpu:number, net: number):void {
@@ -135,6 +135,52 @@ export class GUIManager extends ViewStateObserver {
             $(this.selectors.cpuGuage).addClass("d-none");
             $(this.selectors.netGuage).addClass("d-none");
         }
+    }
+
+    public notifyCurrentLanguage():void {
+        let evt:CustomEvent = new CustomEvent("currentLanguage", {"detail": this.currentLanguage});
+        document.dispatchEvent(evt);
+    }
+
+    // ========================================================================
+    // PROTECTED METHODS
+    // ========================================================================
+
+    protected setLoggedInView(account:any, accountInfo:any):void {
+        super.setLoggedInView(account, accountInfo);
+
+        $(this.selectors.loggedInView).removeClass("d-none");
+        $(this.selectors.loggedOutView).addClass("d-none");
+        if (accountInfo) {
+
+            let publicKey:string = Config.firstActivePublicKeyFromAccountInfo(accountInfo);
+            if (publicKey) {
+                $(this.selectors.publicKey).html(publicKey);
+            }
+
+            // let spaceLoc:number = accountInfo.core_liquid_balance.indexOf(" ");
+            // let eosBalance:string = (spaceLoc > 0) ? accountInfo.core_liquid_balance.substr(0, spaceLoc) : accountInfo.core_liquid_balance;
+            // eosBalance = parseFloat(eosBalance).toFixed(4);
+            // $(this.selectors.eosBalance).text(eosBalance);
+
+            $(this.selectors.accountName).html(accountInfo.account_name);
+        }
+
+        $(this.selectors.loginButton).addClass("d-none");
+        $(this.selectors.logoutButton).addClass("d-none");
+        $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
+    }
+
+    protected setLoggedOutView():void {
+        super.setLoggedOutView();
+        $(this.selectors.loggedInView).addClass("d-none");
+        $(this.selectors.loggedOutView).removeClass("d-none");
+        $(this.selectors.publicKey).html("");
+        $(this.selectors.accountName).html("");
+
+        $(this.selectors.loginButton).addClass("d-none");
+        $(this.selectors.logoutButton).addClass("d-none");
+        $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
     }
 
     // ========================================================================
@@ -203,7 +249,7 @@ export class GUIManager extends ViewStateObserver {
             this.setLanguage(<LANGUAGE> lang);
         });
 
-        $('.fa-question-circle').on('click', (event) => {
+        $('.info-modal').on('click', (event) => {
             $('#info_modal').find(".modal-title-inner").addClass("d-none");
             $('#info_modal').find(".modal-body-inner").addClass("d-none");
 
@@ -211,43 +257,6 @@ export class GUIManager extends ViewStateObserver {
             $('#info_modal').find("." + modalIdentifier + "." + this.currentLanguage).removeClass("d-none");
             (<any> $('#info_modal')).modal('show');
         });
-    }
-
-    protected setLoggedInView(account:any, accountInfo:any):void {
-        super.setLoggedInView(account, accountInfo);
-
-        $(this.selectors.loggedInView).removeClass("d-none");
-        $(this.selectors.loggedOutView).addClass("d-none");
-        if (accountInfo) {
-
-            let publicKey:string = Config.firstActivePublicKeyFromAccountInfo(accountInfo);
-            if (publicKey) {
-                $(this.selectors.publicKey).html(publicKey);
-            }
-
-            // let spaceLoc:number = accountInfo.core_liquid_balance.indexOf(" ");
-            // let eosBalance:string = (spaceLoc > 0) ? accountInfo.core_liquid_balance.substr(0, spaceLoc) : accountInfo.core_liquid_balance;
-            // eosBalance = parseFloat(eosBalance).toFixed(4);
-            // $(this.selectors.eosBalance).text(eosBalance);
-
-            $(this.selectors.accountName).html(accountInfo.account_name);
-        }
-
-        $(this.selectors.loginButton).addClass("d-none");
-        $(this.selectors.logoutButton).addClass("d-none");
-        $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
-    }
-
-    protected setLoggedOutView():void {
-        super.setLoggedOutView();
-        $(this.selectors.loggedInView).addClass("d-none");
-        $(this.selectors.loggedOutView).removeClass("d-none");
-        $(this.selectors.publicKey).html("");
-        $(this.selectors.accountName).html("");
-
-        $(this.selectors.loginButton).addClass("d-none");
-        $(this.selectors.logoutButton).addClass("d-none");
-        $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
     }
 
     /**
@@ -260,6 +269,8 @@ export class GUIManager extends ViewStateObserver {
 
         $('.lang').addClass('d-none');
         $("." + this.currentLanguage).removeClass('d-none');
+
+        this.notifyCurrentLanguage();
 
         this.updateConnectedNetwork(this.eosNetwork);
 
@@ -339,8 +350,10 @@ export class Confetti {
             this.canvasElement.width = width;
             this.canvasElement.height = height;
             window.addEventListener("resize", (event) => {
-                this.canvasElement.width = this.elem.clientWidth;
-                this.canvasElement.height = this.elem.clientHeight;
+                if (this.canvasElement) {
+                    this.canvasElement.width = this.elem.clientWidth;
+                    this.canvasElement.height = this.elem.clientHeight;
+                }
             }, true);
         }
         this.context = this.canvasElement.getContext("2d");

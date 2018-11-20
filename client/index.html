@@ -149,20 +149,22 @@
 
                         <!-- TIME give ratio -->
                         <div class="row">
-                            <div class="card dark col-12">
-                                <div class="card-body p-4">
-                                    <div class="flex-center">
-                                        <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
-                                        <div class="flex-left flex-column">
-                                            <span class="font-24 english lang d-none">Bid to win <span class="icon-eos_icon font-36 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> EOS</span>
-                                            <span class="font-24 chinese lang d-none">出價要贏 <span class="icon-eos_icon font-36 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> EOS</span>
-                                            <span class="col-yellow english lang d-none">Earn TIME tokens with each bid!</span>
-                                            <span class="col-yellow chinese lang d-none">賺 TIME 每次出價的代幣</span>
+                            <div class="col-12 px-2 pb-3">
+                                <div class="card dark">
+                                    <div class="card-body p-4">
+                                        <div class="flex-center">
+                                            <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
+                                            <div class="flex-left flex-column">
+                                                <span class="font-24 english lang">Bid to win <span class="icon-eos_icon font24 m-r-5"></span> EOS</span>
+                                                <span class="font-24 chinese lang d-none">出價要贏 <span class="icon-eos_icon font-24 m-r-5"></span> EOS</span>
+                                                <span class="col-yellow english lang">Earn TIME tokens with each bid</span>
+                                                <span class="col-yellow chinese lang d-none">賺 TIME 每次出價的代幣</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="abs-corner">
-                                    <i class="far fa-question-circle font-16 text-muted" data-id="bid-to-earn-time-modal"></i>
+                                    <div class="abs-corner">
+                                        <i class="far fa-question-circle info-modal font-16 text-muted" data-id="bid-to-earn-time-modal"></i>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -181,9 +183,8 @@
                             <div class="auction-winners col-12 px-2 mb-3">
                                 <div class="card dark">
                                     <div class="card-body p-0">
-                                        <h5 class="pt-2 text-center english lang d-none">Auction Winners</h5>
-                                        <h5 class="pt-2 text-center chinese lang d-none">拍賣獲獎者</h5>
-                                        
+                                        <h5 class="my-4 text-center english lang">Auction Winners</h5>
+                                        <h5 class="my-4 text-center chinese lang d-none">拍賣獲獎者</h5>
                                         <ul class="referral-table header mt-1 mb-0">
                                             <li class="info-row no-bg font-muted m-r-10">
                                                 <span class="english lang d-none">User</span>
@@ -204,7 +205,7 @@
                                         <div class="font-muted text-left small px-2 py-2 chinese lang d-none">* 獎品自動支付</div>
                                     </div>
                                     <div class="abs-corner">
-                                        <i class="far fa-question-circle font-16 text-muted" data-id="winners-table-modal"></i>
+                                        <i class="far fa-question-circle info-modal font-16 text-muted" data-id="winners-table-modal"></i>
                                     </div>
                                 </div>
                             </div>
@@ -227,7 +228,7 @@
             <div class="card dark text-white auction-instance-inner-container">
                 <div class="card-body">
                     <div class="abs-corner">
-                        <i class="far fa-question-circle font-16 text-muted" data-id="auction"></i>
+                        <i class="far fa-question-circle auction-instance-info font-16 text-muted" data-id="auction-instance-modal"></i>
                     </div>
                     <div class="auction-instance-busy d-none">
                         <div><img src="assets/images/loading.svg"></div>
@@ -236,7 +237,9 @@
                     <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
                     <div class="flex-center">
                         <div>
-                            <div class="auction-instance-bidder auction-instance-med-text flex-center-row"><i class="far fa-user font-16 m-r-10 font-muted"></i><span class="col-blue"></span></div>
+                            <div class="auction-instance-bidder-no-bidders english lang auction-instance-med-text text-center flex-center-row d-none">Be the first bid!</div>
+                            <div class="auction-instance-bidder-no-bidders chinese lang auction-instance-med-text text-center flex-center-row d-none">成為第一個投標</div>
+                            <div class="auction-instance-bidder auction-instance-med-text flex-center-row d-none"><i class="far fa-user font-16 m-r-10 font-muted"></i><span class="col-blue"></span></div>
                             <div class="auction-instance-remaining-time flex-center-row">
                                 <div class="count_down" class="flex-center">
                                     <i class="far fa-clock font-16 m-r-10 font-muted"></i>
@@ -299,6 +302,15 @@
                 <div class="card dark card-modal">
                     <div class="card-body">
                         <div class="card-title font-muted modal-title mb-3">
+                            <!-- AUCTION INSTANCE -->
+                            <div class="auction-instance-modal english lang modal-title-inner d-none">
+                                Auction ID: <span></span>
+                            </div>
+                            <div class="auction-instance-modal chinese lang modal-title-inner d-none">
+                                拍賣ID <span></span>
+                            </div>
+
+                            <!-- BID TO WIN EOS -->
                             <div class="bid-to-earn-time-modal english lang modal-title-inner d-none">
                                 Bid To Win <span class="icon-eos_icon font-20 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> EOS</span>
                             </div>
@@ -315,8 +327,82 @@
                             </div>
                         </div>
                         <div class="info-row px-4 py-4 modal-body">
+                            <!-- AUCTION INSTANCE -->
+                            <div class="auction-instance-modal english lang modal-body-inner d-none">
+                                <div class="row">
+                                    <div class="col-5 english lang d-none">Prize:</div>
+                                    <div class="col-5 chinese lang d-none">獎:</div>
+                                    <div class="col-7">
+                                        <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span>
+                                        <span class="auction-instance-modal-prize"></span>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-5 english lang d-none">Leader:</div>
+                                    <div class="col-7 auction-instance-modal-leader no-bidders d-none">Be the first bid!</div>
+                                    <div class="col-7 auction-instance-modal-leader has-bidders d-none"></div>
+                                </div>
+                                <hr>
+                                <div style="font-size: 10pt;">
+                                    <ul>
+                                        <li>
+                                            The current bid price is
+                                            <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
+                                        </li>
+                                        <li class="auction-instance-modal-bid-price-increase-outer">
+                                            The bid price will increase by <span class="auction-instance-modal-bid-price-increase"></span> after each bid.
+                                        </li>
+                                        <li>
+                                            If a bid is received in the last <span class="auction-instance-modal-time-redzone"></span>
+                                            seconds of the auction, the timer will be reset to <span class="auction-instance-modal-time-redzone"></span>
+                                            seconds, offering others a chance to bid if they wish to.
+                                        </li>
+                                        <li>
+                                            You will receive <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
+                                            TIME Tokens when you bid.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="auction-instance-modal chinese lang modal-body-inner d-none">
+                                <div class="row">
+                                    <div class="col-5">獎:</div>
+                                    <div class="col-7">
+                                        <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span>
+                                        <span class="auction-instance-modal-prize"></span>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-5">領導:</div>
+                                    <div class="col-7 auction-instance-modal-leader no-bidders d-none">成為第一個投標</div>
+                                    <div class="col-7 auction-instance-modal-leader has-bidders d-none"></div>
+                                </div>
+                                <hr>
+                                <div style="font-size: 10pt;">
+                                    <ul>
+                                        <li>
+                                            目前的出價是
+                                            <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
+                                        </li>
+                                        <li class="auction-instance-modal-bid-price-increase-outer">
+                                            出價將增加 <span class="auction-instance-modal-bid-price-increase"></span> 每次競標後。
+                                        </li>
+                                        <li>
+                                            如果在最後收到出價 <span class="auction-instance-modal-time-redzone"></span>
+                                            拍賣的秒數, 計時器將重置為 <span class="auction-instance-modal-time-redzone"></span>
+                                            秒如果他們願意，為他人提供出價機會。
+                                        </li>
+                                        <li>
+                                            您將收到 <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
+                                            TIME 出價時的代幣。
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- BID TO WIN EOS -->
                             <div class="bid-to-earn-time-modal english lang modal-body-inner d-none">
-                                EOSTime auctions are very simple to play:
+                                <div class="pb-1">EOSTime auctions are very simple to play:</div>
                                 <ul>
                                     <li>
                                         Bid the indicated amount of EOS to become the <i class="far fa-user font-16"></i> current auction leader.
@@ -328,7 +414,7 @@
                                         All prizes are paid out automatically when the auction ends.
                                     </li>
                                 </ul>
-                                You also will be awarded 333 TIME tokens for each EOS bid. TIME tokens
+                                You also will be awarded 50 TIME tokens for each EOS bid. TIME tokens
                                 represent your portion of the <a href="dividend.html">dividend pool</a>.
                             </div>
                             <div class="bid-to-earn-time-modal chinese lang modal-body-inner d-none">
@@ -411,5 +497,5 @@
     <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-    <script src="assets/js/eostime-bundle.min.js"></script>
+    <script src="assets/js/eostime-bundle.js?v=1000"></script>
 </html>

@@ -14,6 +14,7 @@ export class AuctionManager extends ViewStateObserver {
     private auctionElements:JQuery<HTMLElement>[] = null;
     private confetti:Confetti = null;
     private referrer:string = null;
+    private currentLanguage:string = null;
 
     private selectors:any = {
         "mainAuctionArea": ".main-auction-area",
@@ -21,7 +22,9 @@ export class AuctionManager extends ViewStateObserver {
         "auctionInstancesContainer": ".auction-instances-container",
         "auctionTemplate": ".auction-instance-template",
         "auctionInstance": ".auction-instance",
+        "auctionInstanceBidderOuter": ".auction-instance-bidder",
         "auctionInstanceBidder": ".auction-instance-bidder > span",
+        "auctionInstanceNoBidder": ".auction-instance-bidder-no-bidders",
         "auctionInstancePrizePool": ".auction-instance-prize-pool span:nth-child(2)",
         "auctionInstanceRemainingBids": ".auction-instance-remaining-bids > span",
         "auctionInstanceBidAmount": ".auction-instance-bid-amount",
@@ -66,7 +69,6 @@ export class AuctionManager extends ViewStateObserver {
         }, 1000);
 
         this.attachSocketListeners();
-
     }
 
     /**
@@ -177,6 +179,29 @@ export class AuctionManager extends ViewStateObserver {
             let referrer:any = event.detail;
             this.referrer = <string> referrer;
         });
+
+        $(document).on("currentLanguage", (event) => {
+
+            let language:any = event.detail;
+            this.currentLanguage = language;
+
+            // Fix auctions
+            let localThis:AuctionManager = this;
+            $(this.selectors.auctionInstancesContainer).children().each(function (idx:number) {
+                const $elem:JQuery<HTMLElement> = $(this);
+                const auction:any = $elem.data("auction");
+                $elem.find(localThis.selectors.auctionInstanceBidderOuter).addClass("d-none");
+                $elem.find(localThis.selectors.auctionInstanceNoBidder).addClass("d-none");
+                if (auction.last_bidder == Config.EOSTIME_CONTRACT) {
+                    console.log("Show no bidder " + auction.id);
+                    $elem.find(localThis.selectors.auctionInstanceNoBidder + "." + localThis.currentLanguage).removeClass("d-none");
+                } else {
+                    console.log("Show real bidder " + auction.id);
+                    $elem.find(localThis.selectors.auctionInstanceBidderOuter).removeClass("d-none");
+                }
+            });
+            console.log("Fixed");
+        });
     }
 
     protected socketConnected():void {
@@ -217,21 +242,32 @@ export class AuctionManager extends ViewStateObserver {
 
     private addWinnerToLeaderBoard(auction:any, playAnimation:boolean = true):void {
 
-
-        // auto_refill: 0
-        // bid_price: "0.1000 EOS"
-        // creation_time: "2018-11-07T13:59:54"
-        // enabled: 1
-        // expires: "2018-11-07T14:58:12"
-        // id: 1
-        // init_bid_count: 250
-        // init_duration_secs: 30
-        // init_prize_pool: "10.0000 EOS"
-        // init_redzone_secs: 15
-        // instance_id: 128
-        // last_bidder: "eostimecontr"
-        // prize_pool: "10.0000 EOS"
-        // remaining_bid_count: 250
+        /* An auction structure looks like this:
+        *  {
+        *      bid_multiplier_x100k: 105000
+        *      bid_price: "0.0300"
+        *      bidder_timecoins_per_eos: 50
+        *      block_time: 1542635132
+        *      creation_time: 1542635122
+        *      enabled: 1
+        *      expires: 1542635152
+        *      house_portion_x100k: 9625
+        *      id: 11659
+        *      init_bid_count: 25
+        *      init_bid_price: "0.0300 EOS"
+        *      init_duration_secs: 30
+        *      init_prize_pool: "0.2500 EOS"
+        *      init_redzone_secs: 15
+        *      last_bidder: "eostimecontr"
+        *      paid_out: 0
+        *      prize_pool: "0.2500"
+        *      referrer_portion_x100k: 375
+        *      remaining_bid_count: 25
+        *      status: "active"
+        *      type: 1000
+        *      winner_timecoins_per_eos: 10
+        *  }
+        */
 
         let start:Moment = moment.unix(auction.creation_time);
         let end:Moment = moment.unix(auction.expires);
@@ -365,12 +401,45 @@ export class AuctionManager extends ViewStateObserver {
     }
 
     /**
-     * Initializes an auction GUI element from an auction data structure
+     * Initializes an auction GUI element from an auction data structure that looks like this:
+     *
+     * {
+     *      bid_multiplier_x100k: 105000
+     *      bid_price: "0.0300"
+     *      bidder_timecoins_per_eos: 50
+     *      block_time: 1542635132
+     *      creation_time: 1542635122
+     *      enabled: 1
+     *      expires: 1542635152
+     *      house_portion_x100k: 9625
+     *      id: 11659
+     *      init_bid_count: 25
+     *      init_bid_price: "0.0300 EOS"
+     *      init_duration_secs: 30
+     *      init_prize_pool: "0.2500 EOS"
+     *      init_redzone_secs: 15
+     *      last_bidder: "eostimecontr"
+     *      paid_out: 0
+     *      prize_pool: "0.2500"
+     *      referrer_portion_x100k: 375
+     *      remaining_bid_count: 25
+     *      status: "active"
+     *      type: 1000
+     *      winner_timecoins_per_eos: 10
+     * }
+     *
      * @param {JQuery<HTMLElement>} $elem
      * @param auction
      */
     private initializeAuctionElement($elem:JQuery<HTMLElement>, auction: any): void {
         $elem.find(this.selectors.auctionInstanceId).text(auction.type.toString() + "-" + auction.id.toString());
+        $elem.find(this.selectors.auctionInstanceBidderOuter).addClass("d-none");
+        $elem.find(this.selectors.auctionInstanceNoBidder).addClass("d-none");
+        if (auction.last_bidder == Config.EOSTIME_CONTRACT) {
+            $elem.find(this.selectors.auctionInstanceNoBidder + "." + this.currentLanguage).removeClass("d-none");
+        } else {
+            $elem.find(this.selectors.auctionInstanceBidderOuter).removeClass("d-none");
+        }
         $elem.find(this.selectors.auctionInstanceBidder).text(auction.last_bidder);
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
         $elem.find(this.selectors.auctionInstanceRemainingBids).text(auction.remaining_bid_count);
@@ -396,6 +465,51 @@ export class AuctionManager extends ViewStateObserver {
                 $currentTarget.focusout();
             });
         });
+        $elem.find(".auction-instance-info").on("click", (event) => {
+
+            // Hide other content
+            $('#info_modal').find(".modal-title-inner").addClass("d-none");
+            $('#info_modal').find(".modal-body-inner").addClass("d-none");
+
+            let modalIdentifier:string = $(event.currentTarget).attr('data-id');
+            $('#info_modal').find("." + modalIdentifier + "." + this.currentLanguage).removeClass("d-none");
+
+            // Update the fields in the modal
+            let auction:any = $(event.currentTarget).parents(this.selectors.auctionInstance).data("auction");
+            let $title:JQuery<HTMLElement> = $('#info_modal .modal-title').find("." + modalIdentifier + "." + this.currentLanguage)
+            let $body:JQuery<HTMLElement> = $('#info_modal .modal-body').find("." + modalIdentifier + "." + this.currentLanguage)
+            $title.find("span").text(auction.type.toString() + " - " + auction.id.toString());
+            $body.find(".auction-instance-modal-prize").text(auction.prize_pool);
+            $body.find("").addClass("d-none");
+            $body.find(".auction-instance-modal-leader").addClass("d-none");
+            if (auction.last_bidder == Config.EOSTIME_CONTRACT) {
+                let selector:string = ".auction-instance-modal-leader.no-bidders";
+                $body.find(".auction-instance-modal-leader.no-bidders").removeClass("d-none");
+            } else {
+                $body.find(".auction-instance-modal-leader.has-bidders").text(auction.last_bidder).removeClass("d-none");
+            }
+
+            let timeTokens:number = auction.bidder_timecoins_per_eos*parseFloat(auction.bid_price);
+            $body.find(".auction-instance-modal-time-tokens").text(timeTokens.toFixed(4));
+
+            $body.find(".auction-instance-modal-bid-price").text(auction.bid_price);
+
+            if (auction.bid_multiplier_x100k != 100000) {
+                let val:number = auction.bid_multiplier_x100k/1000 - 100;
+                $body.find(".auction-instance-modal-bid-price-increase").text(val.toFixed(2) + "%");
+                $body.find(".auction-instance-modal-bid-price-increase-outer").removeClass("d-none");
+            } else {
+                $body.find(".auction-instance-modal-bid-price-increase-outer").addClass("d-none");
+            }
+
+            $body.find(".auction-instance-modal-time-redzone").text(auction.init_redzone_secs.toString());
+
+            // Show the auction instance containers (both title and body)
+            $('#info_modal').find("." + modalIdentifier + "." + this.currentLanguage).removeClass("d-none");
+
+            // Popup the modal
+            (<any> $('#info_modal')).modal('show');
+        });
         $elem.find(this.selectors.auctionInstanceLoginButton).on("click", (event) => {
             let evt:CustomEvent = new CustomEvent("logIn", {});
             document.dispatchEvent(evt);
@@ -413,6 +527,15 @@ export class AuctionManager extends ViewStateObserver {
         this.updateRemainingTime($elem);
         $elem.find(this.selectors.auctionInstanceId).text(auction.type.toString() + "-" + auction.id.toString());
         $elem.find(this.selectors.auctionInstanceRemainingBids).text(auction.remaining_bid_count);
+
+        $elem.find(this.selectors.auctionInstanceBidderOuter).addClass("d-none");
+        $elem.find(this.selectors.auctionInstanceNoBidder).addClass("d-none");
+        if (auction.last_bidder == Config.EOSTIME_CONTRACT) {
+            $elem.find(this.selectors.auctionInstanceNoBidder + "." + this.currentLanguage).removeClass("d-none");
+        } else {
+            $elem.find(this.selectors.auctionInstanceBidderOuter).removeClass("d-none");
+        }
+
         $elem.find(this.selectors.auctionInstanceBidder).text(auction.last_bidder);
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
         $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
@@ -448,11 +571,16 @@ export class AuctionManager extends ViewStateObserver {
      * @param {JQuery<HTMLElement>} $elem
      * @param auction
      */
-    private updateRemainingTime($elem:JQuery<HTMLElement>): void {
-        let auction:any = $elem.data("auction");
+    private updateRemainingTime($elem:JQuery<HTMLElement>, auction:any = null): void {
+        if (!auction) {
+            auction = $elem.data("auction");
+        }
         if (auction) {
-            let lastUpdateTime:number = <number> $elem.data("lastUpdateTime");
             let clientTime:number = Math.floor(new Date().getTime()/1000);
+            let lastUpdateTime:number = <number> $elem.data("lastUpdateTime");
+            if (!lastUpdateTime) {
+                lastUpdateTime = clientTime;
+            }
             let secsSinceLastUpdate:number = clientTime - lastUpdateTime;
             let now: number = auction.block_time + secsSinceLastUpdate;
             let remainingSecs: number = auction.expires - now;

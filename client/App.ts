@@ -90,6 +90,8 @@ module EOSTime {
                                 this.login();
                             }
                         }
+                    }).catch((err) => {
+                        console.log("Error connecting with scatter!")
                     });
                 });
 
@@ -113,6 +115,7 @@ module EOSTime {
                     this.faucetManager = new FaucetManager(this.socketMessage, this.guiManager);
                 }
             }
+            this.guiManager.notifyCurrentLanguage();
         }
 
         /**
@@ -163,6 +166,10 @@ module EOSTime {
                             let network: any = Config.SCATTER_NETWORK[this.eosNetwork];
                             ScatterJS.scatter.getIdentity({accounts: [Config.SCATTER_NETWORK[this.eosNetwork]]}).then((identity) => {
                                 resolve(identity);
+                            }).catch((err) => {
+                               // User declined giving us an identity
+                               //
+                               resolve(null);
                             });
                         } else {
                             resolve(this.identity);

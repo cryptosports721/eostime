@@ -8,9 +8,9 @@ import {EosBlockchain} from "./EosBlockchain";
 import {AuctionManager} from "./AuctionManager";
 import {DBManager} from "./DBManager";
 
-
 const process:Process = require('process');
-const nodeStatic = require('node-static');
+const serveStatic = require('serve-static')
+const fh = require('finalhandler');
 const http = require('http');
 const sio = require('socket.io');
 
@@ -116,18 +116,12 @@ module App {
             }
 
             // Create our file server config
-            const file = new nodeStatic.Server('public', { // bin is the folder containing our html, etc
-                cache: 0,	// don't cache
-                gzip: true	// gzip our assets
-            });
+            const serve:any = serveStatic(__dirname + '/public', {'index': ['index.html', 'index.htm']});
 
             // create our server and listen on the specified port
             //
             const httpServer = http.createServer(function (request, response) {
-                request.addListener('end', function () {
-                    file.serve(request, response);
-                });
-                request.resume();
+                serve(request, response, fh(request, response));
             }).listen(port);
 
             this.sio = sio({"transports": ["websocket"]});

@@ -30,10 +30,12 @@ export class Config extends ConfigBase {
 
     public static API_SERVER:any = {
         // "host": "http://localhost",
-        "host": "http://54.164.95.106",
+        // "host": "http://54.164.95.106",
+        "host": "https://jungle-elb.eostime.io",
         "port": 4001
     };
 
+    public static EOSTIME_CONTRACT:string = "eostimecontr";
     public static TIME_TOKEN_CONTRACT:string = "eostimetoken";
     public static TIME_TOKEN_SYMBOL:string = "TIME";
 
