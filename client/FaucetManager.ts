@@ -10,6 +10,7 @@ export class FaucetManager extends ViewStateObserver {
     private nextDrawTime:number = null;
     private drawTimer:any = null;
     private rollAnimationTimer:any = null;
+    private safetyTimer:any = null;
 
     constructor(socketMessage:SocketMessage, guiManager:GUIManager) {
         super();
@@ -66,22 +67,52 @@ export class FaucetManager extends ViewStateObserver {
         $(".draw-button").on("click", (event) => {
 
             if (!this.rollAnimationTimer) {
+
+                $(".draw-button").addClass("disabled");
+                $(".faucet-roll-animation").removeClass("d-none");
+                $(".faucet-award").addClass("d-none");
+                $(".faucet-ui-blocker").removeClass("d-none");
+
                 this.rollAnimationTimer = setInterval(function() {
                     var randomValue = Math.floor(Math.random()*10000);
-                    $(".draw-button").text(randomValue.toString());
+                    $(".faucet-roll-animation").text(randomValue.toString());
                 }, 100);
-            }
 
-            // Let the animation play for a couple of seconds just for kicks,
-            // this is demo only, you would not do this in the real page.
-            setTimeout(function() {
-                var evt = new CustomEvent("faucetDraw", {});
-                document.dispatchEvent(evt);
-            }, 2000);
+                // Let the animation play for a couple of seconds just for kicks,
+                setTimeout(function() {
+                    var evt = new CustomEvent("faucetDraw", {});
+                    document.dispatchEvent(evt);
+                }, 1500);
+
+                /**
+                 * Handles case where the draw needs to be re-enabled because we
+                 * never got a response from the server
+                 * @type {number}
+                 */
+                this.safetyTimer = setTimeout(() => {
+                    this.safetyTimer = null;
+                    $(".faucet-ui-blocker").addClass("d-none");
+                    $(".draw-button").removeClass("disabled");
+                    $(".draw-button").blur();
+
+                    if (this.rollAnimationTimer) {
+                        clearInterval(this.rollAnimationTimer);
+                        this.rollAnimationTimer = null;
+                    }
+
+                    (<any> $(".draw-button")).animateCss("headShake");
+                }, 5000);
+            }
         });
 
         $(document).on("faucetAward", (event) => {
             var award = <any> event.detail;
+
+            if (this.safetyTimer) {
+                clearTimeout(this.safetyTimer);
+                this.safetyTimer = null;
+            }
+            $(".draw-button").blur();
 
             // awardAmount is a float indicating the EOS awarded by the faucet. Do
             // whatever you want (animation, set a value someplace, or nothing). The
@@ -90,7 +121,6 @@ export class FaucetManager extends ViewStateObserver {
             // A value of 0 for award.eosAward and award.randomDraw indicates that
             // the request was made before the waiting period expired.
             //
-            $(".draw-button").text("Draw");
             if (this.rollAnimationTimer) {
                 clearInterval(this.rollAnimationTimer);
                 this.rollAnimationTimer = null;
@@ -100,10 +130,24 @@ export class FaucetManager extends ViewStateObserver {
             $(".next-draw-minutes").text(award.nextDraw.minutes);
             $(".next-draw-seconds").text(award.nextDraw.seconds);
 
-            if (award.eosAward == 0) {
-                alert("Can't draw again for " + award.nextDraw.nextDrawSecs + " seconds!");
+            if (award.eosAward === 0) {
+                // No No, can't get a reward too quickly! (should not happen)
+                $(".draw-button").removeClass("disabled");
+                $(".faucet-ui-blocker").addClass("d-none");
+                (<any> $(".draw-button")).animateCss("headShake");
             } else {
-                alert("You just got " + award.eosAward + " for a roll of " + award.randomDraw + " in the faucet!");
+                $(".faucet-roll-animation").addClass("d-none");
+                $(".faucet-award").find(".faucet-roll").text(award.randomDraw);
+                $(".faucet-award").find(".faucet-award").text(award.eosAward);
+                $(".faucet-award").removeClass("d-none");
+                (<any> $(".faucet-award")).animateCss("bounceIn", () => {
+                    setTimeout(() => {
+                        $(".draw-button").removeClass("disabled");
+                        (<any> $(".faucet-ui-blocker")).animateCss("fadeOut", () => {
+                            $(".faucet-ui-blocker").addClass("d-none");
+                        });
+                    }, 2000);
+                });
             }
         });
     }
@@ -177,6 +221,7 @@ export class FaucetManager extends ViewStateObserver {
         if (this.drawTimer === null) {
             // Start our draw timer
             this.nextDrawTime = Math.floor(new Date().getTime() / 1000) + secsTillDraw;
+            this.nextTick();
             this.drawTimer = setInterval(() => {
                 this.nextTick();
             }, 1000);

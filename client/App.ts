@@ -47,58 +47,143 @@ module EOSTime {
             console.log('================================');
             window.addEventListener('load', (event) => {
 
-                // Grab our initial EOS network
-                let savedEOSNetwork:string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
-                if (savedEOSNetwork) {
-                    this.eosNetwork = savedEOSNetwork;
-                } else {
-                    localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
-                }
+                // Kill console logging if so desired.
+                // console.log = (message?:any, ...optionalParams: any[]) => {};
 
-                // The first thing we do is connect to the API server
-                let apiServer:string = Config.API_SERVER.host + ":" + Config.API_SERVER.port.toString();
-                let socket: Socket = io(apiServer, {transports: ['websocket'], upgrade: false, "forceNew": true});
-                this.socketMessage = new SocketMessage(socket);
-                this.attachSocketListeners(socket);
+                this.extendJQuery();
 
-                // Create our GUI manager
-                this.guiManager = new GUIManager();
-                this.attachGUIListeners();
+                // Load the remainder of the page
+                this.loadComponents().then(() => {
 
-                // Create needed page handler objects
-                this.createPageHandlers();
+                    // Grab our initial EOS network
+                    let savedEOSNetwork:string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
+                    if (savedEOSNetwork) {
+                        this.eosNetwork = savedEOSNetwork;
+                    } else {
+                        localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                    }
 
-                // Let all know that we are logged out
-                this.updateViewState(ViewState.LOGGED_OUT);
+                    // The first thing we do is connect to the API server
+                    let apiServer:string = Config.API_SERVER.host + ":" + Config.API_SERVER.port.toString();
+                    let socket: Socket = io(apiServer, {transports: ['websocket'], upgrade: false, "forceNew": true});
+                    this.socketMessage = new SocketMessage(socket);
+                    this.attachSocketListeners(socket);
 
-                // Handle the API server connection
-                $(document).on("apiServerConnect", (event) => {
+                    // Create our GUI manager
+                    this.guiManager = new GUIManager();
+                    this.attachGUIListeners();
 
-                    // Once we have connected to the server, go and get the active auctions
-                    // and display them. This does not require Scatter or login
-                    let evt:CustomEvent = new CustomEvent("initializeGameGUI", {});
-                    document.dispatchEvent(evt);
+                    // Create needed page handler objects
+                    this.createPageHandlers();
 
-                    // Now try to log-in
-                    ScatterJS.scatter.connect("EOSRoller", {initTimeout: 10000}).then((connected) => {
-                        this.hasScatter = connected;
-                        if (!connected) {
-                            // TODO NEEDS TO INSTALL SCATTER
-                        } else {
-                            // Try to login
-                            if (ScatterJS.scatter.identity) {
-                                this.login();
+                    // Let all know that we are logged out
+                    this.updateViewState(ViewState.LOGGED_OUT);
+
+                    // Handle the API server connection
+                    $(document).on("apiServerConnect", (event) => {
+
+                        // Once we have connected to the server, go and get the active auctions
+                        // and display them. This does not require Scatter or login
+                        let evt:CustomEvent = new CustomEvent("initializeGameGUI", {});
+                        document.dispatchEvent(evt);
+
+                        // Now try to log-in
+                        ScatterJS.scatter.connect("EOSRoller", {initTimeout: 10000}).then((connected) => {
+                            this.hasScatter = connected;
+                            if (!connected) {
+                                // TODO NEEDS TO INSTALL SCATTER
+                            } else {
+                                // Try to login
+                                if (ScatterJS.scatter.identity) {
+                                    this.login();
+                                }
                             }
-                        }
-                    }).catch((err) => {
-                        console.log("Error connecting with scatter!")
+                        }).catch((err) => {
+                            console.log("Error connecting with scatter!")
+                        });
                     });
+
+                }).catch((err) => {
+                    console.log(err);
                 });
 
             });
+        }
 
-            // Kill console logging if so desired.
-            // console.log = (message?:any, ...optionalParams: any[]) => {};
+        /**
+         * Loads common page components
+         * @param {(err: Error) => void} callback
+         */
+        private loadComponents():Promise<any> {
+            let siteMenu:Promise<any> = new Promise((resolve, reject) => {
+                $("#site_menu").load('components/menu.html', function(response, status, xhr) {
+                    if ( status == "error" ) {
+                        var msg = "Error loading the menu component: " + xhr.status + " " + xhr.statusText;
+                        reject(new Error(msg));
+                    } else {
+
+                        // Update the active class in the menu
+                        if ((window.location.pathname == "/") || (window.location.pathname.indexOf("index") >= 0) || (window.location.pathname.indexOf("eostime") >= 0)) {
+                            $(".home-nav-link").addClass("active");
+                        } else if (window.location.pathname.indexOf("faucet") >= 0) {
+                            $(".faucet-nav-link").addClass("active");
+                        } else if (window.location.pathname.indexOf("airdrops") >= 0) {
+                            $(".airdrops-nav-link").addClass("active");
+                        } else if (window.location.pathname.indexOf("referrals") >= 0) {
+                            $(".referrals-nav-link").addClass("active");
+                        } else if (window.location.pathname.indexOf("dividend") >= 0) {
+                            $(".dividend-nav-link").addClass("active");
+                        }
+
+                        resolve();
+                    }
+                });
+            });
+
+            let siteFooter:Promise<any> = new Promise((resolve, reject) => {
+                $("#footer_container").load('components/footer.html', function(response, status, xhr) {
+                    if ( status == "error" ) {
+                        var msg = "Error loading the footer component: " + xhr.status + " " + xhr.statusText;
+                        reject(new Error(msg));
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+
+            return Promise.all([siteMenu, siteFooter]);
+        }
+
+        /**
+         * Adds animation capability to JQuery
+         */
+        private extendJQuery():void {
+            $.fn.extend({
+                animateCss: function(animationName, callback) {
+                    var animationEnd = (function(el) {
+                        var animations = {
+                            animation: 'animationend',
+                            OAnimation: 'oAnimationEnd',
+                            MozAnimation: 'mozAnimationEnd',
+                            WebkitAnimation: 'webkitAnimationEnd',
+                        };
+
+                        for (let t in animations) {
+                            if (el.style[t] !== undefined) {
+                                return animations[t];
+                            }
+                        }
+                    })(document.createElement('div'));
+
+                    this.addClass('animated ' + animationName).one(animationEnd, function() {
+                        $(this).removeClass('animated ' + animationName);
+
+                        if (typeof callback === 'function') callback();
+                    });
+
+                    return this;
+                },
+            });
         }
 
         /**
@@ -111,7 +196,7 @@ module EOSTime {
                 this.auctionManager = new AuctionManager(this.socketMessage, this.guiManager);
             } else {
                 // Faucet page
-                if (window.location.pathname.indexOf("index")) {
+                if (window.location.pathname.indexOf("faucet") >= 0) {
                     this.faucetManager = new FaucetManager(this.socketMessage, this.guiManager);
                 }
             }

@@ -1,0 +1,120 @@
+<!-- EOSTime site menu -->
+<nav class="navbar navbar-expand d-lg-none navbar-dark fixed-top subnav">
+    <div class="container">
+        <ul class="navbar-nav ml-auto">
+            <!--<li class="nav-item d-flex">
+                <div class="cpu-gauge"><canvas width="40" height="40"></canvas></div>
+            </li>
+            <li class="nav-item d-flex">
+                <div class="net-gauge"><canvas width="40" height="40"></canvas></div>
+            </li>-->
+            <li class="nav-item d-flex">
+                <div class="flex-center m-r-20 user-tokens">
+                    <span class="icon-eos_icon font-24 font-blue-glow mr-2"></span>
+                    <span class="eos-balance balance-value">0</span>
+                </div>
+            </li>
+            <li class="nav-item d-flex">
+                <div class="flex-center user-tokens">
+                    <span class="icon-time_token1 font-24 col-yellow mr-2"></span>
+                    <span class="coin-balance balance-value">0</span>
+                </div>
+            </li>
+        </ul>
+    </div>
+</nav>
+<!-- /end right nav
+
+<!-- left nav -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container">
+
+        <a class="navbar-brand" href="index.html">
+            <img src="assets/images/eostime_text_logo.svg" height="20" alt="EOSTime">
+        </a>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navLeft" aria-controls="navLeft" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navLeft">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item home-nav-link">
+                    <a class="nav-link english lang d-none" href="/">HOME</a>
+                    <a class="nav-link chinese lang d-none" href="/">主頁</a>
+                </li>
+                <li class="nav-item faucet-nav-link">
+                    <a class="nav-link english lang d-none" href="faucet.html">FAUCET</a>
+                    <a class="nav-link chinese lang d-none" href="faucet.html">龍頭</a>
+                </li>
+                <li class="nav-item airdrops-nav-link">
+                    <a class="nav-link english lang d-none" href="airdrops.html">AIRDROPS</a>
+                    <a class="nav-link chinese lang d-none" href="airdrops.html">空投</a>
+                </li>
+                <li class="nav-item referrals-nav-link">
+                    <a class="nav-link english lang d-none" href="referrals.html">REFERRALS</a>
+                    <a class="nav-link chinese lang d-none" href="referrals.html">推介</a>
+                </li>
+                <li class="nav-item dividend-nav-link">
+                    <a class="nav-link blue-flash english lang d-none" href="dividend.html">DIVIDEND</a>
+                    <a class="nav-link blue-flash chinese lang d-none" href="dividend.html">股利</a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav mx-auto">
+                <li class="nav-item">
+                    <div class="cpu-gauge"><canvas width="40" height="40"></canvas></div>
+                </li>
+                <li class="nav-item">
+                    <div class="net-gauge"><canvas width="40" height="40"></canvas></div>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav ml-auto">
+
+                <li class="nav-item d-none d-lg-flex">
+                    <div class="flex-center m-r-20 user-tokens">
+                        <span class="icon-eos_icon font-16 font-blue-glow mr-2"></span>
+                        <span class="eos-balance balance-value">0</span>
+                    </div>
+                </li>
+                <li class="nav-item d-none d-lg-flex">
+                    <div class="flex-center m-r-20 user-tokens">
+                        <span class="icon-time_token1 font-16 col-yellow mr-2"></span>
+                        <span class="coin-balance balance-value">0</span>
+                    </div>
+                </li>
+                <li class="nav-item d-flex align-items-center">
+                    <div class="developer-mode" style="position: relative; cursor: pointer;">
+                        <a class="network-selector mainnet english lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Main Net</a>
+                        <a class="network-selector mainnet chinese lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">主網</a>
+                        <a class="network-selector jungle english lang d-none nav-link dropdown-toggle"" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Jungle</a>
+                        <a class="network-selector jungle chinese lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">叢林</a>
+                        <div class="dropdown-menu" aria-labelledby="dropdown01">
+                            <a class="select-mainnet dropdown-item english lang d-none" href="#">Main Net</a>
+                            <a class="select-mainnet dropdown-item chinese lang d-none" href="#">主網</a>
+                            <a class="select-jungle dropdown-item english lang d-none" href="#">Jungle</a>
+                            <a class="select-jungle dropdown-item chinese lang d-none" href="#">叢林</a>
+                        </div>
+                    </div>
+                </li>
+                <li class="nav-item d-flex align-items-center mr-2">
+                    <div class="language" style="position: relative; cursor: pointer;">
+                        <a class="nav-link dropdown-toggle" id="language_selector" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="flag-icon flag-icon-gb english lang d-none"></span><span class="flag-icon flag-icon-cn chinese lang d-none"></span> <span class="english lang d-none">EN</span><span class="chinese lang d-none">CN</span></a>
+                        <div class="dropdown-menu" aria-labelledby="dropdown02">
+                            <a class="dropdown-item select-lang" href="javascript:;" data-lang="english"><span class="flag-icon flag-icon-gb"></span> EN</a>
+                            <a class="dropdown-item select-lang" href="javascript:;" data-lang="chinese"><span class="flag-icon flag-icon-cn"></span> CN</a>
+                        </div>
+                    </div>
+                </li>
+                <li class="nav-item d-flex align-items-center">
+                    <button class="login-button english lang d-none logged-out-view btn btn-outline-yellow my-2 my-sm-0 d-none" type="button">Log In</button>
+                    <button class="login-button chinese lang d-none logged-out-view btn btn-outline-yellow my-2 my-sm-0 d-none" type="button">登錄</button>
+                    <button class="logout-button english lang d-none logged-in-view btn btn-outline-yellow my-2 my-sm-0" type="button">Log Out</button>
+                    <button class="logout-button chinese lang d-none logged-in-view btn btn-outline-yellow my-2 my-sm-0" type="button">登出</button>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<!-- /end left nav-->

@@ -123,6 +123,9 @@ export class AuctionManager extends ViewStateObserver {
             if (this.accountInfo && auction.last_bidder == this.accountInfo.account_name) {
                 let evt:CustomEvent = new CustomEvent("updateCoinBalances", {});
                 document.dispatchEvent(evt);
+
+                // (<any> $auctionElementToUpdate).animateCss('bounceIn');
+                $auctionElementToUpdate.find(".auction-instance-bid-button").blur();
             }
         });
 
@@ -141,6 +144,8 @@ export class AuctionManager extends ViewStateObserver {
                     this.updateAuctionElement($auctionElementToUpdate, false);
                 }
             }
+
+            (<any> $auctionElementToUpdate).animateCss('bounceIn');
         });
 
         this.socketMessage.getSocket().on(SocketMessage.STC_WINNER_AUCTION, (auction:any) => {
@@ -666,6 +671,11 @@ export class AuctionManager extends ViewStateObserver {
                         } else {
                             console.log(err);
                         }
+
+                        // Indicate failure to user with an animation on the bid button
+                        let $bidButton:JQuery<HTMLElement> = $auctionElement.find(".auction-instance-bid-button");
+                        (<any> $bidButton).animateCss('headShake');
+                        $bidButton.blur();
                     });
                 } catch (err) {
                     alert("Bid Error");

@@ -100,8 +100,8 @@ module App {
             startWatcherNow = startWatcherNow && (startWatcherNow == "true");
 
             // Grab private keys
-            let contractPrivateKey:string = process.env.PKEY_EOSTIMECONTR; // <string> this.getCliParam("-contractkey", false);
-            let faucetPrivateKey:string = process.env.PKEY_EOSTIMEFAUCE; // <string> this.getCliParam("-faucetkey", false);
+            let contractPrivateKey:string = process.env.PKEY_EOSTIMECONTR;
+            let faucetPrivateKey:string = process.env.PKEY_EOSTIMEFAUCE;
             let housePrivateKey:string = process.env.PKEY_EOSTIMEHOUSE;
             if (!contractPrivateKey || !faucetPrivateKey || !housePrivateKey) {
                 console.log("Invalid EOS keys");
@@ -169,7 +169,7 @@ module App {
 
                         // Use auction manager to poll the blockchain
                         // Todo REMOVE comment this before deploying to AWS
-                        // this.auctionManager.enablePolling(true);
+                        this.auctionManager.enablePolling(true);
 
                         // Finally, attach event handlers
                         this.attachEventHandlers();
