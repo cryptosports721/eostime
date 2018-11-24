@@ -47,6 +47,7 @@ export class AuctionManager extends ViewStateObserver {
         "auctionWinnerInstanceTemplate": ".auction-winner-instance-template",
         "auctionWinnerInstanceTime": ".auction-winner-time",
         "auctionWinnerInstanceName": ".auction-winner-name",
+        "auctionWinnerInstanceId": ".auction-winner-id",
         "auctionWinnerInstanceDuration": ".auction-winner-duration",
         "auctionWinnerInstanceAmount": ".auction-winner-amount span:nth-child(2)"
     };
@@ -198,14 +199,11 @@ export class AuctionManager extends ViewStateObserver {
                 $elem.find(localThis.selectors.auctionInstanceBidderOuter).addClass("d-none");
                 $elem.find(localThis.selectors.auctionInstanceNoBidder).addClass("d-none");
                 if (auction.last_bidder == Config.EOSTIME_CONTRACT) {
-                    console.log("Show no bidder " + auction.id);
                     $elem.find(localThis.selectors.auctionInstanceNoBidder + "." + localThis.currentLanguage).removeClass("d-none");
                 } else {
-                    console.log("Show real bidder " + auction.id);
                     $elem.find(localThis.selectors.auctionInstanceBidderOuter).removeClass("d-none");
                 }
             });
-            console.log("Fixed");
         });
     }
 
@@ -280,6 +278,7 @@ export class AuctionManager extends ViewStateObserver {
         let duration:string = moment.utc(diff).format("HH:mm:ss.SSS");
 
         let $clone:JQuery<HTMLElement> = $(this.selectors.auctionWinnerInstanceTemplate).clone().removeClass(this.selectors.auctionWinnerInstanceTemplate.substr(1)).removeClass("d-none");
+        $clone.find(this.selectors.auctionWinnerInstanceId).text(auction.type + "-" + auction.id);
         $clone.find(this.selectors.auctionWinnerInstanceName).text(auction.last_bidder);
         $clone.find(this.selectors.auctionWinnerInstanceAmount).text(auction.prize_pool);
         $clone.find(this.selectors.auctionWinnerInstanceDuration).text(duration);
@@ -655,6 +654,10 @@ export class AuctionManager extends ViewStateObserver {
                         console.log(result);
                     }).catch(err => {
                         $auctionElement.find(this.selectors.auctionInstanceBusy).addClass("d-none");
+                        try {
+                            err = JSON.parse(err);
+                        } catch (err) {};
+
                         let error = Config.safeProperty(err, ["error"], null);
                         if (error) {
                             console.log("======");

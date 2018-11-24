@@ -7,7 +7,7 @@ export class Config extends ConfigBase {
 
     public static EOS_ENDPOINTS:any = {
         "localhost": "http://localhost:8888",
-        "jungle": "http://dev.cryptolions.io:18888",
+        "jungle": "https://junglehistory.cryptolions.io:443",
     };
 
     public static WINNERS_LIST_LIMIT:number = 100;

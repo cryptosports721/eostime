@@ -14,6 +14,10 @@ export enum LANGUAGE {
 
 export class GUIManager extends ViewStateObserver {
 
+    private eos:any = null;
+    private cpuGuage:Guage = null;
+    private netGuage:Guage = null;
+
     private selectors:any = {
         "developerMode": ".developer-mode",
         "networkMenuDropdown": ".network-selector",
@@ -115,10 +119,13 @@ export class GUIManager extends ViewStateObserver {
 
     public updateEOSBalance(eosBalance:string):void {
         $(this.selectors.eosBalance).text(parseFloat(eosBalance).toFixed(4));
+        (<any> $(this.selectors.eosBalance)).animateCss("bounceIn");
+        this.updateEOSStakedResources();
     }
 
     public updateCoinBalance(coinBalance:string):void {
         $(this.selectors.coinBalance).text(parseFloat(coinBalance).toFixed(4));
+        (<any> $(this.selectors.coinBalance)).animateCss("bounceIn");
     }
 
     public showEOSStakedResources(show:boolean, cpu:number, net: number):void {
@@ -129,11 +136,30 @@ export class GUIManager extends ViewStateObserver {
             $(this.selectors.netGuage).attr("data-toggle", "tooltip").attr("data-placement","right").attr("title", net.toString() + "% NET");
             (<any> $(this.selectors.cpuGuage)).tooltip();
             (<any> $(this.selectors.netGuage)).tooltip();
-            new Guage($(this.selectors.cpuGuage + " > canvas"), cpu, {textVal: "CPU"});
-            new Guage($(this.selectors.netGuage + " > canvas"), net, {textVal: "NET"});
+            this.cpuGuage = new Guage($(this.selectors.cpuGuage + " > canvas"), cpu, {textVal: "CPU"});
+            this.netGuage = new Guage($(this.selectors.netGuage + " > canvas"), net, {textVal: "NET"});
         } else {
             $(this.selectors.cpuGuage).addClass("d-none");
             $(this.selectors.netGuage).addClass("d-none");
+        }
+    }
+
+    /**
+     * Updates our staked resources
+     */
+    public updateEOSStakedResources():void {
+        if (this.accountInfo && this.cpuGuage && this.netGuage) {
+            this.eos.getAccount(this.accountInfo.account_name).then((result) => {
+                this.accountInfo = result;
+                let cpu:number = Math.floor(this.accountInfo.cpu_limit.used*100/this.accountInfo.cpu_limit.max);
+                let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.max);
+                let $cpuTooltip:any = <any> $(this.selectors.cpuGuage);
+                $cpuTooltip.attr("title", cpu.toString() + "% CPU"); // .tooltip("fixTitle");
+                let $netTooltip:any = <any> $(this.selectors.netGuage);
+                $netTooltip.attr("title", net.toString() + "% NET"); // .tooltip("fixTitle");
+                this.cpuGuage.draw(cpu);
+                this.netGuage.draw(net);
+            });
         }
     }
 
@@ -151,6 +177,10 @@ export class GUIManager extends ViewStateObserver {
 
         $(this.selectors.loggedInView).removeClass("d-none");
         $(this.selectors.loggedOutView).addClass("d-none");
+
+        let selector:string = (this.currentLanguage == LANGUAGE.ENGLISH) ? LANGUAGE.CHINESE : LANGUAGE.ENGLISH;
+        $("." + selector).addClass("d-none");
+
         if (accountInfo) {
 
             let publicKey:string = Config.firstActivePublicKeyFromAccountInfo(accountInfo);
@@ -177,6 +207,9 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loggedOutView).removeClass("d-none");
         $(this.selectors.publicKey).html("");
         $(this.selectors.accountName).html("");
+
+        let selector:string = (this.currentLanguage == LANGUAGE.ENGLISH) ? LANGUAGE.CHINESE : LANGUAGE.ENGLISH;
+        $("." + selector).addClass("d-none");
 
         $(this.selectors.loginButton).addClass("d-none");
         $(this.selectors.logoutButton).addClass("d-none");
@@ -220,18 +253,18 @@ export class GUIManager extends ViewStateObserver {
             let evt:CustomEvent = new CustomEvent("logIn", {"detail": ""});
             document.dispatchEvent(evt);
 
-            $(this.selectors.loginButton).addClass("d-none");
-            $(this.selectors.logoutButton).addClass("d-none");
-            $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
+            // $(this.selectors.loginButton).addClass("d-none");
+            // $(this.selectors.logoutButton).addClass("d-none");
+            // $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
         });
 
         $(this.selectors.logoutButton).on("click", (event) => {
             let evt:CustomEvent = new CustomEvent("logOut", {"detail": ""});
             document.dispatchEvent(evt);
 
-            $(this.selectors.loginButton).addClass("d-none");
-            $(this.selectors.logoutButton).addClass("d-none");
-            $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
+            // $(this.selectors.loginButton).addClass("d-none");
+            // $(this.selectors.logoutButton).addClass("d-none");
+            // $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
         });
 
         $(this.selectors.betAmount).on("keypress", (event) => {
@@ -257,6 +290,14 @@ export class GUIManager extends ViewStateObserver {
             $('#info_modal').find("." + modalIdentifier + "." + this.currentLanguage).removeClass("d-none");
             (<any> $('#info_modal')).modal('show');
         });
+
+        // Listen for a new eos blockchain object
+        $(document).on("updateEos", (event) => {
+            this.eos = event.detail;
+            if (this.eos) {
+                this.updateEOSStakedResources();
+            }
+        });
     }
 
     /**
@@ -269,6 +310,11 @@ export class GUIManager extends ViewStateObserver {
 
         $('.lang').addClass('d-none');
         $("." + this.currentLanguage).removeClass('d-none');
+        if (this.accountInfo) {
+            this.setLoggedInView(this.account, this.accountInfo);
+        } else {
+            this.setLoggedOutView();
+        }
 
         this.notifyCurrentLanguage();
 
@@ -467,7 +513,11 @@ export class Guage {
         } else {
             this.guageRenderer = new HalfCircleGuageRenderer($canvas, val, options);
         }
-        this.guageRenderer.draw();
+        this.guageRenderer.draw(val);
+    }
+
+    public draw(val:number) {
+        this.guageRenderer.draw(val);
     }
 }
 
@@ -476,7 +526,7 @@ export class Guage {
  */
 abstract class GuageRenderer {
 
-    protected val;
+    protected val:number;
     protected settings:any
     protected ctx:CanvasRenderingContext2D;
     protected W;
@@ -523,7 +573,7 @@ abstract class GuageRenderer {
         this.update();
     }
 
-    public abstract draw():void;
+    public abstract draw(val):void;
     protected abstract update():void;
 }
 
@@ -536,10 +586,13 @@ class DefaultGuageRenderer extends GuageRenderer {
         super($canvas, val, options);
     };
 
-    public draw():void {
+    public draw(val:number = null):void {
         // Cancel any animation if a new chart is requested
         if (typeof this.animation_loop !== undefined) {
             clearInterval(this.animation_loop);
+        }
+        if (val) {
+            this.val = val;
         }
         this.new_position = Math.round((this.val / (this.settings.max - this.settings.min)) * 270);
         this.difference = this.new_position - this.position;
@@ -588,12 +641,14 @@ class HalfCircleGuageRenderer extends GuageRenderer {
         super($canvas, val, options);
     };
 
-    public draw():void {
+    public draw(val:number = null):void {
         // Cancel any animation if a new chart is requested
         if (typeof this.animation_loop !== undefined) {
             clearInterval(this.animation_loop);
         }
-
+        if (val) {
+            this.val = val;
+        }
         this.new_position = Math.round((this.val / (this.settings.max - this.settings.min)) * 180);
         this.difference = this.new_position - this.position;
         this.animation_loop = setInterval(this.animateTo.bind(this), 100 / this.difference);

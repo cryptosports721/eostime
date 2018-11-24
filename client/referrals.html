@@ -24,22 +24,23 @@
 				<div class="col-8">
 					<div class="card dark mb-3">
 						<div class="card-body">
-							<div class="card-title font-muted english lang">Referral Link</div>
-							<div class="card-title font-muted chinese lang d-none">Referral Link</div>
+							<div class="card-title font-muted english lang d-none">Referral Link</div>
+							<div class="card-title font-muted chinese lang d-none">推薦鏈接</div>
 							<div class="referral-link my-4">
 								<div class="flex-space-between dark">
 									<div class="flex-left flex-center-row flex-fill">
 										<i class="fas fa-link m-r-10 font-24 text-muted"></i>
                                         <div class="logged-out-view d-none english lang">Log in to see link</div>
+										<div class="logged-out-view d-none chinese lang">登錄查看鏈接</div>
 										<input class="referrer-link-tag d-none logged-in-view form-control form-control-lg" type="text" value="" id="referral-link">
 									</div>
-									<div onclick="copyAddress();"class="btn btn-outline-yellow copy-button english lang">Copy</div>
-									<div onclick="copyAddress();"class="btn btn-outline-yellow copy-button chinese lang d-none">Copy</div>
+									<div onclick="copyAddress();"class="btn btn-outline-yellow copy-button english lang d-none">Copy</div>
+									<div onclick="copyAddress();"class="btn btn-outline-yellow copy-button chinese lang d-none">複製</div>
 								</div>
 							</div>
 							
-							<span class="english lang">Refer friends and earn 0.375% of every bid they make</span>
-							<span class="chinese lang d-none">Refer friends and earn 0.375% of every bid they make</span>
+							<span class="english lang d-none">Refer friends and earn 3.75% of the site profits from your friend's bids - FOREVER!</span>
+							<span class="chinese lang d-none">推薦朋友，從朋友的出價中獲得3.75％的網站利潤</span>
 						</div>
 					</div>
 				</div>
@@ -51,8 +52,8 @@
 								<h5 class="my-0">Youtuber?</h5>
 							</div>
 							<div class="mb-2 info-row px-4 py-4">
-								<span class="english lang">Create a video promoting our site and you could earn even more with a higher referral percentage. Contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP <i class="far fa-smile-wink"></i></span>
-								<span class="chinese lang d-none">Create a video promoting our site and you could earn even more with a higher referral percentage. Contact us here info@eostie.io. We will respond to you ASAP <i class="far fa-smile-wink"></i></span>
+								<span class="english lang d-none">Create a video promoting our site and you could earn even more with a higher referral percentage. Contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP <i class="far fa-smile-wink"></i></span>
+								<span class="chinese lang d-none">製作宣傳我們網站的視頻，您可以通過更高的推介百分比獲得更多收入。 聯繫我們 <a href="mailto:info@eostie.io">info@eostie.io</a>. 我們會盡快回复您 <i class="far fa-smile-wink"></i></span>
 							</div>
 						</div>
 					</div>
@@ -62,11 +63,12 @@
 						<div class="card-body">
 							<div class="card-title flex-center-row">
 								<i class="fas fa-pencil-alt font-24 mr-3"></i>
-								<h5 class="my-0">Blogger?</h5>
+								<h5 class="my-0 english lang d-none">Blogger?</h5>
+								<h5 class="my-0 chinese lang d-none">博客?</h5>
 							</div>
 							<div class="mb-2 info-row px-4 py-4">
                                 <span class="english lang">If you are thinking about promoting the site via a blog post and would like to earn even more from your referral link, contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP and will be more than happy to give you any details your require for your article.</span>
-								<span class="chinese lang d-none">If you are thinking about promoting the site via a blog post and would like to earn even more from your referral link, contact us here <a href="mailto:info@eostime.io">info@eostime.io</a>. We will respond to you ASAP and will be more than happy to give you any details your require for your article.</span>
+								<span class="chinese lang d-none">如果您正考慮通過博客文章推廣該網站，並希望通過推薦鏈接獲得更多收益，聯繫我們 <a href="mailto:info@eostime.io">info@eostime.io</a>. 我們會盡快回复您，並且非常樂意為您提供您的文章所需的任何詳細信息。</span>
 							</div>
 						</div>
 					</div>
@@ -75,24 +77,6 @@
 			<!-- /end referrals page -->
         
         </main>
-        
-        <!-- modal -->
-        <div class="modal fade" id="info_modal">
-          <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="card dark card-modal">
-                    <div class="card-body">
-                        <div class="card-title font-muted modal-title mb-3">Referral Link</div>
-                        <div class="info-row px-4 py-4 modal-body"></div>
-                    </div>
-                    <div class="abs-corner flex-center">
-                        <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
-                    </div>
-                </div>
-                </div>
-          </div>
-        </div>
-        <!-- /end modal -->
 
         <!-- Modal content -->
         <!-- End Modal Content -->

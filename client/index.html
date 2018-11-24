@@ -69,6 +69,8 @@
                                         <h5 class="my-4 text-center chinese lang d-none">拍賣獲獎者</h5>
                                         <ul class="referral-table header mt-1 mb-0">
                                             <li class="info-row no-bg font-muted m-r-10">
+                                                <span class="english lang d-none">ID</span>
+                                                <span class="chinese lang d-none">ID</span>
                                                 <span class="english lang d-none">User</span>
                                                 <span class="chinese lang d-none">用戶</span>
                                                 <span class="english lang d-none">Time</span>
@@ -116,7 +118,7 @@
                         <div><img src="assets/images/loading.svg"></div>
                     </div>
                     <!--<div class="auction-instance-small-text text-right font-muted abs-corner">ID: <span class="auction-instance-id">76</span></div>-->
-                    <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
+                    <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
                     <div class="flex-center">
                         <div>
                             <div class="auction-instance-bidder-no-bidders english lang auction-instance-med-text text-center flex-center-row d-none">Be the first bid!</div>
@@ -166,6 +168,7 @@
         
         <!-- winners row template -->
         <li class="info-row big auction-winner-instance-template auction-winner-board-instance d-none">
+            <span class="auction-winner-id"></span>
             <span class="auction-winner-name col-blue"></span>
             <span class="auction-winner-time"></span>
             <span class="auction-winner-amount">
@@ -194,10 +197,10 @@
 
                             <!-- BID TO WIN EOS -->
                             <div class="bid-to-earn-time-modal english lang modal-title-inner d-none">
-                                Bid To Win <span class="icon-eos_icon font-20 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> EOS</span>
+                                Bid To Win <span class="icon-eos_icon font-20 font-blue-glow m-r-5"></span> EOS</span>
                             </div>
                             <div class="bid-to-earn-time-modal chinese lang modal-title-inner d-none">
-                                出價要贏 <span class="icon-eos_icon font-20 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> EOS</span>
+                                出價要贏 <span class="icon-eos_icon font-20 font-blue-glow m-r-5"></span> EOS</span>
                             </div>
 
                             <!-- WINNERS TABLE-->
@@ -215,7 +218,7 @@
                                     <div class="col-5 english lang d-none">Prize:</div>
                                     <div class="col-5 chinese lang d-none">獎:</div>
                                     <div class="col-7">
-                                        <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span>
+                                        <span class="icon-eos_icon font-16 font-blue-glow m-r-5"></span>
                                         <span class="auction-instance-modal-prize"></span>
                                     </div>
                                 </div>
@@ -229,7 +232,7 @@
                                     <ul>
                                         <li>
                                             The current bid price is
-                                            <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
                                         </li>
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             The bid price will increase by <span class="auction-instance-modal-bid-price-increase"></span> after each bid.
@@ -250,7 +253,7 @@
                                 <div class="row">
                                     <div class="col-5">獎:</div>
                                     <div class="col-7">
-                                        <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span>
+                                        <span class="icon-eos_icon font-16 font-blue-glow m-r-5"></span>
                                         <span class="auction-instance-modal-prize"></span>
                                     </div>
                                 </div>
@@ -264,7 +267,7 @@
                                     <ul>
                                         <li>
                                             目前的出價是
-                                            <span class="icon-eos_icon font-16 {% if red %}white-glow{% else %}font-blue-glow{% endif %} m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
+                                            <span class="icon-eos_icon font-16 font-blue-glow m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
                                         </li>
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             出價將增加 <span class="auction-instance-modal-bid-price-increase"></span> 每次競標後。
@@ -349,5 +352,5 @@
     <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-    <script src="assets/js/eostime-bundle.js?v=1002"></script>
+    <script src="assets/js/eostime-bundle.min.js"></script>
 </html>

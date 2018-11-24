@@ -148,10 +148,12 @@ export class EosBlockchain {
 
     /**
      * Calls the blockchain payout auction method
+     *
      * @param {number} auctionId
+     * @param {boolean} issueWinnerBonusTimeCoins
      * @returns {Promise<any>}
      */
-    public payoutAuction(auctionId:number):Promise<any> {
+    public payoutAuction(auctionId:number, issueWinnerBonusTimeCoins:boolean = true):Promise<any> {
         const rpc = this.eosRpc;
         const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
@@ -166,6 +168,7 @@ export class EosBlockchain {
                     }],
                     data: {
                         redzone_id: auctionId,
+                        issue_winner_bonus_time_coins: issueWinnerBonusTimeCoins
                     },
                 },
                 {

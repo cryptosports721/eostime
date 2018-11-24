@@ -24,7 +24,7 @@ export class Config extends ConfigBase {
             protocol: 'https',
             host: 'api.jungle.alohaeos.com',
             port: 443,
-            chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca'
+            chainId: 'e70aaab8997e1dfce58fbfac80cbbb8fecec7b99cf982a9444273cbc64c41473'
         },
         "jungle-no-ssl" : {
             blockchain: 'eos',
@@ -36,17 +36,16 @@ export class Config extends ConfigBase {
     };
 
     public static API_SERVER:any = {
-        // "host": "http://localhost",
-        // "host": "http://54.164.95.106",
-        "host": "https://jungle-elb.eostime.io",
-        "port": 4001
+         // "host": "http://localhost",
+         "host": "https://jungle-elb.eostime.io",
+         "port": 4001
     };
 
     public static EOSTIME_CONTRACT:string = "eostimecontr";
     public static TIME_TOKEN_CONTRACT:string = "eostimetoken";
     public static TIME_TOKEN_SYMBOL:string = "TIME";
 
-    public static REFERRAL_LINK_PREFIX:string = "http://eostime.io?ref=";
+    public static REFERRAL_LINK_PREFIX:string = "https://eostime.io?ref=";
 
     // public static DEFAULT_GUAGE_OPTIONS:any = {
     //     min: 0,

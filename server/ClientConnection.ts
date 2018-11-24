@@ -1,12 +1,12 @@
 import Socket from "socket.io";
+import iplocation from "iplocation";
 import {SocketMessage} from "./SocketMessage";
 import {EosBlockchain} from "./EosBlockchain";
 import {Config} from "./Config";
-import {Moment} from "moment";
 import {DBManager} from "./DBManager";
 import {AuctionManager} from "./AuctionManager";
 
-var moment = require('moment');
+const moment = require('moment');
 
 export class ClientConnection {
 
@@ -21,6 +21,7 @@ export class ClientConnection {
     private accountInfo:any = null;
     private dbManager:DBManager = null;
     private auctionManager:AuctionManager = null;
+    private static GEOLOCATION_PROVIDERS:string[] = null;
 
     // Used to handle someone banging at the faucet
     private static faucetCache:any = {};
@@ -142,6 +143,59 @@ export class ClientConnection {
         }.bind(this);
         this.socketMessage.stcDevMessage("Retrieving account information for " + accountName + " from EOS");
         getAccoutFromBlockchain();
+    }
+
+    /**
+     * Public method to return the geolocation of a specific IP address
+     *
+     * OBJECT RETURNED LOOKS LIKE THIS:
+     * {
+     *   "country": "United States",
+     *   "countryCode": "US",
+     *   "region": "Massachusetts",
+     *   "regionCode": "MA",
+     *   "city": "Wellesley Hills",
+     *   "postal": "02481",
+     *   "ip": "108.20.173.186",
+     *   "latitude": 42.3106,
+     *   "longitude": -71.2747,
+     *   "timezone": "America/New_York"
+     * }
+     *
+     * @param {string} ipAddress
+     * @returns {Promise<any>}
+     */
+    public geolocateIPAddress(ipAddress:string):Promise<any> {
+        return new Promise((resolve, reject) => {
+            if (!ClientConnection.GEOLOCATION_PROVIDERS) {
+                this.dbManager.getDocumentByKey("applicationSettings", {key: "geolocProviders"}).then((result) => {
+                    if (result) {
+                        ClientConnection.GEOLOCATION_PROVIDERS = result.value;
+                        iplocation(ipAddress, ClientConnection.GEOLOCATION_PROVIDERS, (error, res) => {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve(res);
+                            }
+                        });
+                    } else {
+                        console.log("Could not get application key 'geolocProviders'");
+                        resolve(null);
+                    }
+                }).catch((reason) => {
+                    console.log("Could not get application key 'geolocProviders'");
+                    resolve(null);
+                });
+            } else {
+                iplocation(ipAddress, ClientConnection.GEOLOCATION_PROVIDERS, (error, res) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(res);
+                    }
+                });
+            }
+        });
     }
 
     /**

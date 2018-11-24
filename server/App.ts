@@ -7,12 +7,15 @@ import {EosWatcher} from "./EosWatcher";
 import {EosBlockchain} from "./EosBlockchain";
 import {AuctionManager} from "./AuctionManager";
 import {DBManager} from "./DBManager";
+import {ClientSession, MongoClient} from "mongodb";
 
 const process:Process = require('process');
 const serveStatic = require('serve-static')
 const fh = require('finalhandler');
 const http = require('http');
 const sio = require('socket.io');
+
+const md5 = require('md5');
 
 module App {
 
@@ -25,52 +28,159 @@ module App {
         private dbManager:DBManager = null;
         private serverConfig:any = null;
 
+        private transactionMap:any = {};
+
         private updaters:any[] = [
             {
                 actionType: "eosio.token::transfer",
-                updater: (state, payload, blockInfo, context) => {
-                    // TODO React to action (put in database)
-                    /*
-                        payload IS:
-                        {
-                          "transactionId": "2618221d8415df911c22ced29cfa584d5d6a2da0c86264cc0d0d6e305a25678c",
-                          "actionIndex": 0,
-                          "account": "eosio.token",
-                          "name": "transfer",
-                          "authorization": [
-                            {
-                              "actor": "eosgamez1234",
-                              "permission": "active"
+                updater: async (state, payload, blockInfo, context) => {
+
+                    let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
+                        let from: string = Config.safeProperty(payload, ["data.from"], null);
+                        let to: string = Config.safeProperty(payload, ["data.to"], null);
+                        if (from == "eostimecontr" || to == "eostimecontr") {
+                            let hash: string = Config.safeProperty(payload, ["transactionId"], null);
+                            if (hash) {
+                                hash = md5(hash + payload.hex_data);
+                                payload["timestamp"] = blockInfo.timestamp;
+                                payload["blockNumber"] = blockInfo.blockNumber;
+                                payload["md5"] = hash;
+                                try {
+                                    await this.auctionManager.eosTransfer("eostimecontr", payload, session);
+                                    await this.dbManager.setConfig("currentBlockNumber", blockInfo.blockNumber, session);
+                                    console.log(blockInfo.blockNumber);
+                                } catch (err) {
+                                    if ((err.code != 11000) || (err.errmsg.indexOf(hash) < 0)) {
+                                        console.log(err);
+                                    }
+                                };
+                            } else {
+                                console.log("======= NO TRANSACTION HASH ON EOSIO.TOKEN::TRANSFER");
                             }
-                          ],
-                          "data": {
-                            "from": "eosgamez1234",
-                            "to": "eosgameztea2",
-                            "quantity": "0.0098 EOS",
-                            "memo": "bet_id : 5be1fb03cca0bd6029b92e19 eosgamez.io"
-                          }
                         }
-
-                        blockInfo IS:
-                        {
-                          "blockNumber": 23144669,
-                          "blockHash": "016128ddf7b2d8de3ddc6c777f34265b2cb544b4eae9866203354314207844ef",
-                          "previousBlockHash": "016128dc39a08a71cfd354651e2e067bedcb9d9ecd6fe0f11bd4e7902f15b69a",
-                          "timestamp": "2018-11-07T01:35:17.500Z"
-                        }
-                    */
-                    let transactionData = Config.safeProperty(payload, ["data"], null);
-                    if (transactionData && transactionData.to == this.serverConfig.eostimeContract) {
-
-                        // A transfer (bid) was seen on the main contract
-
-                    }
+                    };
+                    return this.dbManager.executeTransaction(txFunc);
                 }
             },
+            {
+                actionType: "eostimetoken::issue",
+                updater: async (state, payload, blockInfo, context) => {
+                    let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
+                        let hash: string = Config.safeProperty(payload, ["transactionId"], null);
+                        if (hash) {
+                            hash = md5(hash + payload.hex_data);
+                            let to: string = Config.safeProperty(payload, ["data.to"], null);
+
+                            // We only record issue's to the eostimetoken contract because
+                            // everyone else gets included in the eostimetoken:transfer action
+                            if (to == "eostimetoken") {
+                                payload["timestamp"] = blockInfo.timestamp;
+                                payload["blockNumber"] = blockInfo.blockNumber;
+                                payload["md5"] = hash;
+                                payload.data["from"] = null;
+                                try {
+                                    await this.auctionManager.timeTokenIssued(payload, session);
+                                    await this.dbManager.setConfig("currentBlockNumber", blockInfo.blockNumber, session);
+                                } catch (err) {
+                                    if ((err.code != 11000) || (err.errmsg.indexOf(hash) < 0)) {
+                                        console.log(err);
+                                    }
+                                }
+                            }
+                        } else {
+                            console.log("======= NO TRANSACTION HASH ON EOSTIMETOKEN::ISSUE");
+                        }
+                    };
+                    return this.dbManager.executeTransaction(txFunc);
+                }
+            },
+            {
+                actionType: "eostimetoken::transfer",
+                updater: async (state, payload, blockInfo, context) => {
+                    let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
+                        let hash: string = Config.safeProperty(payload, ["transactionId"], null);
+                        if (hash) {
+                            hash = md5(hash + payload.hex_data);
+                            payload["timestamp"] = blockInfo.timestamp;
+                            payload["blockNumber"] = blockInfo.blockNumber;
+                            payload["md5"] = hash;
+                            let from: string = Config.safeProperty(payload, ["data.from"], null);
+                            if (from == "eostimetoken") {
+                                payload.data.from = null;
+                            }
+                            try {
+                                await this.auctionManager.timeTokenIssued(payload, session);
+                                await this.dbManager.setConfig("currentBlockNumber", blockInfo.blockNumber, session);
+                            } catch (err) {
+                                if ((err.code != 11000) || (err.errmsg.indexOf(hash) < 0)) {
+                                    console.log(err);
+                                }
+                            }
+                        } else {
+                            console.log("======= NO TRANSACTION HASH ON EOSTIMETOKEN::TRANSFER");
+                        }
+                    };
+                    return this.dbManager.executeTransaction(txFunc);
+                }
+            },
+            {
+                actionType: "eostimecontr::rzpaywinner",
+                updater: async (state, payload, blockInfo, context) => {
+                    let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
+                        let hash: string = Config.safeProperty(payload, ["transactionId"], null);
+                        if (hash) {
+                            hash = md5(hash + payload.hex_data);
+                            payload["timestamp"] = blockInfo.timestamp;
+                            payload["blockNumber"] = blockInfo.blockNumber;
+                            payload["md5"] = hash;
+
+                            // console.log("================================== " + hash);
+                            // console.log("RZPAYWINNER by eostimecontr");
+                            // console.log(payload);
+                            // console.log("==================================");
+                            //
+                            // // TODO - move this to eosio.token payment when memo has auction ID in it
+                            // this.auctionManager.updateAuction(payload).catch((err) => {
+                            //     if ((err.code != 11000) || (err.errmsg.indexOf(hash) < 0)) {
+                            //         console.log(err);
+                            //     }
+                            // });
+
+                        } else {
+                            console.log("======= NO TRANSACTION HASH ON EOSTIMECONTR::RZPAYWINNER");
+                        }
+                    };
+                    // return this.dbManager.executeTransaction(txFunc);
+                }
+            },
+            {
+                actionType: "eostimecontr::rzbidreceipt",
+                updater: async (state, payload, blockInfo, context) => {
+                    let txFunc: (client: MongoClient, session: ClientSession) => void = async (client: MongoClient, session: ClientSession) => {
+                        let hash: string = Config.safeProperty(payload, ["transactionId"], null);
+                        if (hash) {
+                            hash = md5(hash + payload.hex_data);
+                            payload["timestamp"] = blockInfo.timestamp;
+                            payload["blockNumber"] = blockInfo.blockNumber;
+                            payload["md5"] = hash;
+                            this.auctionManager.bidReceipt(payload, session).then(() => {
+                                return this.dbManager.setConfig("currentBlockNumber", blockInfo.blockNumber, session);
+                            }).catch((err) => {
+                                if ((err.code != 11000) || (err.errmsg.indexOf(hash) < 0)) {
+                                    console.log(err);
+                                }
+                            });
+                        } else {
+                            console.log("======= NO TRANSACTION HASH ON EOSTIMETOKEN::BIDRECEIPT");
+                        }
+                    };
+                    return this.dbManager.executeTransaction(txFunc);
+                }
+            }
         ];
         private effects:any[] = [
             {
-                actionType: "eosio.token::transfer",
+                actionType: "eostimetoken::transfer",
                 effect: (state, payload, blockInfo, context) => {
 
                 }
@@ -164,12 +274,12 @@ module App {
                     if (currentBlockNumber != null) {
 
                         // Run our EOS blockchain watcher
-                        // this.eosWatcher = new EosWatcher(this.eosBlockchain.getConfig(), currentBlockNumber, this.updaters, this.effects, this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this));
-                        // this.eosWatcher.run();
+                        this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, this.updaters, this.effects, this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this));
+                        this.eosWatcher.run();
 
                         // Use auction manager to poll the blockchain
                         // Todo REMOVE comment this before deploying to AWS
-                        this.auctionManager.enablePolling(true);
+                        // this.auctionManager.enablePolling(true);
 
                         // Finally, attach event handlers
                         this.attachEventHandlers();
@@ -279,9 +389,7 @@ module App {
          * @returns {Promise<void>}
          */
         private processedBlockCallback(blockNumber:number, timestamp:string):Promise<void> {
-            return this.dbManager.setConfig("currentBlockNumber", blockNumber).then(() => {
-                return this.auctionManager.processBlock(blockNumber, timestamp);
-            });
+            return this.auctionManager.processBlock(blockNumber, timestamp);
         }
 
         /**
@@ -291,8 +399,8 @@ module App {
          */
         private rollbackToCallback(blockNumber:number):Promise<void> {
             console.log("rollbackToCallback(" + blockNumber.toString() + ")");
-            return this.dbManager.setConfig("currentBlockNumber", blockNumber).then(() => {
-                return this.auctionManager.rollbackToBlock(blockNumber);
+            return this.auctionManager.rollbackToBlock(blockNumber).catch((err) => {
+                console.log(err);
             });
         }
 

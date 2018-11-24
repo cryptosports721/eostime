@@ -4,6 +4,7 @@ import {Config} from "./Config";
 import {DBManager} from "./DBManager";
 import {EosBlockchain} from "./EosBlockchain";
 import moment = require("moment");
+import {ClientSession, MongoClient} from "mongodb";
 
 export class AuctionManager {
 
@@ -178,13 +179,13 @@ export class AuctionManager {
                                     this.lastPayoutTime = new Date().getTime();
                                     this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
 
-                                    // Store this winner auction in our list of recent winners
+                                    // Store this winner auction in our list of recent winners cache
                                     this.recentWinners.unshift(auctionToPayout);
                                     if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
                                         this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
                                     }
 
-                                    // Delay this so payout transaction is confirmed on the blockchain, and
+                                    // Delay client balance update so payout transaction is confirmed on the blockchain, and
                                     // send 2 - one at 7.5 seconds and another at 15 seconds after the payout
                                     // was completed.
                                     setTimeout(() => {
@@ -223,14 +224,25 @@ export class AuctionManager {
     }
 
     /**
+     * TODO Modify to take parameters from the payload auction data
+     * @param payload
+     * @returns {Promise<void>}
+     */
+    public updateAuction(payload:any):Promise<void> {
+        let updatedValues:any = {
+            status: "paid",
+        };
+        return this.dbManager.updateDocumentByKey("auctions", {id: payload.redzone_id}, updatedValues);
+    }
+
+    /**
      * Called as each block is processed from the blockchain
      * @param {number} blockNumber
      * @param {string} timestamp
      * @returns {Promise<any>}
      */
-    public processBlock(blockNumber:number, timestamp:string):Promise<any> {
-        console.log(blockNumber.toString() + " " + timestamp);
-        return this.pollAuctionTable();
+    public processBlock(blockNumber:number, timestamp:string):Promise<void> {
+        return Promise.resolve();
     }
 
     /**
@@ -238,10 +250,94 @@ export class AuctionManager {
      * @param {number} blockNumber
      * @returns {Promise<any>}
      */
-    public rollbackToBlock(blockNumber:number):Promise<any> {
-        return new Promise<any>((resolve, reject) => {
-            resolve();
-        });
+    public rollbackToBlock(blockNumber:number):Promise<void> {
+        let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
+            try {
+                await this.dbManager.updateDocumentByKey("applicationSettings", {key: "currentBlockNumber"}, {value: blockNumber}, session);
+                await this.dbManager.deleteDocumentsByKey("bidreceipts", {blockNumber: {$gt: blockNumber}}, session);
+                await this.dbManager.deleteDocumentsByKey("eostimecontr",{blockNumber: {$gt: blockNumber}}, session);
+                await this.dbManager.deleteDocumentsByKey("timetokens", {blockNumber: {$gt: blockNumber}}, session);
+            } catch (err) {
+                console.log("Error rolling back to block " + blockNumber.toString());
+                console.log(err);
+            }
+        };
+        return this.dbManager.executeTransaction(txFunc);
+    }
+
+    /**
+     * Records an EOS transfer to/from a particular contract
+     * @param {string} collection
+     * @param payload
+     * @returns {Promise<void>}
+     */
+    public eosTransfer(collection:string, payload:any, session:ClientSession = null):Promise<void> {
+        let timestamp:number = parseInt(moment.utc(payload.timestamp).format("X"));
+        let quantity:string|number = Config.safeProperty(payload, ["data.quantity"], null);
+        if (quantity) {
+            quantity = parseFloat(<string> quantity);
+        }
+        let document:any = {
+            md5: payload.md5,
+            timestamp: timestamp,
+            blockNumber: payload.blockNumber,
+            txid: Config.safeProperty(payload, ["transactionId"], null),
+            from: Config.safeProperty(payload, ["data.from"], null),
+            to: Config.safeProperty(payload, ["data.to"], null),
+            quantity: quantity,
+            memo: Config.safeProperty(payload, ["data.memo"], null)
+        }
+        return this.dbManager.insertDocument(collection, document, session);
+    }
+
+    /**
+     * Records a bid receipt
+     * @param payload
+     * @param {ClientSession} session
+     * @returns {Promise<void>}
+     */
+    public bidReceipt(payload:any, session:ClientSession = null):Promise<void> {
+        let timestamp:number = parseInt(moment.utc(payload.timestamp).format("X"));
+        let document:any = {
+            md5: payload.md5,
+            timestamp: timestamp,
+            blockNumber: payload.blockNumber,
+            txid: Config.safeProperty(payload, ["transactionId"], null),
+            bidder: payload.data.bidder,
+            auctionId: payload.data.redzone_id,
+            auctionType: payload.data.redzone_type,
+            bidPrice: parseFloat(payload.data.bid_price),
+            houseEOS: parseFloat(payload.data.house_portion),
+            referrerEOS: parseFloat(payload.data.referrer_bonus),
+            bidderTIME: parseFloat(payload.data.bidder_bonus)
+        }
+        return this.dbManager.insertDocument("bidreceipts", document, session);
+    }
+
+    /**
+     * Records a new time token issuance into the database
+     *
+     * @param payload
+     * @param {ClientSession} session
+     * @returns {Promise<void>}
+     */
+    public timeTokenIssued(payload:any, session:ClientSession = null):Promise<void> {
+        let timestamp:number = parseInt(moment.utc(payload.timestamp).format("X"));
+        let quantity:string|number = Config.safeProperty(payload, ["data.quantity"], null);
+        if (quantity) {
+            quantity = parseFloat(<string> quantity);
+        }
+        let document:any = {
+            md5: payload.md5,
+            timestamp: timestamp,
+            blockNumber: payload.blockNumber,
+            txid: Config.safeProperty(payload, ["transactionId"], null),
+            from: Config.safeProperty(payload, ["data.from"], null),
+            to: Config.safeProperty(payload, ["data.to"], null),
+            quantity: quantity,
+            memo: Config.safeProperty(payload, ["data.memo"], null)
+        }
+        return this.dbManager.insertDocument("timetokens", document, session);
     }
 
     // ------------------------------------------------------------------------

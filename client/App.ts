@@ -88,7 +88,7 @@ module EOSTime {
                         document.dispatchEvent(evt);
 
                         // Now try to log-in
-                        ScatterJS.scatter.connect("EOSRoller", {initTimeout: 10000}).then((connected) => {
+                        ScatterJS.scatter.connect("eostime", {initTimeout: 10000}).then((connected) => {
                             this.hasScatter = connected;
                             if (!connected) {
                                 // TODO NEEDS TO INSTALL SCATTER
@@ -460,9 +460,8 @@ module EOSTime {
                 let userLogInEvt:CustomEvent = new CustomEvent("userLogIn", {"detail": this.accountInfo});
                 document.dispatchEvent(userLogInEvt);
 
-
-                let cpu:number = Math.floor(this.accountInfo.cpu_limit.used*100/this.accountInfo.cpu_limit.available);
-                let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.available);
+                let cpu:number = Math.floor(this.accountInfo.cpu_limit.used*100/this.accountInfo.cpu_limit.max);
+                let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.max);
                 this.updateViewState(ViewState.LOGGED_IN, cpu, net);
             });
 
