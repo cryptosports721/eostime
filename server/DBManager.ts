@@ -34,7 +34,7 @@ export class DBManager {
     }
 
     // Get a configuration var
-    public getConfig(keyToFind:string):Promise<string> {
+    public getConfig(keyToFind:string):Promise<any> {
         return new Promise<string>((resolve, reject) => {
             if (this.dbClient != null) {
                 let filter:any = {key: keyToFind};
@@ -153,7 +153,7 @@ export class DBManager {
             if (this.dbClient != null) {
                 var newvalues = { $set: newValues };
                 if (session) {
-                    this.dbo.collection(collectionName).updateOne(filter, newvalues, {session}, function (err, res) {
+                    this.dbo.collection(collectionName).updateOne(filter, newvalues, {session}, (err, res) => {
                         if (err) {
                             reject(err);
                         } else {
@@ -161,7 +161,7 @@ export class DBManager {
                         }
                     });
                 } else {
-                    this.dbo.collection(collectionName).updateOne(filter, newvalues, function (err, res) {
+                    this.dbo.collection(collectionName).updateOne(filter, newvalues, (err, res) => {
                         if (err) {
                             reject(err);
                         } else {
@@ -214,13 +214,16 @@ export class DBManager {
      * @returns {Promise<any>}
      */
     public executeTransaction(transactionFunction:(client:MongoClient, session:ClientSession) => void):Promise<any>{
-        return this.dbClient.withSession(session => this.runTransactionWithRetry(transactionFunction, this.dbClient, session));
+        // return this.dbClient.withSession(session => this.runTransactionWithRetry(transactionFunction, this.dbClient, session));
+        return new Promise((resolve) => {
+            transactionFunction(null, null);
+            resolve();
+        });
     }
 
-    private async commitWithRetry(session) {
+    public async commitWithRetry(session) {
         try {
-            await session.commitTransaction();
-            console.log('Transaction committed.');
+            // await session.commitTransaction();
         } catch (error) {
             if (
                 error.errorLabels &&
@@ -238,7 +241,6 @@ export class DBManager {
     private async runTransactionWithRetry(txnFunc, client, session) {
         try {
             await txnFunc(client, session);
-            this.commitWithRetry(session);
         } catch (error) {
             console.log('Transaction aborted. Caught exception during transaction.');
 

@@ -114,6 +114,40 @@ export class EosBlockchain {
     }
 
     /**
+     * Pays out from the dividend account to the target account
+     * @param {string} accountName
+     * @param {number} amount
+     * @param {string} memo
+     * @returns {Promise<any>}
+     */
+    public dividendPayout(accountName:string, amount: number, memo:string):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.housePrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: 'eosio.token',
+                    name: 'transfer',
+                    authorization: [{
+                        actor: this.serverConfig.dividendAccount,
+                        permission: 'active',
+                    }],
+                    data: {
+                        from: this.serverConfig.dividendAccount,
+                        to: accountName,
+                        quantity: amount.toFixed(4) + ' EOS',
+                        memo: memo
+                    },
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+    }
+
+    /**
      * Pays out a faucet reward
      * @param {string} accountName
      * @param {number} amount
@@ -144,6 +178,80 @@ export class EosBlockchain {
             expireSeconds: 30,
         });
 
+    }
+
+    /**
+     * Enables / disables an auction specified by its ID
+     *
+     * @param {boolean} enable
+     * @param {number} auctionId
+     * @returns {Promise<any>}
+     */
+    public enableAuction(enable:boolean, auctionId:number):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzenable',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        enable: enable ? 1 : 0
+                    }
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+    }
+
+    /**
+     * Creates an auction on the blockchain. Data is in the format:
+     *
+     * {
+     *  redzone_type: 2001,
+     *  init_prize_pool: "10.0000 EOS",
+     *  init_bid_price: "0.1000 EOS",
+     *  bid_multiplier_x100k: 105000,
+     *  bidder_timecoins_per_eos: 50,
+     *  referrer_portion_x100k: 375,
+     *  winner_timecoins_per_eos: 10,
+     *  house_portion_x100k: 9625,
+     *  init_bid_count: 25000,
+     *  init_duration_secs: 86400,
+     *  init_redzone_secs: 60,
+     *  back_to_back_bids_allowed: 1
+     * }
+     *
+     * @param data
+     * @returns {Promise<any>}
+     */
+    public createAuction(data:any):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzcreate',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: data
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
     }
 
     /**

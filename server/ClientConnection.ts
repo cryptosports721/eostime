@@ -291,7 +291,8 @@ export class ClientConnection {
                             if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
                                 faucetInfo = {
                                     account: this.accountInfo.account_name,
-                                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs
+                                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs,
+                                    drawEverySecs: Config.FAUCET_FREQUENCY_SECS
                                 };
                                 ClientConnection.faucetCache[this.accountInfo.account_name] = faucetInfo;
                             }
@@ -299,7 +300,8 @@ export class ClientConnection {
                         if (!faucetInfo) {
                             faucetInfo = {
                                 account: this.accountInfo.account_name,
-                                nextDrawSecs: 0
+                                nextDrawSecs: 0,
+                                drawEverySecs: Config.FAUCET_FREQUENCY_SECS
                             };
                         }
                         this.socketMessage.stcFaucetInfo(faucetInfo);
@@ -309,6 +311,7 @@ export class ClientConnection {
                 }).catch((err) => {
                     console.log(err);
                 });
+
             } else {
                 // TODO We should block the IP because this should not happen on our website
             }
@@ -329,14 +332,15 @@ export class ClientConnection {
 
                 this.dbManager.getDocumentByKey("users", {accountName: this.accountInfo.account_name}).then((user) => {
                     if (user) {
-                        let faucetAward:any = null;
-                        let now = Math.floor(new Date().getTime()/1000);
+                        let faucetAward: any = null;
+                        let now = Math.floor(new Date().getTime() / 1000);
                         if (user.lastFaucetTime) {
-                            let deltaSecs:number = now - user.lastFaucetTime;
+                            let deltaSecs: number = now - user.lastFaucetTime;
                             if (deltaSecs < Config.FAUCET_FREQUENCY_SECS) {
                                 faucetAward = {
                                     account: this.accountInfo.account_name,
-                                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs
+                                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs,
+                                    drawEverySecs: Config.FAUCET_FREQUENCY_SECS
                                 };
                                 this.socketMessage.stcFaucetAward(faucetAward);
                             }
@@ -344,8 +348,8 @@ export class ClientConnection {
                         if (!faucetAward) {
 
                             // We can award the faucet
-                            let award:number;
-                            let randomDraw:number = Math.floor(Math.random()*10001);
+                            let award: number;
+                            let randomDraw: number = Math.floor(Math.random() * 10001);
                             if (randomDraw <= 9885) {
                                 award = 0.0005;
                             } else if (randomDraw <= 9985) {
@@ -369,9 +373,12 @@ export class ClientConnection {
                                 cacheHits: 0
                             };
 
-                            let currentFaucetAwards:number = Config.safeProperty(user, ["totalFaucetAwards"], 0);
-                            let newFaucetAwards:number = currentFaucetAwards + award;
-                            this.dbManager.updateDocumentByKey("users", {accountName: this.accountInfo.account_name}, {lastFaucetTime: now, totalFaucetAwards: newFaucetAwards}).then((result) => {
+                            let currentFaucetAwards: number = Config.safeProperty(user, ["totalFaucetAwards"], 0);
+                            let newFaucetAwards: number = currentFaucetAwards + award;
+                            this.dbManager.updateDocumentByKey("users", {accountName: this.accountInfo.account_name}, {
+                                lastFaucetTime: now,
+                                totalFaucetAwards: newFaucetAwards
+                            }).then((result) => {
 
                                 // Pay the faucet recipient
                                 this.eos().faucetPayout(this.accountInfo.account_name, award).then((result) => {
@@ -430,7 +437,8 @@ export class ClientConnection {
                 // Return the faucet information
                 faucetInfo = {
                     account: this.accountInfo.account_name,
-                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs
+                    nextDrawSecs: Config.FAUCET_FREQUENCY_SECS - deltaSecs,
+                    drawEverySecs: Config.FAUCET_FREQUENCY_SECS
                 };
             }
         }
@@ -518,21 +526,20 @@ export class ClientConnection {
                 // This is a new user
                 let user: any = {
                     accountName: accountInfo.account_name,
-                    referrer: referrer,
                     connectionCount: 1,
                     eosBalance: accountInfo.core_liquid_balance,
-                    timeBalance: 0,
+                    timeBalance: accountInfo.timeBalance,
                     lastFaucetTime: null,
                     lastConnectedTime: moment().format(),
                     ipAddresses: [this.ipAddress]
                 };
                 if (referrer) {
-                    return this.dbManager.getDocumentByKey("users", {accountName: accountInfo.account_name}).then((referrer) => {
-                       if (referrer) {
-                           // Referrer exists in the database, so it's a go!
-                           user.referrer = referrer;
+                    return this.dbManager.getDocumentByKey("users", {accountName: referrer}).then((referrer) => {
+                       if (referrer && (referrer.accountName != accountInfo.account_name)) {
+                           // Referrer exists in the database and is not user herself, so it's a go!
+                           user.referrer = referrer.accountName;
                        }  else {
-                           // Referrer did not exist in the database - so we ignore
+                           // Referrer did not exist in the database or referred himself - so we ignore!
                            user.referrer = null;
                        }
                        return this.dbManager.insertDocument("users", user);

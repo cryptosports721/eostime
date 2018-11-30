@@ -7,6 +7,7 @@ import {Config, ViewState} from "./config";
 import {EOS_NETWORK, GUIManager} from "./GUIManager";
 import {FaucetManager} from "./FaucetManager";
 import {AuctionManager} from "./AuctionManager";
+import {DividendManager} from "./DividendManager";
 
 module EOSTime {
 
@@ -31,6 +32,7 @@ module EOSTime {
         private loginInProgress:boolean = false;
         private auctionManager:AuctionManager = null;
         private faucetManager:FaucetManager = null;
+        private dividendManager:DividendManager = null;
 
         private eosNetwork:string = "mainnet"; // "mainnet" or "jungle";
 
@@ -198,6 +200,8 @@ module EOSTime {
                 // Faucet page
                 if (window.location.pathname.indexOf("faucet") >= 0) {
                     this.faucetManager = new FaucetManager(this.socketMessage, this.guiManager);
+                } else if (window.location.pathname.indexOf("dividend") >= 0) {
+                    this.dividendManager = new DividendManager(this.socketMessage, this.guiManager);
                 }
             }
             this.guiManager.notifyCurrentLanguage();

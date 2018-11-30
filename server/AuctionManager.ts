@@ -99,18 +99,28 @@ export class AuctionManager {
      */
     public enablePolling(enable:boolean):void {
 
+        let pollFunc = async function() {
+            this.pollAuctionTable().then((result) => {
+                this.pollingTimer = setTimeout(() => {
+                    this.pollingTimer = null;
+                    pollFunc();
+                }, 250);
+            }).catch((err) => {
+                console.log("Error polling auction table - retry in 5 seconds");
+                this.pollingTimer = setTimeout(() => {
+                    this.pollingTimer = null;
+                    pollFunc();
+                }, 5000);
+            });
+        }.bind(this);
+
         if (enable) {
             if (this.pollingTimer == null) {
-                this.pollingTimer = setInterval(() => {
-                    this.pollAuctionTable().catch((reason) => {
-                       console.log("Polling auciton table failed");
-                       console.log(reason);
-                    });
-                }, 500);
+                pollFunc();
             }
         } else {
             if (this.pollingTimer) {
-                clearInterval(this.pollingTimer);
+                clearTimeout(this.pollingTimer);
                 this.pollingTimer = null;
             }
         }
@@ -185,19 +195,14 @@ export class AuctionManager {
                                         this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
                                     }
 
-                                    // Delay client balance update so payout transaction is confirmed on the blockchain, and
-                                    // send 2 - one at 7.5 seconds and another at 15 seconds after the payout
-                                    // was completed.
-                                    setTimeout(() => {
-                                        // Tell the winner to update his balances
-                                        let socketMessage: SocketMessage = ClientConnection.socketMessageFromAccountName(auctionToPayout.last_bidder);
-                                        if (socketMessage) {
+                                    // Tell the winner to update his balances 10 seconds from now
+                                    let socketMessage: SocketMessage = ClientConnection.socketMessageFromAccountName(auctionToPayout.last_bidder);
+                                    if (socketMessage) {
+                                        socketMessage.stcUpdateBalances();
+                                        setTimeout(() => {
                                             socketMessage.stcUpdateBalances();
-                                            setTimeout(() => {
-                                                socketMessage.stcUpdateBalances();
-                                            }, 7500);
-                                        }
-                                    }, 7500);
+                                        }, 10000);
+                                    }
 
                                     // Save our auction that we won
                                     return this.dbManager.insertDocument("auctions", auctionToPayout);
@@ -218,21 +223,38 @@ export class AuctionManager {
 
                     resolve();
                 });
+            }).catch((err) => {
+                reject(err);
             });
-
         });
     }
 
     /**
-     * TODO Modify to take parameters from the payload auction data
+     * Sets our auction status as having been paid (we saw a
+     * eostimecontr::rzpaywinner action on the blockchain).
      * @param payload
      * @returns {Promise<void>}
      */
-    public updateAuction(payload:any):Promise<void> {
+    public markAsPaid(payload:any):Promise<void> {
         let updatedValues:any = {
-            status: "paid",
+            status: "paid"
         };
         return this.dbManager.updateDocumentByKey("auctions", {id: payload.redzone_id}, updatedValues);
+    }
+
+    /**
+     * Tag the paid auction with the transaction ID of the payment
+     * transaction (we saw an eosio.token::transfer with winning
+     * memo field.
+     * @param {number} auctionId
+     * @param {string} txid
+     * @returns {Promise<void>}
+     */
+    public assignPaymentTransactionId(auctionId:number, txid:string):Promise<void> {
+        let updatedValues:any = {
+            winner_payment_txid: txid
+        };
+        return this.dbManager.updateDocumentByKey("auctions", {id: auctionId}, updatedValues);
     }
 
     /**
@@ -242,7 +264,7 @@ export class AuctionManager {
      * @returns {Promise<any>}
      */
     public processBlock(blockNumber:number, timestamp:string):Promise<void> {
-        return Promise.resolve();
+        return this.dbManager.setConfig("currentBlockNumber", blockNumber);
     }
 
     /**
@@ -250,19 +272,26 @@ export class AuctionManager {
      * @param {number} blockNumber
      * @returns {Promise<any>}
      */
-    public rollbackToBlock(blockNumber:number):Promise<void> {
-        let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
-            try {
-                await this.dbManager.updateDocumentByKey("applicationSettings", {key: "currentBlockNumber"}, {value: blockNumber}, session);
-                await this.dbManager.deleteDocumentsByKey("bidreceipts", {blockNumber: {$gt: blockNumber}}, session);
-                await this.dbManager.deleteDocumentsByKey("eostimecontr",{blockNumber: {$gt: blockNumber}}, session);
-                await this.dbManager.deleteDocumentsByKey("timetokens", {blockNumber: {$gt: blockNumber}}, session);
-            } catch (err) {
-                console.log("Error rolling back to block " + blockNumber.toString());
-                console.log(err);
-            }
-        };
-        return this.dbManager.executeTransaction(txFunc);
+    public rollbackToBlock(blockNumber:number):Promise<any> {
+        // let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
+        //     try {
+        //         await this.dbManager.updateDocumentByKey("applicationSettings", {key: "currentBlockNumber"}, {value: blockNumber}, session);
+        //         await this.dbManager.deleteDocumentsByKey("bidreceipts", {blockNumber: {$gt: blockNumber}}, session);
+        //         await this.dbManager.deleteDocumentsByKey("eostimecontr",{blockNumber: {$gt: blockNumber}}, session);
+        //         await this.dbManager.deleteDocumentsByKey("timetokens", {blockNumber: {$gt: blockNumber}}, session);
+        //     } catch (err) {
+        //         console.log("Error rolling back to block " + blockNumber.toString());
+        //         console.log(err);
+        //     }
+        // };
+        // return this.dbManager.executeTransaction(txFunc);
+
+        let promises:Promise<void>[] = new Array<Promise<void>>();
+        promises.push(this.dbManager.updateDocumentByKey("applicationSettings", {key: "currentBlockNumber"}, {value: blockNumber}));
+        promises.push(this.dbManager.deleteDocumentsByKey("bidreceipts", {blockNumber: {$gt: blockNumber}}));
+        promises.push(this.dbManager.deleteDocumentsByKey("eostimecontr",{blockNumber: {$gt: blockNumber}}));
+        promises.push(this.dbManager.deleteDocumentsByKey("timetokens", {blockNumber: {$gt: blockNumber}}));
+        return Promise.all(promises);
     }
 
     /**
@@ -287,6 +316,21 @@ export class AuctionManager {
             quantity: quantity,
             memo: Config.safeProperty(payload, ["data.memo"], null)
         }
+        if (payload.hasOwnProperty("auctionType")) {
+            document["auctionType"] = payload.auctionType;
+        } else {
+            document["auctionType"] = null;
+        }
+        if (payload.hasOwnProperty("auctionId")) {
+            document["auctionId"] = payload.auctionId;
+        } else {
+            document["auctionId"] = null;
+        }
+        if (payload.hasOwnProperty("bidId")) {
+            document["bidId"] = payload.bidId;
+        } else {
+            document["bidId"] = null;
+        }
         return this.dbManager.insertDocument(collection, document, session);
     }
 
@@ -304,6 +348,7 @@ export class AuctionManager {
             blockNumber: payload.blockNumber,
             txid: Config.safeProperty(payload, ["transactionId"], null),
             bidder: payload.data.bidder,
+            referrer: payload.data.referrer,
             auctionId: payload.data.redzone_id,
             auctionType: payload.data.redzone_type,
             bidPrice: parseFloat(payload.data.bid_price),
@@ -336,6 +381,21 @@ export class AuctionManager {
             to: Config.safeProperty(payload, ["data.to"], null),
             quantity: quantity,
             memo: Config.safeProperty(payload, ["data.memo"], null)
+        }
+        if (payload.hasOwnProperty("auctionType")) {
+            document["auctionType"] = payload.auctionType;
+        } else {
+            document["auctionType"] = null;
+        }
+        if (payload.hasOwnProperty("auctionId")) {
+            document["auctionId"] = payload.auctionId;
+        } else {
+            document["auctionId"] = null;
+        }
+        if (payload.hasOwnProperty("bidId")) {
+            document["bidId"] = payload.bidId;
+        } else {
+            document["bidId"] = null;
         }
         return this.dbManager.insertDocument("timetokens", document, session);
     }
@@ -386,6 +446,8 @@ export class AuctionManager {
             });
             if (!blockchainAuction) {
                 // This auction is no longer available
+                console.log("Removing: " + currentAuction.type);
+                console.log(auctionsFromBlockchain);
                 toRet.removed.push(currentAuction);
             } else {
                 // See if we have ended

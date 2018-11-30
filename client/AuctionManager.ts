@@ -96,22 +96,34 @@ export class AuctionManager extends ViewStateObserver {
 
         this.socketMessage.getSocket().on(SocketMessage.STC_REMOVE_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
-            let $auctionElementToRemove: JQuery<HTMLElement> = this.auctionElements.find(($elem:JQuery<HTMLElement>) => {
+            console.log("Remove auction");
+            console.log(auction);
+            console.log("====================");
+
+            // Removes all elements of the type specified by the auction parameter
+            for (let i:number = 0; i < this.auctionElements.length; i++) {
+                let $elem:JQuery<HTMLElement> = this.auctionElements[i];
                 let auctionToCheck:any = $elem.data("auction");
-                return (auctionToCheck.id == auction.id);
-            });
-            if ($auctionElementToRemove) {
-                $auctionElementToRemove.detach();
+                if (auctionToCheck.type == auction.type) {
+                    this.auctionElements.splice(i, 1);
+                    $elem.detach();
+                }
             }
         });
 
         this.socketMessage.getSocket().on(SocketMessage.STC_ADD_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
+            console.log("Add auction");
+            console.log(auction);
+            console.log("====================");
             this.insertNewAuctionElement(auction);
         });
 
         this.socketMessage.getSocket().on(SocketMessage.STC_CHANGE_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
+            console.log("Change auction");
+            console.log(auction);
+            console.log("====================");
             let $auctionElementToUpdate: JQuery<HTMLElement> = this.auctionElements.find(($elem:JQuery<HTMLElement>) => {
                 let auctionToCheck:any = $elem.data("auction");
                 return (auctionToCheck.type == auction.type);
@@ -132,9 +144,12 @@ export class AuctionManager extends ViewStateObserver {
 
         this.socketMessage.getSocket().on(SocketMessage.STC_END_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
+            console.log("End auction");
+            console.log(auction);
+            console.log("====================");
             let $auctionElementToUpdate: JQuery<HTMLElement> = this.auctionElements.find(($elem:JQuery<HTMLElement>) => {
                 let auctionToCheck:any = $elem.data("auction");
-                return (auctionToCheck.id == auction.id);
+                return (auctionToCheck.type == auction.type);
             });
             if ($auctionElementToUpdate) {
                 let currentAuctionData:any = $auctionElementToUpdate.data("auction");
@@ -151,6 +166,9 @@ export class AuctionManager extends ViewStateObserver {
 
         this.socketMessage.getSocket().on(SocketMessage.STC_WINNER_AUCTION, (auction:any) => {
             auction = JSON.parse(auction);
+            console.log("Winner auction");
+            console.log(auction);
+            console.log("====================");
             this.addWinnerToLeaderBoard(auction);
             if (this.accountInfo && auction.last_bidder == this.accountInfo.account_name) {
                 setTimeout(() => {
@@ -321,8 +339,8 @@ export class AuctionManager extends ViewStateObserver {
         this.auctionElements.sort((a:any, b:any):number => {
             const aa:any = a.data("auction");
             const ba:any = b.data("auction");
-            const af:number = parseFloat(aa.bid_price);
-            const bf:number = parseFloat(ba.bid_price);
+            const af:number = parseFloat(aa.type);
+            const bf:number = parseFloat(ba.type);
             if (af > bf) {
                 return -1;
             } else if (af < bf) {

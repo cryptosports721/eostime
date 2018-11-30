@@ -17,6 +17,22 @@ export class Config extends ConfigBase {
 
     public static FAUCET_PAYOUT_MEMO:string = 'eostime.io faucet payout';
 
+    /**
+     * Sets the schedule for dividend payouts
+     * {
+     *  second (0-59)
+     *  minute (0-59)
+     *  hour (0-23)
+     *  date (1-31)
+     *  month (0-11)
+     *  year
+     *  dayOfWeek (0-6) Starts with Sunday
+     * }
+     */
+    public static DIVIDEND_PAYOUT_SCHEDULE:any = {
+        second: 59
+    }
+
     /*
     public static EOS_CONFIG:any = {
         "mainnet": {
