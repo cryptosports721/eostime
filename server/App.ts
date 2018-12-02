@@ -7,7 +7,6 @@ import {EosWatcher} from "./EosWatcher";
 import {EosBlockchain} from "./EosBlockchain";
 import {AuctionManager} from "./AuctionManager";
 import {DBManager} from "./DBManager";
-import {ClientSession, MongoClient} from "mongodb";
 import moment = require("moment");
 import {EosWatcherCallbacks} from "./EosWatcherCallbacks";
 import {DBNodeos} from "./DBNodeos";
@@ -193,7 +192,7 @@ module App {
             this.sio.on('connect', (socket:Socket.Socket) => {
 
                 // Spawn new EOS client connection manager for this socket
-                new ClientConnection(socket, this.dbManager, this.auctionManager, () => {return this.eosBlockchain});
+                new ClientConnection(socket, this.dbManager, this.auctionManager, this.dividendManager,() => {return this.eosBlockchain});
 
             });
 

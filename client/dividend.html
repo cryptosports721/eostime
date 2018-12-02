@@ -21,45 +21,33 @@
         
             <!-- dividend page -->
             <div class="row">
-            
-                <div class="col-12 text-center mb-5">
-                <h5 class="english lang">NEXT PAYOUT</h5>
-                <h5 class="chinese lang d-none">?????</h5>
-                <div class="count_down big">
-                	<div class="count_down_box" id="hours"><div class="box">12</div></div>
-                	<div class="dots">:</div>
-                	<div class="count_down_box" id="minutes"><div class="box">05</div></div>
-                	<div class="dots">:</div>
-                	<div class="count_down_box" id="seconds"><div class="box">56</div></div>
-                </div>
-                </div>
-                
-                <div class="col-6 px-2">
+
+                <div class="col-12 col-lg-6 px-2">
         
                     <div class="card dark mb-3">
                         <div class="card-body">
-                            <div class="card-title font-muted english lang">Dividend Pool</div>
-                            <div class="card-title font-muted chinese lang d-none">???</div>
+                            <div class="card-title font-muted english lang d-none">Dividend Pool</div>
+                            <div class="card-title font-muted chinese lang d-none">紅利池</div>
                             <div class="flex-center mb-5 mt-5">
                                 <span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span>
-                                <h3 class="no-m">1789.0978</h3>
+                                <h3 class="dividend-pool no-m"></h3>
                             </div>
                             
                             <div class="flex-space-between mb-2 info-row px-2 py-1">
-                                <span class="english lang">Your Expected Payout</span>
-                                <span class="chinese lang d-none">??????</span>
+                                <span class="english lang d-none">Your Expected Payout</span>
+                                <span class="chinese lang d-none">您預期的付款</span>
                                 <div class="flex-center">
                                     <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
-                                    2.0098
+                                    <span class="expected-payout"></span>
                                 </div>
                             </div>
                             
                             <div class="flex-space-between mb-2 info-row px-2 py-1">
-                                <span class="english lang">Expected Payout per 10k TIME</span>
-                                <span class="chinese lang d-none">???10K TIME??</span>
+                                <span class="english lang d-none">Expected Payout per 10k TIME</span>
+                                <span class="chinese lang d-none">每10k TIME預計支付</span>
                                 <div class="flex-center">
                                     <span class="icon-eos_icon font-16 font-blue-glow m-r-10"></span>
-                                    2.0098
+                                    <span class="expected-payout-per-100K"></span>
                                 </div>
                             </div>
                         </div>
@@ -67,31 +55,36 @@
                     
                 </div>
         
-                <div class="col-6 px-2">
+                <div class="col-12 col-lg-6 px-2">
                     <div class="card dark mb-3">
                         <div class="card-body">
-                            <div class="card-title font-muted english lang">Your Dividends</div>
-                            <div class="card-title font-muted chinese lang d-none">????</div>
-                            <div class="flex-center mb-5 mt-5">
-                                <span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span>
-                                <h3 class="no-m">1789.0978</h3>
+                            <div class="card-title font-muted english lang d-none">Next Payout</div>
+                            <div class="card-title font-muted chinese lang d-none">下一個付款</div>
+                            <div class="flex-center mb-5" style="margin-top: 36px">
+                                <div class="count_down d-none" style="font-size: 1.54rem">
+                                    <div class="count_down_box" id="hours"><div class="box"></div></div>
+                                    <div class="dots">:</div>
+                                    <div class="count_down_box" id="minutes"><div class="box"></div></div>
+                                    <div class="dots">:</div>
+                                    <div class="count_down_box" id="seconds"><div class="box"></div></div>
+                                </div>
                             </div>
         
                             <div class="flex-space-between mb-2 info-row px-2 py-1">
-                                <span class="english lang">Your TIME Tokens</span>
-                                <span class="chinese lang d-none">Your TIME Tokens</span>
+                                <span class="english lang d-none">Your TIME Tokens</span>
+                                <span class="chinese lang d-none">你的時間代幣</span>
                                 <div class="flex-center">
                                     <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
-                                    2.0098
+                                    <span class="time-token-balance"></span>
                                 </div>
                             </div>
                             
                             <div class="flex-space-between mb-2 info-row px-2 py-1">
-                                <span class="english lang">Total TIME Tokens Issued</span>
-                                <span class="chinese lang d-none">Total TIME Tokens Issued</span>
+                                <span class="english lang d-none">Total TIME Tokens Issued</span>
+                                <span class="chinese lang d-none">發布的總時間</span>
                                 <div class="flex-center">
                                     <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
-                                    47892048.9887
+                                    <span class="time-tokens-issued"></span>
                                 </div>
                             </div>
                         </div>
@@ -101,124 +94,66 @@
             </div>
             
             <div class="row">
-                <div class="col-6 px-2">
+                <div class="col-12 px-2">
                     <div class="card dark mb-3">
                         <div class="card-body">
-                            <div class="card-title font-muted english lang">How Does it Works?</div>
-                            <div class="card-title font-muted chinese lang d-none">???</div>
-                            
-                            <!-- english -->
-                            <div class="mb-2 info-row px-4 py-4 english lang">
-                                Every hour we payout 100% of the profits to TIME token holders in the form of dividends. There is no need to stake your TIME tokens, simply owning them will earn you a payout.
-                                <br/>
-                                All payouts are handled automatically by our system. There is no need to claim.
-                                <hr/>
-                                <span class="badge badge-primary">Example</span>
-                                <br/>
-                                <ol>
-                                    <li>Dividends pool is 400 EOS</li>
-                                    <li>You own 1000 TIME Tokens</li>
-                                    <li>A total of 4000 TIME Tokens have been issued</li>
-                                    <li>You will earn 25% of the divided pool - 100 EOS</li>
-                                </ol>
+                            <div class="card-title font-muted english lang d-none">How Does it Work?</div>
+                            <div class="card-title font-muted chinese lang d-none">它是如何工作的？</div>
+                            <div class="row">
+                                <div class="col-12 col-lg-6 mb-2 info-row px-4 py-4">
+                                    <div class="english lang d-none">
+                                        <ul>
+                                            <li>
+                                                Every hour we payout 100% of the profits to TIME token holders
+                                                in the form of dividends.
+                                            </li>
+                                            <li>
+                                                There is no need to stake your TIME tokens,
+                                                simply owning them will earn you a payout.
+                                            </li>
+                                            <li>
+                                                All payouts are handled automatically by our system. There is no need to claim.
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="chinese lang d-none">
+                                        <ul>
+                                            <li>
+                                                我們每小時都會以股息的形式向TIME代幣持有人支付100％的利潤。
+                                            </li>
+                                            <li>
+                                                沒有必要放置您的TIME代幣，只需擁有它們就可以獲得支付。
+                                            </li>
+                                            <li>
+                                                所有付款都由我們的系統自動處理。沒有必要聲稱。
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-6 mb-2 info-row px-4 py-4">
+                                    <div class="english lang d-none">
+                                        <span class="badge badge-primary">Example</span>
+                                        <ol>
+                                            <li>Dividend pool is 400 EOS</li>
+                                            <li>You own 1000 TIME Tokens</li>
+                                            <li>A total of 4000 TIME Tokens have been issued</li>
+                                            <li>You will earn 25% of the divided pool - 100 EOS</li>
+                                        </ol>
+                                    </div>
+                                    <div class="chinese lang d-none">
+                                        <span class="badge badge-primary">例</span>
+                                        <ol>
+                                            <li>紅利池是400 EOS</li>
+                                            <li>你擁有1000 TIME 代幣</li>
+                                            <li>共發布了4000個時間令牌</li>
+                                            <li>您將獲得分割池的25％ - 100 EOS</li>
+                                        </ol>
+                                    </div>
+                                </div>
                             </div>
-                            <!-- /english end -->
-        
-                            <!-- chinese -->
-                            <div class="mb-2 info-row px-4 py-4 chinese lang d-none">
-                                Every hour we payout 100% of the profits to TIME token holders in the form of dividends. There is no need to stake your TIME tokens, simply owning them will earn you a payout.
-                                <br/>
-                                All payouts are handled automatically by our system. There is no need to claim.
-                                <hr/>
-                                <span class="badge badge-primary">Example</span>
-                                <br/>
-                                <ol>
-                                    <li>Dividends pool is 400 EOS</li>
-                                    <li>You own 1000 TIME Tokens</li>
-                                    <li>A total of 4000 TIME Tokens have been issued</li>
-                                    <li>You will earn 25% of the divided pool - 100 EOS</li>
-                                </ol>
-                            </div>
-                            <!-- /chinese end -->
                             
                         </div>
                     </div>
-                </div>  
-                
-              <div class="col-6 px-2">
-                  <div class="card dark">
-                        <div class="card-body p-0">
-                            <h5 class="my-4 text-center english lang">TIME Token Distribution</h5>
-                            <h5 class="my-4 text-center chinese lang d-none">TIME Token Distribution</h5>
-                            <div class="flex-center flex-column mb-5 mt-5">
-                                <div class="flex-center">
-                                    <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
-                                    <h3 class="no-m">88,800,000,000</h3>
-                                </div>
-                                <small class="font-muted english lang">Total Tokens</small>
-                                <small class="font-muted chinese lang d-none">Total Tokens</small>
-                            </div>
-                            <ul class="referral-table header yellow mt-3 mb-0 px-3">
-                                <li class="info-row no-bg">
-                                <span class="english lang">Distribution</span>
-                                <span class="chinese lang d-none">??</span>
-                                <span class="english lang">Amount</span>
-                                <span class="chinese lang d-none">??</span>
-                                <span class="english lang">More Info</span>
-                                <span class="chinese lang d-none">????</span>
-                                </li>
-                            </ul>
-                            
-                            <ul class="referral-table leaders mb-0">
-                                <li class="info-row big mt-1">
-                                    <span class="english lang">Play to Earn</span>
-                                    <span class="chinese lang d-none">Play to Earn</span>
-                                    <span>        
-                                        <div class="flex-center">
-                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
-                                            <span>70.59%</span>
-                                        </div>
-                                    </span>
-                                    <span><i class="far fa-question-circle info-modal text-muted"></i></span>
-                                </li>
-                                <li class="info-row big">
-                                    <span class="english lang">Win to Earn</span>
-                                    <span class="chinese lang d-none">??</span>
-                                    <span>        
-                                        <div class="flex-center">
-                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
-                                            <span>11.76%</span>
-                                        </div>
-                                    </span>
-                                    <span><i class="far fa-question-circle info-modal text-muted"></i></span>
-                                </li>
-                                <li class="info-row big">
-                                    <span class="english lang">Airdrops</span>
-                                    <span class="chinese lang d-none">???</span>
-                                    <span>        
-                                        <div class="flex-center">
-                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
-                                            <span>11.76%</span>
-                                        </div>
-                                    </span>
-                                    <span><i class="far fa-question-circle info-modal text-muted"></i></span>
-                                </li>
-                                <li class="info-row big">
-                                    <span class="english lang">Subscribe to Earn</span>
-                                    <span class="chinese lang d-none">??</span>
-                                    <span>        
-                                        <div class="flex-center">
-                                            <span class="icon-time_token1 font-16 col-yellow m-r-10"></span>
-                                            <span>5.88%</span>
-                                        </div>
-                                    </span>
-                                    <span><i class="far fa-question-circle info-modal text-muted"></i></span>
-                                </li>
-                            </ul>
-        
-        
-                        </div>
-                    </div>        
                 </div>
             </div>
             <!-- /end dividend page -->

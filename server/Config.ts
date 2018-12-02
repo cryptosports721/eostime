@@ -30,7 +30,7 @@ export class Config extends ConfigBase {
      * }
      */
     public static DIVIDEND_PAYOUT_SCHEDULE:any = {
-        second: 59
+        minute: 0
     }
 
     /*

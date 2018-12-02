@@ -25,7 +25,7 @@ export class DividendManager {
             for (let key in Config.DIVIDEND_PAYOUT_SCHEDULE) {
                 rule[key] = Config.DIVIDEND_PAYOUT_SCHEDULE[key];
             }
-            schedule.scheduleJob(rule, this.dividendPayoutFunction.bind(this));
+            this.job = schedule.scheduleJob(rule, this.dividendPayoutFunction.bind(this));
         }
     }
 
@@ -38,6 +38,23 @@ export class DividendManager {
 
     public currentDividendPool():Promise<number> {
         return this.eosBlockchain.getBalance(Config.eostimeDividendContract);
+    }
+
+    public getDividendInfo():Promise<any> {
+
+        return new Promise((resolve:any) => {
+            this.currentDividendPool().then((result:any) => {
+                let toRet:any = {
+                    dividendPool: parseFloat(result[0]),
+                    nextPayout: 0
+                }
+                if (this.job) {
+                    toRet.nextPayout = Math.floor(this.job.nextInvocation().getTime()/1000);
+                }
+                resolve(toRet);
+            });
+        });
+
     }
 
     private dividendPayoutFunction():void {

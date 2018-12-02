@@ -5,6 +5,7 @@ import {EosBlockchain} from "./EosBlockchain";
 import {Config} from "./Config";
 import {DBManager} from "./DBManager";
 import {AuctionManager} from "./AuctionManager";
+import {DividendManager} from "./DividendManager";
 
 const moment = require('moment');
 
@@ -21,6 +22,7 @@ export class ClientConnection {
     private accountInfo:any = null;
     private dbManager:DBManager = null;
     private auctionManager:AuctionManager = null;
+    private dividendManager:DividendManager = null;
     private static GEOLOCATION_PROVIDERS:string[] = null;
 
     // Used to handle someone banging at the faucet
@@ -38,10 +40,19 @@ export class ClientConnection {
         }
     }
 
-    constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager, eos: () => EosBlockchain) {
+    /**
+     * Constructor
+     * @param {SocketIO.Socket} _socket
+     * @param {DBManager} dbManager
+     * @param {AuctionManager} auctionManager
+     * @param {DividendManager} dividendManager
+     * @param {() => EosBlockchain} eos
+     */
+    constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager, dividendManager:DividendManager, eos: () => EosBlockchain) {
 
         this.dbManager = dbManager;
         this.auctionManager = auctionManager;
+        this.dividendManager = dividendManager;
         this.eos = eos;
 
         if (!this.isBlockedIPAddress(_socket.handshake.address)) {
@@ -267,6 +278,12 @@ export class ClientConnection {
         socket.on(SocketMessage.CTS_GET_WINNERS_LIST, (data:any) => {
             let recentWinners:any[] = this.auctionManager.getRecentWinners();
             this.socketMessage.stcSendPastWinners(recentWinners);
+        });
+
+        socket.on(SocketMessage.CTS_GET_DIVIDEND_INFO, (data:any) => {
+            this.dividendManager.getDividendInfo().then((dividendInfo:any) => {
+                this.socketMessage.stcDividendInfo(dividendInfo);
+            });
         });
 
         socket.on(SocketMessage.CTS_GET_FAUCET_INFO, (data:any) => {

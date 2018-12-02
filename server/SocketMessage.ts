@@ -270,12 +270,22 @@ export class SocketMessage {
 
     /**
      * Tells client about the result of a faucet draw
-     * @type {string}
+     * @param faucetAward
      */
     public static STC_FAUCET_AWARD:string = "STC_FAUCET_AWARD";
     public stcFaucetAward(faucetAward:any):void {
         let data:any = {...faucetAward, ...SocketMessage.standardServerDataObject()};
         this.socket.emit(SocketMessage.STC_FAUCET_AWARD, JSON.stringify(data));
+    }
+
+    /**
+     * Tells the client about the current dividend pool
+     * @param dividendInfo
+     */
+    public static STC_DIVIDEND_INFO:string = "STC_DIVIDEND_INFO";
+    public stcDividendInfo(dividendInfo:any):void {
+        let data:any = {...dividendInfo, ...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_DIVIDEND_INFO, JSON.stringify(data));
     }
 
 }
