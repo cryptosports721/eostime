@@ -57,16 +57,23 @@ module EOSTime {
                 // Load the remainder of the page
                 this.loadComponents().then(() => {
 
-                    // Grab our initial EOS network
-                    let savedEOSNetwork:string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
-                    if (savedEOSNetwork) {
-                        this.eosNetwork = savedEOSNetwork;
-                    } else {
-                        localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                    // We only support adjusting saved network if we are on the jungle node
+                    if ((location.host.indexOf("jungle") >= 0) || (location.host.indexOf("localhost") >= 0)) {
+                        // Grab our initial EOS network
+                        let savedEOSNetwork: string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
+                        if (savedEOSNetwork) {
+                            this.eosNetwork = savedEOSNetwork;
+                        } else {
+                            localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                        }
+
+                        // Show our selector
+                        $(".network-selector-dropdown").removeClass("d-none");
                     }
 
                     // The first thing we do is connect to the API server
-                    let apiServer:string = Config.API_SERVER.host + ":" + Config.API_SERVER.port.toString();
+                    let apiServerSpec:any = Config.API_SERVER[this.eosNetwork];
+                    let apiServer:string = apiServerSpec.host + ":" + apiServerSpec.port.toString();
                     let socket: Socket = io(apiServer, {transports: ['websocket'], upgrade: false, "forceNew": true});
                     this.socketMessage = new SocketMessage(socket);
                     this.attachSocketListeners(socket);
@@ -93,7 +100,15 @@ module EOSTime {
                         ScatterJS.scatter.connect("eostime", {initTimeout: 10000}).then((connected) => {
                             this.hasScatter = connected;
                             if (!connected) {
-                                // TODO NEEDS TO INSTALL SCATTER
+                                (<any> $).notify({
+                                    title: "<strong>Please Install Scatter</strong><br>",
+                                    message: "eostime.io requires the installation of an EOS wallet called <strong>scatter</strong>. Click on this notification for installation instructions.",
+                                    url: 'https://get-scatter.com/',
+                                    target: '_blank'
+                                },{
+                                    type: "warning",
+                                    delay: 0,
+                                });
                             } else {
                                 // Try to login
                                 if (ScatterJS.scatter.identity) {
@@ -117,8 +132,9 @@ module EOSTime {
          * @param {(err: Error) => void} callback
          */
         private loadComponents():Promise<any> {
+            let qs:string = "?nonce=" + Math.floor(Math.random()*1000000);
             let siteMenu:Promise<any> = new Promise((resolve, reject) => {
-                $("#site_menu").load('components/menu.html', function(response, status, xhr) {
+                $("#site_menu").load('components/menu.html' + qs, function(response, status, xhr) {
                     if ( status == "error" ) {
                         var msg = "Error loading the menu component: " + xhr.status + " " + xhr.statusText;
                         reject(new Error(msg));
@@ -143,7 +159,7 @@ module EOSTime {
             });
 
             let siteFooter:Promise<any> = new Promise((resolve, reject) => {
-                $("#footer_container").load('components/footer.html', function(response, status, xhr) {
+                $("#footer_container").load('components/footer.html' + qs, function(response, status, xhr) {
                     if ( status == "error" ) {
                         var msg = "Error loading the footer component: " + xhr.status + " " + xhr.statusText;
                         reject(new Error(msg));
@@ -342,6 +358,8 @@ module EOSTime {
                 if (eosBalance) {
                     eosBalance = parseFloat(eosBalance).toFixed(4);
                     this.guiManager.updateEOSBalance(eosBalance);
+                    let evt:CustomEvent = new CustomEvent("updateEOSBalance", {"detail": eosBalance});
+                    document.dispatchEvent(evt);
                 }
                 this.eos.getCurrencyBalance(Config.TIME_TOKEN_CONTRACT, this.account.name, Config.TIME_TOKEN_SYMBOL).then((result:string[]) => {
                     let coinBalance = result.find(currency => currency.indexOf(Config.TIME_TOKEN_SYMBOL) >= 0);
@@ -351,6 +369,8 @@ module EOSTime {
                     } else {
                         this.guiManager.updateCoinBalance("0.0000");
                     }
+                    let evt:CustomEvent = new CustomEvent("updateTIMEBalance", {"detail": coinBalance});
+                    document.dispatchEvent(evt);
                 });
             }).catch(error => console.error(error));
         }
@@ -511,6 +531,20 @@ module EOSTime {
                         this.eosNetwork = event.detail.toString();
                         this.login();
                         localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+
+                        // Disconnect from existing API server and connect to the new one
+                        this.disconnectFromApiServer();
+
+                        // Connect to new API server
+                        let apiServerSpec:any = Config.API_SERVER[this.eosNetwork];
+                        let apiServer:string = apiServerSpec.host + ":" + apiServerSpec.port.toString();
+                        let socket: Socket = io(apiServer, {transports: ['websocket'], upgrade: false, "forceNew": true});
+                        this.socketMessage = new SocketMessage(socket);
+                        this.attachSocketListeners(socket);
+
+                        // Notify everyone about the new API server
+                        let evt:CustomEvent = new CustomEvent("updateSocketMessage", {"detail": this.socketMessage});
+                        document.dispatchEvent(evt);
                     });
                 }
             });

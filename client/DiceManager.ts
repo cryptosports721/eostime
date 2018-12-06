@@ -35,6 +35,11 @@ export class DiceManager extends ViewStateObserver {
             this.eos = event.detail;
         });
 
+        // Listen for new socketMessage
+        $(document).on("updateSocketMessage", (event) => {
+            this.socketMessage = <any> event.detail;
+        });
+
         // Listen for
         $(document).on("rollUnder", (event) => {
 

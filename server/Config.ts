@@ -7,13 +7,13 @@ export class Config extends ConfigBase {
 
     public static EOS_ENDPOINTS:any = {
         "localhost": "http://localhost:8888",
-        "jungle": "https://junglehistory.cryptolions.io:443",
+        "jungle": "https://jungle2.cryptolions.io:443",
     };
 
     public static WINNERS_LIST_LIMIT:number = 100;
 
     // TODO Make this 1 hour
-    public static FAUCET_FREQUENCY_SECS = 20; // 3600; // 1 hour
+    public static FAUCET_FREQUENCY_SECS = 3600; // 1 hour
 
     public static FAUCET_PAYOUT_MEMO:string = 'eostime.io faucet payout';
 

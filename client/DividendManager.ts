@@ -32,27 +32,26 @@ export class DividendManager extends ViewStateObserver {
         // Listen for a new eos blockchain object
         $(document).on("updateEos", (event) => {
             this.eos = event.detail;
-            if (this.eos) {
-                this.eos.getTableRows(
-                    {
-                        code: Config.TIME_TOKEN_CONTRACT,
-                        scope: Config.TIME_TOKEN_SYMBOL,
-                        table: "stat",
-                        json: true,
-                    }
-                ).then((timeTokenTable:any) => {
-                    this.timeTokenSupply = parseFloat(timeTokenTable.rows[0].supply);
-                    return this.eos.getAccount(Config.eostimeDividendContract);
-                }).then((result:any) => {
-                   this.dividendBalance = parseFloat(result.core_liquid_balance);
-                   this.updateDividendFields();
-                });
-            }
+            this.updatePage();
         });
 
         // We now have a socket connection
         $(document).on("initializeGameGUI", (event) => {
             this.socketMessage.ctsGetDividendInfo();
+        });
+
+        $(".refresh").on("click", (event) => {
+            this.updatePage(true);
+        });
+
+        $(document).on("updateEOSBalance", (event) => {
+            let balance = event.detail;
+        });
+
+        $(document).on("updateTIMEBalance", (event) => {
+            let balance:any = event.detail;
+            this.timeTokenBalance = parseFloat(balance);
+            this.updatePage(false);
         });
     }
 
@@ -67,21 +66,40 @@ export class DividendManager extends ViewStateObserver {
             if (coinBalance) {
                 this.timeTokenBalance = parseFloat(coinBalance);
             }
-            this.updateDividendFields();
+            this.updateDividendFields(false);
         });
     }
 
     protected setLoggedOutView():void {
         super.setLoggedOutView();
         this.timeTokenBalance = 0.0;
-        this.updateDividendFields();
+        this.updateDividendFields(false);
     }
 
     // ========================================================================
     // PRIVATE METHODS
     // ========================================================================
 
-    private updateDividendFields():void {
+    private updatePage(animate:boolean = false):void {
+        if (this.eos) {
+            this.eos.getTableRows(
+                {
+                    code: Config.TIME_TOKEN_CONTRACT,
+                    scope: Config.TIME_TOKEN_SYMBOL,
+                    table: "stat",
+                    json: true,
+                }
+            ).then((timeTokenTable:any) => {
+                this.timeTokenSupply = parseFloat(timeTokenTable.rows[0].supply);
+                return this.eos.getAccount(Config.eostimeDividendContract);
+            }).then((result:any) => {
+                this.dividendBalance = parseFloat(result.core_liquid_balance);
+                this.updateDividendFields(animate);
+            });
+        }
+    }
+
+    private updateDividendFields(animate:boolean):void {
         $(".time-token-balance").text(this.timeTokenBalance.toFixed(4));
         $(".time-tokens-issued").text(this.timeTokenSupply.toFixed(4));
         $(".dividend-pool").text(this.dividendBalance.toFixed(4));
@@ -92,6 +110,9 @@ export class DividendManager extends ViewStateObserver {
         } else {
             $(".expected-payout").text(expectedPayout.toFixed(4));
             $(".expected-payout").removeClass("d-none");
+            if (animate) {
+                (<any> $(".expected-payout")).animateCss("bounceIn");
+            }
         }
 
         let expPer100:number = this.dividendBalance * 10000/this.timeTokenSupply;
@@ -100,6 +121,13 @@ export class DividendManager extends ViewStateObserver {
         } else {
             $(".expected-payout-per-100K").text(expPer100.toFixed(4));
             $(".expected-payout-per-100K").removeClass("d-none");
+            if (animate) {
+                (<any> $(".expected-payout-per-100K")).animateCss("bounceIn");
+            }
+        }
+
+        if (animate) {
+            (<any> $(".dividend-pool")).animateCss("bounceIn");
         }
     }
 
@@ -112,34 +140,43 @@ export class DividendManager extends ViewStateObserver {
             this.nextPayout = data.nextPayout;
             this.dividendPool = data.dividendPool;
             if (!this.timer) {
-                this.update(this.dividendPool);
+                this.updateCountdownTimer();
                 $(".count_down").removeClass("d-none");
-                this.timer = setTimeout(this.update.bind(this), 1000);
+                this.timer = setTimeout(this.updateCountdownTimer.bind(this), 1000);
+                this.updatePage(true);
             }
         });
     }
 
-    // Updates our page (called on a timer)
-    private update(dividendPool:number = null):void {
+    /**
+     * Updates the timer on our page (called on a timer)
+     */
+    private updateCountdownTimer():void {
         let timeObj:any;
         let remainingSecs:number = this.nextPayout - Math.floor(new Date().getTime()/1000);
         if (remainingSecs > 0) {
             timeObj = this.synthesizeTimeObj(remainingSecs);
-            this.timer = setTimeout(this.update.bind(this), 1000);
+            this.timer = setTimeout(this.updateCountdownTimer.bind(this), 1000);
         } else {
             this.timer = null;
-            this.socketMessage.ctsGetDividendInfo();
             timeObj = {
                 days: "0", hours: "00", minutes: "00", seconds: "00"
             }
-        }
-        if (dividendPool) {
-            $(".dividend-pool").text(dividendPool.toFixed(4));
-            (<any> $(".dividend-pool")).animateCss("bounceIn");
+
+            // Update our dividend page in 10 seconds
+            // setTimeout(() => {
+            //     this.socketMessage.ctsGetDividendInfo();
+            // }, 10000);
         }
         $("#hours").text(timeObj.hours);
         $("#minutes").text(timeObj.minutes);
         $("#seconds").text(timeObj.seconds);
+        if (timeObj.days != "0") {
+            $("#days").find("span").text(timeObj.days);
+            $("#days").removeClass("d-none");
+        } else {
+            $("#days").addClass("d-none");
+        }
     }
 
     /**

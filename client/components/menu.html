@@ -63,10 +63,10 @@
 
             <ul class="navbar-nav mx-auto">
                 <li class="nav-item">
-                    <div class="cpu-gauge"><canvas width="40" height="40"></canvas></div>
+                    <div class="cpu-gauge" style="cursor: pointer;"><canvas width="40" height="40"></canvas></div>
                 </li>
                 <li class="nav-item">
-                    <div class="net-gauge"><canvas width="40" height="40"></canvas></div>
+                    <div class="net-gauge" style="cursor: pointer;"><canvas width="40" height="40"></canvas></div>
                 </li>
             </ul>
 
@@ -84,11 +84,11 @@
                         <span class="coin-balance balance-value">0</span>
                     </div>
                 </li>
-                <li class="nav-item d-flex align-items-center">
-                    <div class="developer-mode" style="position: relative; cursor: pointer;">
+                <li class="nav-item d-flex align-items-center network-selector-dropdown d-none">
+                    <div class="network-selector-dropdown d-none" style="position: relative; cursor: pointer;">
                         <a class="network-selector mainnet english lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Main Net</a>
                         <a class="network-selector mainnet chinese lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">主網</a>
-                        <a class="network-selector jungle english lang d-none nav-link dropdown-toggle"" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Jungle</a>
+                        <a class="network-selector jungle english lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Jungle</a>
                         <a class="network-selector jungle chinese lang d-none nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">叢林</a>
                         <div class="dropdown-menu" aria-labelledby="dropdown01">
                             <a class="select-mainnet dropdown-item english lang d-none" href="#">Main Net</a>

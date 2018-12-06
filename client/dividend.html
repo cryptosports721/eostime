@@ -8,6 +8,7 @@
         <title>EOSTime</title>
         <link rel="icon" href="favicon.ico">
         <link rel="stylesheet" href="assets/css/bootstrap_darkly.min.css"/>
+        <link rel="stylesheet" href="assets/css/animate.min.css"/>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
         <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
         <link rel="stylesheet" href="assets/css/custom_css.css"/>
@@ -26,7 +27,12 @@
         
                     <div class="card dark mb-3">
                         <div class="card-body">
-                            <div class="card-title font-muted english lang d-none">Dividend Pool</div>
+                            <div class="card-title font-muted english lang d-none">
+                                Dividend Pool
+                                <div class="abs-corner refresh pr-1 pt-1">
+                                    <i class="fas fa-sync auction-instance-info font-16 text-muted"></i>
+                                </div>
+                            </div>
                             <div class="card-title font-muted chinese lang d-none">紅利池</div>
                             <div class="flex-center mb-5 mt-5">
                                 <span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span>
@@ -62,6 +68,8 @@
                             <div class="card-title font-muted chinese lang d-none">下一個付款</div>
                             <div class="flex-center mb-5" style="margin-top: 36px">
                                 <div class="count_down d-none" style="font-size: 1.54rem">
+                                    <div class="count_down_box" id="days"><div class="box"><span></span><small>d</small></div></div>
+                                    <div class="dots"> </div>
                                     <div class="count_down_box" id="hours"><div class="box"></div></div>
                                     <div class="dots">:</div>
                                     <div class="count_down_box" id="minutes"><div class="box"></div></div>
@@ -195,5 +203,5 @@
     <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
-    <script src="assets/js/eostime-bundle.js"></script>
+    <script src="assets/js/eostime-bundle.min.js"></script>
 </html>

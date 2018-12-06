@@ -136,6 +136,12 @@ export class GUIManager extends ViewStateObserver {
             $(this.selectors.netGuage).attr("data-toggle", "tooltip").attr("data-placement","right").attr("title", net.toString() + "% NET");
             (<any> $(this.selectors.cpuGuage)).tooltip();
             (<any> $(this.selectors.netGuage)).tooltip();
+            if (cpu > 100) {
+                cpu = 100;
+            }
+            if (net > 100) {
+                net = 100;
+            }
             this.cpuGuage = new Guage($(this.selectors.cpuGuage + " > canvas"), cpu, {textVal: "CPU"});
             this.netGuage = new Guage($(this.selectors.netGuage + " > canvas"), net, {textVal: "NET"});
         } else {
@@ -147,7 +153,7 @@ export class GUIManager extends ViewStateObserver {
     /**
      * Updates our staked resources
      */
-    public updateEOSStakedResources():void {
+    public updateEOSStakedResources(showCpuToolTip:boolean = false, showNetToolTip:boolean = false):void {
         if (this.accountInfo && this.cpuGuage && this.netGuage) {
             this.eos.getAccount(this.accountInfo.account_name).then((result) => {
                 this.accountInfo = result;
@@ -155,10 +161,27 @@ export class GUIManager extends ViewStateObserver {
                 let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.max);
                 let $cpuTooltip:any = <any> $(this.selectors.cpuGuage);
                 $cpuTooltip.attr("title", cpu.toString() + "% CPU"); // .tooltip("fixTitle");
+                $cpuTooltip.attr("data-original-title", cpu.toString() + "% CPU");
                 let $netTooltip:any = <any> $(this.selectors.netGuage);
                 $netTooltip.attr("title", net.toString() + "% NET"); // .tooltip("fixTitle");
+                $netTooltip.attr("data-original-title", net.toString() + "% NET");
+                if (cpu > 100) {
+                    cpu = 100;
+                }
+                if (net > 100) {
+                    net = 100;
+                }
                 this.cpuGuage.draw(cpu);
                 this.netGuage.draw(net);
+
+                (<any> $(this.selectors.cpuGuage)).tooltip('hide');
+                (<any> $(this.selectors.netGuage)).tooltip('hide');
+                if (showCpuToolTip) {
+                    (<any> $(this.selectors.cpuGuage)).tooltip('show');
+                }
+                if (showNetToolTip) {
+                    (<any> $(this.selectors.netGuage)).tooltip('show');
+                }
             });
         }
     }
@@ -226,6 +249,13 @@ export class GUIManager extends ViewStateObserver {
             $(this.selectors.networkMenuDropdown).text("MainNet");
             let evt:CustomEvent = new CustomEvent("selectNetwork", {"detail": "mainnet"});
             document.dispatchEvent(evt);
+        });
+
+        $(this.selectors.cpuGuage).on("click", (event) => {
+            this.updateEOSStakedResources(true, false);
+        });
+        $(this.selectors.netGuage).on("click", (event) => {
+            this.updateEOSStakedResources(false, true);
         });
 
         $(this.selectors.jungleSelected).on("click", (event) => {

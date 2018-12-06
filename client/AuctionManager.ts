@@ -48,6 +48,7 @@ export class AuctionManager extends ViewStateObserver {
         "auctionWinnerInstanceTime": ".auction-winner-time",
         "auctionWinnerInstanceName": ".auction-winner-name",
         "auctionWinnerInstanceId": ".auction-winner-id",
+        "auctionWinnerInstanceIdLink": ".auction-winner-id-link",
         "auctionWinnerInstanceDuration": ".auction-winner-duration",
         "auctionWinnerInstanceAmount": ".auction-winner-amount span:nth-child(2)"
     };
@@ -92,6 +93,14 @@ export class AuctionManager extends ViewStateObserver {
             data = JSON.parse(data);
             this.guiManager.blockUI(false);
             this.createAuctionElements(data.auctions);
+        });
+
+        this.socketMessage.getSocket().on(SocketMessage.STC_AUCTION_UPDATE, (data:any) => {
+            data = JSON.parse(data);
+            let selector:string = ".external-transaction-link-" + data.auctionId;
+            $(selector).removeClass("d-none");
+            $(selector).find("a").attr("href", Config.TX_INFO_LINK_PREFIX + data.transactionId);
+            (<any> $(selector)).animateCss('bounceIn');
         });
 
         this.socketMessage.getSocket().on(SocketMessage.STC_REMOVE_AUCTION, (auction:any) => {
@@ -185,6 +194,12 @@ export class AuctionManager extends ViewStateObserver {
     protected attachGUIHandlers():void {
 
         super.attachGUIHandlers();
+
+        // Listen for new socketMessage
+        $(document).on("updateSocketMessage", (event) => {
+            this.socketMessage = <any> event.detail;
+            this.attachSocketListeners();
+        });
 
         $(document).on("initializeGameGUI", (event) => {
             this.socketMessage.ctsGetAllAuctions();
@@ -286,7 +301,9 @@ export class AuctionManager extends ViewStateObserver {
         *      remaining_bid_count: 25
         *      status: "active"
         *      type: 1000
-        *      winner_timecoins_per_eos: 10
+        *      winner_timecoins_per_eos: 10,
+        *      blockNumber: <optional>,
+        *      transactionId: <optional>
         *  }
         */
 
@@ -302,6 +319,14 @@ export class AuctionManager extends ViewStateObserver {
         $clone.find(this.selectors.auctionWinnerInstanceDuration).text(duration);
         $clone.find(this.selectors.auctionWinnerInstanceTime).text(end.format("h:mm a"));
         $(this.selectors.auctionWinnersInner).prepend($clone);
+
+        let blockNumber:number = Config.safeProperty(auction, ["blockNumber"], null);
+        let transactionId:number = Config.safeProperty(auction, ["transactionId"], null);
+        if (blockNumber && transactionId) {
+            $clone.find(this.selectors.auctionWinnerInstanceIdLink).removeClass("d-none");
+            $clone.find(this.selectors.auctionWinnerInstanceIdLink).find("a").attr("href", Config.TX_INFO_LINK_PREFIX + transactionId);
+        }
+        $clone.find(this.selectors.auctionWinnerInstanceIdLink).addClass("external-transaction-link-" + auction.id);
 
         // Show confetti animation if we aren't currently running one
         if (playAnimation) {

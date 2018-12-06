@@ -94,6 +94,36 @@ export class AuctionManager {
     }
 
     /**
+     * Called when the history scanner sees a winner transaction. We update our recent winners
+     * structure and database.
+     *
+     * @param {number} auctionId
+     * @param {number} blockNumber
+     * @param {string} transactionId
+     * @returns {Promise<void>}
+     */
+    public winnerPayoutTransaction(auctionId:number, blockNumber:number, transactionId:string):Promise<void> {
+        return this.dbManager.updateDocumentByKey("auctions", {"id": auctionId}, {"blockNumber": blockNumber, "transactionId": transactionId}).then(() => {
+            if (this.recentWinners) {
+                for (let recentWinner of this.recentWinners) {
+                    if (recentWinner.id == auctionId) {
+                        recentWinner["blockNumber"] = blockNumber;
+                        recentWinner["transactionId"] = transactionId;
+                    }
+                }
+            }
+            let payload:any = {
+                auctionId: auctionId,
+                blockNumber: blockNumber,
+                transactionId: transactionId
+            }
+
+            // Notify clients of updated auction
+            this.sio.sockets.emit(SocketMessage.STC_AUCTION_UPDATE, JSON.stringify(payload));
+        });
+    }
+
+    /**
      * Enables polling of the auction table
      * @param {boolean} enable
      */

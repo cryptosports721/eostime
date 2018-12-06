@@ -25,6 +25,12 @@ export class FaucetManager extends ViewStateObserver {
     protected attachGUIHandlers():void {
         super.attachGUIHandlers();
 
+        // Listen for new socketMessage
+        $(document).on("updateSocketMessage", (event) => {
+            this.socketMessage = <any> event.detail;
+            this.attachSocketListeners();
+        });
+
         // User has logged in so we can now retrieve our faucet info from the server
         $(document).on("userLogIn", (accountInfo:any) => {
             this.socketMessage.ctsGetFaucetInfo();

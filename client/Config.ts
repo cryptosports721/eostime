@@ -36,9 +36,15 @@ export class Config extends ConfigBase {
     };
 
     public static API_SERVER:any = {
-         // "host": "http://localhost",
-         "host": "https://jungle-elb.eostime.io",
-         "port": 4001
+        "jungle": {
+            // "host": "http://localhost",
+            "host": "https://jungle-elb.eostime.io",
+            "port": 4001
+        },
+        "mainnet": {
+            "host": "https://mainnet-elb.eostime.io",
+            "port": 4001
+        }
     };
 
     public static EOSTIME_CONTRACT:string = "eostimecontr";
@@ -46,6 +52,7 @@ export class Config extends ConfigBase {
     public static TIME_TOKEN_SYMBOL:string = "TIME";
 
     public static REFERRAL_LINK_PREFIX:string = "https://eostime.io?ref=";
+    public static TX_INFO_LINK_PREFIX:string = "https://eosflare.io/tx/";
 
     // public static DEFAULT_GUAGE_OPTIONS:any = {
     //     min: 0,

@@ -247,6 +247,7 @@ export class ClientConnection {
             let account:any = Config.safeProperty(payload, ["account"], null);
             let data:any = Config.safeProperty(payload, ["data"], null);
             let network:any = Config.safeProperty(payload, ["network"], null);
+            console.log(payload);
             if (!account || !data || !network) {
                 // We must specify an account, data, and network in the payload.
                 this.socketMessage.stcDevMessage("[" + account.name + "] BAD PAYLOAD from IP " + this.socketMessage.getSocket().handshake.address);
@@ -255,9 +256,9 @@ export class ClientConnection {
 
             // Validate the scatter signature
             let host:string = this.extractRootDomain(payload.data);
-            if (this.eos().verifySignature(host, payload.publicKey, payload.sig)) {
+            if (this.eos().verifySignature(payload.data, payload.publicKey, payload.sig) ||
+                this.eos().verifySignature(host, payload.publicKey, payload.sig)) {
                 let timestamp:string = moment().format();
-                console.log("[" + account.name + "] CONNECTED from IP " + this.socketMessage.getSocket().handshake.address + " at " + timestamp);
 
                 // Save our network
                 this.network = payload.network;
@@ -366,7 +367,7 @@ export class ClientConnection {
 
                             // We can award the faucet
                             let award: number;
-                            let randomDraw: number = Math.floor(Math.random() * 10001);
+                            let randomDraw: number = Math.floor(Math.random() * 10000); // Should be 10001
                             if (randomDraw <= 9885) {
                                 award = 0.0005;
                             } else if (randomDraw <= 9985) {

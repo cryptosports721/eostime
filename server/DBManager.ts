@@ -1,4 +1,4 @@
-import {ClientSession, Db, MongoClient, MongoClientOptions} from "mongodb";
+import {AggregationCursor, ClientSession, Db, MongoClient, MongoClientOptions} from "mongodb";
 
 export class DBManager {
 
@@ -201,6 +201,32 @@ export class DBManager {
                         }
                     });
                 }
+            } else {
+                reject(new Error("No Database Connection"));
+            }
+        });
+    }
+
+    /**
+     * Returns an aggregation cursor to the results of a DB query
+     * @param {string} collectionName
+     * @param {any[]} pipeline
+     * @param {number} batchSize
+     * @returns {Promise<AggregationCursor>}
+     */
+    public aggregation(collectionName:string, pipeline:any[], batchSize:number = 0):Promise<AggregationCursor> {
+        return new Promise<AggregationCursor>((resolve, reject) => {
+            if (this.dbClient != null) {
+                let batch:any = {
+                    cursor: { batchSize: batchSize }
+                };
+                this.dbo.collection(collectionName).aggregate(pipeline, batch,function(err, res:AggregationCursor) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(res);
+                    }
+                });
             } else {
                 reject(new Error("No Database Connection"));
             }

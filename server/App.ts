@@ -11,6 +11,8 @@ import moment = require("moment");
 import {EosWatcherCallbacks} from "./EosWatcherCallbacks";
 import {DBNodeos} from "./DBNodeos";
 import {DividendManager} from "./DividendManager";
+import {EosRpcMongoHistoryBuilder} from "./EosRpcMongoHistoryBuilder";
+import {SocketMessage} from "./SocketMessage";
 
 const process:Process = require('process');
 const serveStatic = require('serve-static')
@@ -27,6 +29,7 @@ module App {
         private sio:any = null;
         private eosBlockchain:EosBlockchain = null;
         private eosWatcher:EosWatcher = null;
+        private eosRpcMongoHistory:EosRpcMongoHistoryBuilder = null;
         private auctionManager:AuctionManager = null;
         private dbManager:DBManager = null;
         private dividendManager:DividendManager = null;
@@ -92,6 +95,12 @@ module App {
                 process.exit();
             }
 
+            const historyEndpoint:string = <string> process.env.HISTORY_RPC_ENDPOINT;
+            if (!historyEndpoint) {
+                console.log("No history RPC endpoint specified - please define HISTORY_RPC_ENDPOINT environment var");
+                process.exit();
+            }
+
             // Open the database then start the EOS blockchain watcher
             this.dbManager.openDbConnection(db, username, password).then((result) => {
                 return this.dbManager.getConfig("serverConfig");
@@ -100,7 +109,9 @@ module App {
 
                 this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
                 this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
-                this.dividendManager = new DividendManager(this.dbManager, this.eosBlockchain);
+                this.eosRpcMongoHistory = new EosRpcMongoHistoryBuilder(historyEndpoint, this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
+                this.eosRpcMongoHistory.start();
+                this.dividendManager = new DividendManager(this.dbManager, this.eosBlockchain, this.eosRpcMongoHistory, this.updateDividendCallback.bind(this));
                 this.dividendManager.start();
 
                 if (!startat) {
@@ -139,24 +150,24 @@ module App {
 
                         // See if we have a MongoDB for the nodeos blockchain (being fed by
                         // a local instance of NODEOS)
-                        const nodeosDatabase:string = <string> process.env.NODEOS_MONGO_DATABASE;
-                        if (nodeosDatabase) {
-                            // We have a local NODEOS database we can use.
-                            let dbNodeos:DBNodeos = new DBNodeos();
-                            dbNodeos.init(nodeosDatabase).then(() => {
-                                this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, new EosWatcherCallbacks(this.dbManager, this.auctionManager), this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this), dbNodeos);
-                                this.eosWatcher.run();
-                            }).catch((err) => {
-                                console.log("Could not open Nodeos DB");
-                                console.log(err);
-                                process.exit();
-                            });
-                        } else {
-                            // Run our EOS blockchain watcher using nodeos endpoint as
-                            // a history-capable node.
-                            this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, new EosWatcherCallbacks(this.dbManager, this.auctionManager), this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this), null);
-                            this.eosWatcher.run();
-                        }
+                        // const nodeosDatabase:string = <string> process.env.NODEOS_MONGO_DATABASE;
+                        // if (nodeosDatabase) {
+                        //     // We have a local NODEOS database we can use.
+                        //     let dbNodeos:DBNodeos = new DBNodeos();
+                        //     dbNodeos.init(nodeosDatabase).then(() => {
+                        //         this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, new EosWatcherCallbacks(this.dbManager, this.auctionManager), this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this), dbNodeos);
+                        //         this.eosWatcher.run();
+                        //     }).catch((err) => {
+                        //         console.log("Could not open Nodeos DB");
+                        //         console.log(err);
+                        //         process.exit();
+                        //     });
+                        // } else {
+                        //     // Run our EOS blockchain watcher using nodeos endpoint as
+                        //     // a history-capable node.
+                        //     this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, new EosWatcherCallbacks(this.dbManager, this.auctionManager), this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this), null);
+                        //     this.eosWatcher.run();
+                        // }
 
                         // Use auction manager to poll the blockchain
                         // Todo REMOVE comment this before deploying to AWS
@@ -202,22 +213,31 @@ module App {
 
             // Catch exit event
             let localThis:Main = this;
-            process.on('exit', function () {
+            process.on('exit', async function () {
 
-                for (let i:number = 0; i < ClientConnection.CONNECTIONS.length; i++) {
-                    let cc:ClientConnection = ClientConnection.CONNECTIONS[i];
-                    let accountInfo:any = cc.getAccountInfo();
-                    if (accountInfo) {
-                        console.log("Connection with [" + accountInfo.account_name + "] terminated");
+                try {
+                    for (let i: number = 0; i < ClientConnection.CONNECTIONS.length; i++) {
+                        let cc: ClientConnection = ClientConnection.CONNECTIONS[i];
+                        let accountInfo: any = cc.getAccountInfo();
+                        if (accountInfo) {
+                            console.log("Connection with [" + accountInfo.account_name + "] terminated");
+                        }
                     }
-                }
-                if (localThis.dbManager) {
-                    console.log("Disconnecting from database");
-                    localThis.dbManager.closeDbConnection();
-                }
-                if (localThis.dividendManager) {
-                    console.log("Stopping dividend payouts");
-                    localThis.dividendManager.stop();
+                    if (localThis.dividendManager) {
+                        console.log("Stopping dividend payouts");
+                        await localThis.dividendManager.stop();
+                    }
+                    if (localThis.eosRpcMongoHistory) {
+                        console.log("Stopping history scraper");
+                        await localThis.eosRpcMongoHistory.stop();
+                    }
+                    if (localThis.dbManager) {
+                        console.log("Disconnecting from database");
+                        localThis.dbManager.closeDbConnection();
+                    }
+                } catch (err) {
+                    console.log("Failed to exit gracefully")
+                    console.log(err);
                 }
                 console.log("EOSRoller Server Exit");
 
@@ -266,6 +286,22 @@ module App {
                 }
             }
             return defaultValue;
+        }
+
+        /**
+         * Called after a dividend payout
+         * @param data
+         */
+        private updateDividendCallback(dividendInfo:any = null):void {
+            if (dividendInfo === null) {
+                this.dividendManager.getDividendInfo().then((dividendInfo:any) => {
+                    let data: any = {...dividendInfo, ...SocketMessage.standardServerDataObject()};
+                    this.sio.sockets.emit(SocketMessage.STC_DIVIDEND_INFO, JSON.stringify(data));
+                });
+            } else {
+                let data: any = {...dividendInfo, ...SocketMessage.standardServerDataObject()};
+                this.sio.sockets.emit(SocketMessage.STC_DIVIDEND_INFO, JSON.stringify(data));
+            }
         }
 
         /**

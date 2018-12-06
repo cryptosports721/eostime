@@ -214,6 +214,19 @@ export class SocketMessage {
     }
 
     /**
+     * Sends updated information about an auction winners
+     * @param {string} serverHash
+     * @param {string} sig Signature of the betting parameters
+     *
+     * @param {any} payload
+     */
+    public static STC_AUCTION_UPDATE:string = "STC_AUCTION_UPDATE";
+    public stcAuctionUpdate(payload:any):void {
+        let data:any = {payload, ...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_AUCTION_UPDATE, JSON.stringify(data));
+    }
+
+    /**
      * Notifies client of a newly added auction
      * @param {string} serverHash
      * @param {string} sig Signature of the betting parameters
