@@ -15,6 +15,7 @@ export class AuctionManager extends ViewStateObserver {
     private confetti:Confetti = null;
     private referrer:string = null;
     private currentLanguage:string = null;
+    private eosNetwork:string = "mainnet";
 
     private selectors:any = {
         "mainAuctionArea": ".main-auction-area",
@@ -50,7 +51,8 @@ export class AuctionManager extends ViewStateObserver {
         "auctionWinnerInstanceId": ".auction-winner-id",
         "auctionWinnerInstanceIdLink": ".auction-winner-id-link",
         "auctionWinnerInstanceDuration": ".auction-winner-duration",
-        "auctionWinnerInstanceAmount": ".auction-winner-amount span:nth-child(2)"
+        "auctionWinnerInstanceAmount": ".auction-winner-amount span:nth-child(2)",
+        "ribbonContainer": ".ribbon-container"
     };
 
     /**
@@ -99,7 +101,7 @@ export class AuctionManager extends ViewStateObserver {
             data = JSON.parse(data);
             let selector:string = ".external-transaction-link-" + data.auctionId;
             $(selector).removeClass("d-none");
-            $(selector).find("a").attr("href", Config.TX_INFO_LINK_PREFIX + data.transactionId);
+            $(selector).find("a").attr("href", Config.TX_INFO_LINK_PREFIX[this.eosNetwork] + data.transactionId);
             (<any> $(selector)).animateCss('bounceIn');
         });
 
@@ -145,8 +147,6 @@ export class AuctionManager extends ViewStateObserver {
             if (this.accountInfo && auction.last_bidder == this.accountInfo.account_name) {
                 let evt:CustomEvent = new CustomEvent("updateCoinBalances", {});
                 document.dispatchEvent(evt);
-
-                // (<any> $auctionElementToUpdate).animateCss('bounceIn');
                 $auctionElementToUpdate.find(".auction-instance-bid-button").blur();
             }
         });
@@ -199,6 +199,11 @@ export class AuctionManager extends ViewStateObserver {
         $(document).on("updateSocketMessage", (event) => {
             this.socketMessage = <any> event.detail;
             this.attachSocketListeners();
+        });
+
+        // Network change
+        $(document).on("updateEosNetwork", (event) => {
+            this.eosNetwork = <any> event.detail;
         });
 
         $(document).on("initializeGameGUI", (event) => {
@@ -324,7 +329,7 @@ export class AuctionManager extends ViewStateObserver {
         let transactionId:number = Config.safeProperty(auction, ["transactionId"], null);
         if (blockNumber && transactionId) {
             $clone.find(this.selectors.auctionWinnerInstanceIdLink).removeClass("d-none");
-            $clone.find(this.selectors.auctionWinnerInstanceIdLink).find("a").attr("href", Config.TX_INFO_LINK_PREFIX + transactionId);
+            $clone.find(this.selectors.auctionWinnerInstanceIdLink).find("a").attr("href", Config.TX_INFO_LINK_PREFIX[this.eosNetwork] + transactionId);
         }
         $clone.find(this.selectors.auctionWinnerInstanceIdLink).addClass("external-transaction-link-" + auction.id);
 
@@ -399,8 +404,8 @@ export class AuctionManager extends ViewStateObserver {
      */
     private createAuctionElements(auctions:any[]):void {
         auctions.sort((a:any, b:any):number => {
-            const af:number = parseFloat(a.bid_price);
-            const bf:number = parseFloat(b.bid_price);
+            const af:number = parseFloat(a.type);
+            const bf:number = parseFloat(b.type);
             if (af > bf) {
                 return -1;
             } else if (af < bf) {
@@ -479,6 +484,12 @@ export class AuctionManager extends ViewStateObserver {
      * @param auction
      */
     private initializeAuctionElement($elem:JQuery<HTMLElement>, auction: any): void {
+
+        $elem.find(this.selectors.ribbonContainer).empty();
+        if (auction.hasOwnProperty("html")) {
+            $elem.find(this.selectors.ribbonContainer).html(auction.html);
+        }
+
         $elem.find(this.selectors.auctionInstanceId).text(auction.type.toString() + "-" + auction.id.toString());
         $elem.find(this.selectors.auctionInstanceBidderOuter).addClass("d-none");
         $elem.find(this.selectors.auctionInstanceNoBidder).addClass("d-none");
@@ -499,8 +510,6 @@ export class AuctionManager extends ViewStateObserver {
             let $auctionElement:JQuery<HTMLElement> = $currentTarget.closest(this.selectors.auctionInstance);
             this.eosBid($auctionElement).then((result) => {
 
-                // TODO Some sort of winning animation if this bid resulted in winning the jackpot
-
                 // TODO Temporary, we really update the GUI only on message coming back from server and don't deal with the promise
                 let auction:any = $auctionElement.data("auction");
                 auction.remaining_bid_count = result.remaining_bid_count;
@@ -510,6 +519,8 @@ export class AuctionManager extends ViewStateObserver {
                 this.updateAuctionElement($auctionElement);
 
                 $currentTarget.focusout();
+            }).catch((err) => {
+                console.log(err);
             });
         });
         $elem.find(".auction-instance-info").on("click", (event) => {
@@ -587,6 +598,11 @@ export class AuctionManager extends ViewStateObserver {
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
         $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
         this.updateAuctionElementButtonState($elem, auction);
+
+        $elem.find(this.selectors.ribbonContainer).empty();
+        if (auction.hasOwnProperty("html")) {
+            $elem.find(this.selectors.ribbonContainer).html(auction.html);
+        }
 
         if (flash) {
             // Flash our field elements
@@ -730,7 +746,7 @@ export class AuctionManager extends ViewStateObserver {
                 }
 
             } else {
-                reject(new Error("No eos object available"));
+                reject(new Error("No eos object available or busy"));
             }
         });
     }

@@ -13,6 +13,7 @@ import {DBNodeos} from "./DBNodeos";
 import {DividendManager} from "./DividendManager";
 import {EosRpcMongoHistoryBuilder} from "./EosRpcMongoHistoryBuilder";
 import {SocketMessage} from "./SocketMessage";
+import {TransactionLinkManager} from "./TransactionLinkManager";
 
 const process:Process = require('process');
 const serveStatic = require('serve-static')
@@ -33,6 +34,7 @@ module App {
         private auctionManager:AuctionManager = null;
         private dbManager:DBManager = null;
         private dividendManager:DividendManager = null;
+        private transactionLinkManager:TransactionLinkManager;
         private serverConfig:any = null;
 
         /**
@@ -64,6 +66,13 @@ module App {
                 console.log("Invalid EOS keys");
                 process.exit();
             }
+
+            // Grab the slack hook
+            let slackHook:string = process.env.SLACK_HOOK;
+            if (typeof slackHook == "undefined") {
+                slackHook = null;
+            }
+
 
             let eosEndpoint:string = <string> this.getCliParam("-eosendpoint", false);
             if (!eosEndpoint) {
@@ -108,11 +117,13 @@ module App {
                 this.serverConfig = serverConfig;
 
                 this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
-                this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain);
+                this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain, slackHook);
                 this.eosRpcMongoHistory = new EosRpcMongoHistoryBuilder(historyEndpoint, this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
                 this.eosRpcMongoHistory.start();
                 this.dividendManager = new DividendManager(this.dbManager, this.eosBlockchain, this.eosRpcMongoHistory, this.updateDividendCallback.bind(this));
                 this.dividendManager.start();
+                this.transactionLinkManager = new TransactionLinkManager(this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
+                this.transactionLinkManager.start();
 
                 if (!startat) {
                     console.log("Missing parameter startat");
@@ -230,6 +241,10 @@ module App {
                     if (localThis.eosRpcMongoHistory) {
                         console.log("Stopping history scraper");
                         await localThis.eosRpcMongoHistory.stop();
+                    }
+                    if (localThis.transactionLinkManager) {
+                        console.log("Stopping transaction link manager");
+                        await localThis.transactionLinkManager.stop();
                     }
                     if (localThis.dbManager) {
                         console.log("Disconnecting from database");

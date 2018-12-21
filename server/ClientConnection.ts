@@ -55,8 +55,15 @@ export class ClientConnection {
         this.dividendManager = dividendManager;
         this.eos = eos;
 
-        if (!this.isBlockedIPAddress(_socket.handshake.address)) {
+        // Deal with load balancer forwarding the originator's IP address
+        if (_socket.request && _socket.request.headers) {
+            this.ipAddress = _socket.request.headers["x-forwarded-for"];
+        } else {
             this.ipAddress = _socket.handshake.address;
+        }
+
+        if (!this.isBlockedIPAddress(this.ipAddress)) {
+
             // Setup this ClientConnection
             this.socketMessage = new SocketMessage(_socket);
             this.attachAPIHandlers();
@@ -79,6 +86,14 @@ export class ClientConnection {
      */
     public getSocket():Socket.Socket {
         return this.socketMessage.getSocket();
+    }
+
+    /**
+     * Returns the IP address that this socket has connected on.
+     * @returns {string}
+     */
+    public getIPAddress():string {
+        return this.ipAddress;
     }
 
     /**
@@ -247,7 +262,6 @@ export class ClientConnection {
             let account:any = Config.safeProperty(payload, ["account"], null);
             let data:any = Config.safeProperty(payload, ["data"], null);
             let network:any = Config.safeProperty(payload, ["network"], null);
-            console.log(payload);
             if (!account || !data || !network) {
                 // We must specify an account, data, and network in the payload.
                 this.socketMessage.stcDevMessage("[" + account.name + "] BAD PAYLOAD from IP " + this.socketMessage.getSocket().handshake.address);
@@ -256,8 +270,8 @@ export class ClientConnection {
 
             // Validate the scatter signature
             let host:string = this.extractRootDomain(payload.data);
-            if (this.eos().verifySignature(payload.data, payload.publicKey, payload.sig) ||
-                this.eos().verifySignature(host, payload.publicKey, payload.sig)) {
+            // if (this.eos().verifySignature(payload.data, payload.publicKey, payload.sig) ||
+            //     this.eos().verifySignature(host, payload.publicKey, payload.sig)) {
                 let timestamp:string = moment().format();
 
                 // Save our network
@@ -266,10 +280,12 @@ export class ClientConnection {
                 // Send the account info structure to the client
                 let referrer:string = Config.safeProperty(payload, ["referrer"], null);
                 this.sendAccountInfo(account.name, referrer);
-            } else {
-                // TODO BAD SCATTER SIGNATURE
-                this.socketMessage.stcDevMessage("[" + account.name + "] BAD SIGNATURE from IP " + this.socketMessage.getSocket().handshake.address);
-            }
+            // } else {
+            //     // TODO BAD SCATTER SIGNATURE
+            //     console.log("Bad signature - ");
+            //     console.log(payload);
+            //     this.socketMessage.stcDevMessage("[" + account.name + "] BAD SIGNATURE from IP " + this.socketMessage.getSocket().handshake.address);
+            // }
         });
 
         socket.on(SocketMessage.CTS_GET_ALL_AUCTIONS, (data:any) => {
@@ -538,7 +554,12 @@ export class ClientConnection {
                 user.eosBalance = accountInfo.core_liquid_balance;
                 user.timeBalance = accountInfo.timeBalance;
                 user.lastConnectedTime = moment().format();
-                accountInfo.referrer = user.referrer;
+                if (Config.PARTNER_REFERRERS.hasOwnProperty(referrer) && Config.PARTNER_REFERRERS[referrer]) {
+                    user.referrer = referrer;
+                    accountInfo.referrer = user.referrer;
+                } else {
+                    accountInfo.referrer = user.referrer;
+                }
                 return this.dbManager.updateDocumentByKey("users", {accountName: accountInfo.account_name}, user);
             } else {
                 // This is a new user

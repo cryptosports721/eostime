@@ -110,10 +110,27 @@ module EOSTime {
                                     delay: 0,
                                 });
                             } else {
-                                // Try to login
-                                if (ScatterJS.scatter.identity) {
-                                    this.login();
-                                }
+
+                                // Try to log in for 4 seconds
+                                let retryCount:number = 16;
+                                let tryIdentity = function() {
+                                    // Try to login
+                                    if (ScatterJS.scatter.identity) {
+                                        this.login().then((result) => {
+                                            if (this.account == null) {
+                                                retryCount--;
+                                                if (retryCount > 0) {
+                                                    setTimeout(() => {
+                                                        tryIdentity();
+                                                    }, 250);
+                                                }
+                                            }
+                                        });
+                                    }
+
+                                }.bind(this);
+                                tryIdentity();
+
                             }
                         }).catch((err) => {
                             console.log("Error connecting with scatter!")
@@ -221,6 +238,9 @@ module EOSTime {
                 }
             }
             this.guiManager.notifyCurrentLanguage();
+
+            let evt:CustomEvent = new CustomEvent("updateEosNetwork", {"detail": this.eosNetwork});
+            document.dispatchEvent(evt);
         }
 
         /**
@@ -535,6 +555,10 @@ module EOSTime {
                         // Disconnect from existing API server and connect to the new one
                         this.disconnectFromApiServer();
 
+                        // Notify everyone about the new eos network
+                        let evt:CustomEvent = new CustomEvent("updateEosNetwork", {"detail": this.eosNetwork});
+                        document.dispatchEvent(evt);
+
                         // Connect to new API server
                         let apiServerSpec:any = Config.API_SERVER[this.eosNetwork];
                         let apiServer:string = apiServerSpec.host + ":" + apiServerSpec.port.toString();
@@ -543,7 +567,7 @@ module EOSTime {
                         this.attachSocketListeners(socket);
 
                         // Notify everyone about the new API server
-                        let evt:CustomEvent = new CustomEvent("updateSocketMessage", {"detail": this.socketMessage});
+                        evt = new CustomEvent("updateSocketMessage", {"detail": this.socketMessage});
                         document.dispatchEvent(evt);
                     });
                 }

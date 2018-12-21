@@ -170,114 +170,133 @@ export class DividendManager {
             let headBlockTime:number = parseInt(moment( blockchainInfo.head_block_time + "+00:00").local().format("X"));
             let minutesBehind:number = (headBlockTime - this.eosRpcMongoHistory.getBlockTimestamp())/60;
             if (minutesBehind < 5.0) {
+                this.dbManager.getDocuments("users", {}, {}, 100000).then((results) => {
 
-                pipeline.unshift(mintedTimeTokenMatch);
-                this.dbManager.aggregation("eostimetoken", pipeline).then((cursor: AggregationCursor) => {
+                    // Create a map of existing users
+                    let existingAccounts:any = {"eostimecorpo": true, "eostimetoken": true};
+                    for (let user of results) {
+                        existingAccounts[user.accountName] = true;
+                    }
 
-                    cursor.toArray().then(async (timeHolders: any[]) => {
+                    pipeline.unshift(mintedTimeTokenMatch);
+                    this.dbManager.aggregation("eostimetoken", pipeline).then((cursor: AggregationCursor) => {
 
-                        let dividendBalanceArr: any[] = await this.eosBlockchain.getBalance(Config.eostimeDividendContract);
-                        let dividendBalance = parseFloat(dividendBalanceArr[0]);
-                        if (dividendBalance > 0) {
-                            let historyState: any = await this.dbManager.getConfig("historyState");
-                            if (!historyState) {
-                                historyState = {
-                                    eostimetoken: 0,
-                                    eostimecontr: 0,
-                                    eostimehouse: 0
+                        cursor.toArray().then(async (timeHolders: any[]) => {
+
+                            let dividendBalanceArr: any[] = await this.eosBlockchain.getBalance(Config.eostimeDividendContract);
+                            let dividendBalance = parseFloat(dividendBalanceArr[0]);
+                            if (dividendBalance > 0) {
+                                let historyState: any = await this.dbManager.getConfig("historyState");
+                                if (!historyState) {
+                                    historyState = {
+                                        eostimetoken: 0,
+                                        eostimecontr: 0,
+                                        eostimehouse: 0
+                                    }
                                 }
-                            }
 
-                            let newDividendPaymentDocument: any = {
-                                timestamp: Math.floor(new Date().getTime() / 1000),
-                                timeTokenSupply: 0,
-                                dividendBalance: dividendBalance,
-                                actionSequenceNumber: historyState.eostimetoken - 1,
-                                paymentState: "pending",
-                                accounts: {}
-                            };
-                            for (let timeHolder of timeHolders) {
-                                let account: any = {
-                                    timeTokens: parseFloat(timeHolder.total.toString()),
-                                    eos: 0,
+                                let newDividendPaymentDocument: any = {
+                                    timestamp: Math.floor(new Date().getTime() / 1000),
+                                    timeTokenSupply: 0,
+                                    dividendBalance: dividendBalance,
+                                    actionSequenceNumber: historyState.eostimetoken - 1,
                                     paymentState: "pending",
-                                    transactionId: null
-                                }
-                                newDividendPaymentDocument.timeTokenSupply += account.timeTokens;
+                                    accounts: {}
+                                };
 
-                                // eostimecorpo is the destination account for corporate dividends
-                                if (timeHolder._id["to"] == "eostimetoken") {
-                                    timeHolder._id["to"] = "eostimecorpo";
-                                }
+                                for (let timeHolder of timeHolders) {
 
-                                newDividendPaymentDocument.accounts[timeHolder._id["to"]] = account;
-                            }
-
-                            // Now we need to aggregate third party transfers and account for them
-                            pipeline.shift();
-                            pipeline.unshift(thirdPartyTransfersMatch);
-                            this.dbManager.aggregation("eostimetoken", pipeline).then((cursor: AggregationCursor) => {
-                                cursor.toArray().then(async (thirdPartyTransfers: any[]) => {
-
-                                    // Loop through our third party transactions and account for
-                                    // them in our newDividendPaymentDocument
-                                    for (let tpt of thirdPartyTransfers) {
-                                        let debit: any = newDividendPaymentDocument.accounts[tpt._id.from];
-                                        let credit: any = newDividendPaymentDocument.accounts[tpt._id.to];
-                                        let tokens: number = parseFloat(tpt.total.toString());
-                                        if (debit && credit) {
-                                            debit.timeTokens -= tokens;
-                                            credit.timeTokens += tokens;
+                                    // We only pay dividends to TIME holders who have visited our site
+                                    if (existingAccounts[timeHolder._id["to"]]) {
+                                        let account: any = {
+                                            timeTokens: parseFloat(timeHolder.total.toString()),
+                                            eos: 0,
+                                            paymentState: "pending",
+                                            transactionId: null
                                         }
+                                        newDividendPaymentDocument.timeTokenSupply += account.timeTokens;
+
+                                        // eostimecorpo is the destination account for corporate dividends
+                                        if (timeHolder._id["to"] == "eostimetoken") {
+                                            timeHolder._id["to"] = "eostimecorpo";
+                                        }
+
+                                        newDividendPaymentDocument.accounts[timeHolder._id["to"]] = account;
                                     }
+                                }
 
-                                    // Calculate dividend payouts
-                                    for (let key in newDividendPaymentDocument.accounts) {
-                                        let account: any = newDividendPaymentDocument.accounts[key];
-                                        account.proportion = account.timeTokens / newDividendPaymentDocument.timeTokenSupply;
-                                        account.distribution = parseFloat((account.proportion * newDividendPaymentDocument.dividendBalance).toFixed(4));
-                                    }
+                                // Now we need to aggregate third party transfers and account for them
+                                pipeline.shift();
+                                pipeline.unshift(thirdPartyTransfersMatch);
+                                this.dbManager.aggregation("eostimetoken", pipeline).then((cursor: AggregationCursor) => {
+                                    cursor.toArray().then(async (thirdPartyTransfers: any[]) => {
 
-                                    // Apply rounding error to the eostimecorpo account
-                                    let distributedSum:number = 0.0;
-                                    for (let key in newDividendPaymentDocument.accounts) {
-                                        let account: any = newDividendPaymentDocument.accounts[key];
-                                        distributedSum += account.distribution;
-                                    }
-                                    let delta:number = newDividendPaymentDocument.dividendBalance - distributedSum;
-                                    delta = parseFloat(delta.toFixed(4));
-                                    let corpoAccount:any = newDividendPaymentDocument.accounts["eostimecorpo"];
-                                    corpoAccount.distribution += delta;
+                                        // Loop through our third party transactions and account for
+                                        // them in our newDividendPaymentDocument
+                                        for (let tpt of thirdPartyTransfers) {
+                                            if (existingAccounts[tpt._id.to]) {
+                                                let debit: any = newDividendPaymentDocument.accounts[tpt._id.from];
+                                                let credit: any = newDividendPaymentDocument.accounts[tpt._id.to];
+                                                let tokens: number = parseFloat(tpt.total.toString());
+                                                if (debit && credit) {
+                                                    debit.timeTokens -= tokens;
+                                                    credit.timeTokens += tokens;
+                                                }
+                                            }
+                                        }
 
-                                    // Save our final distribution record
-                                    await this.dbManager.insertDocument("dividends", newDividendPaymentDocument);
+                                        // Calculate dividend payouts
+                                        for (let key in newDividendPaymentDocument.accounts) {
+                                            let account: any = newDividendPaymentDocument.accounts[key];
+                                            account.proportion = account.timeTokens / newDividendPaymentDocument.timeTokenSupply;
+                                            account.distribution = parseFloat((account.proportion * newDividendPaymentDocument.dividendBalance).toFixed(4));
+                                        }
 
-                                    // Pay the dividends from contract balance
-                                    this.payDividends();
+                                        // Apply rounding error to the eostimecorpo account
+                                        let distributedSum:number = 0.0;
+                                        for (let key in newDividendPaymentDocument.accounts) {
+                                            let account: any = newDividendPaymentDocument.accounts[key];
+                                            distributedSum += account.distribution;
+                                        }
+                                        let delta:number = newDividendPaymentDocument.dividendBalance - distributedSum;
+                                        delta = parseFloat(delta.toFixed(4));
+                                        let corpoAccount:any = newDividendPaymentDocument.accounts["eostimecorpo"];
+                                        corpoAccount.distribution += delta;
+
+                                        // Save our final distribution record
+                                        await this.dbManager.insertDocument("dividends", newDividendPaymentDocument);
+
+                                        // Pay the dividends from contract balance
+                                        this.payDividends();
+                                    });
+                                }).catch((err) => {
+                                    console.log("Error paying out dividends - prior to blockchain payout");
+                                    console.log(err);
+                                    this.jobRunning = false;
                                 });
-                            }).catch((err) => {
-                                console.log("Error paying out dividends - prior to blockchain payout");
-                                console.log(err);
+                            } else {
+                                // No dividend to distribute at this time.
+                                if (this.notificationCallback !== null) {
+                                    let dividendInfo:any = await this.getDividendInfo();
+                                    this.notificationCallback(dividendInfo);
+                                }
                                 this.jobRunning = false;
-                            });
-                        } else {
-                            // No dividend to distribute at this time.
-                            if (this.notificationCallback !== null) {
-                                let dividendInfo:any = await this.getDividendInfo();
-                                this.notificationCallback(dividendInfo);
+                                let friendlyTime:string = moment().format("dddd, MMMM Do YYYY, h:mm:ss a");
+                                console.log("No dividends to distribute at " + friendlyTime);
                             }
+                        }).catch((err) => {
+                            console.log("Error paying out dividends - prior to blockchain payout");
+                            console.log(err);
                             this.jobRunning = false;
-                            let friendlyTime:string = moment().format("dddd, MMMM Do YYYY, h:mm:ss a");
-                            console.log("No dividends to distribute at " + friendlyTime);
-                        }
+                        });
+
                     }).catch((err) => {
                         console.log("Error paying out dividends - prior to blockchain payout");
                         console.log(err);
                         this.jobRunning = false;
                     });
-
                 }).catch((err) => {
-                    console.log("Error paying out dividends - prior to blockchain payout");
+                    console.log("Error finding existing users in database - prior to blockchain payout");
                     console.log(err);
                     this.jobRunning = false;
                 });

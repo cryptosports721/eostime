@@ -5,6 +5,9 @@ import {DBManager} from "./DBManager";
 import {EosBlockchain} from "./EosBlockchain";
 import moment = require("moment");
 import {ClientSession, MongoClient} from "mongodb";
+import {Moment} from "moment";
+
+const request = require('request');
 
 export class AuctionManager {
 
@@ -59,17 +62,21 @@ export class AuctionManager {
     private pollingTimer:any = null;
     private lastPayoutTime:number = 0;
     private recentWinners:any[] = null;
+    private auctionTypeCounter:number = 0;
+    private auctionTypes:any = {};
+    private slackHook:string;
 
     /**
      * Constructs our auction manager
      * @param sio
      * @param {DBManager} dbManager
      */
-    constructor(serverConfig:any, sio:any, dbManager:DBManager, eosBlockchain:EosBlockchain) {
+    constructor(serverConfig:any, sio:any, dbManager:DBManager, eosBlockchain:EosBlockchain, slackHook:string) {
         this.serverConfig = serverConfig;
         this.sio = sio;
         this.dbManager = dbManager;
         this.eosBlockchain = eosBlockchain;
+        this.slackHook = slackHook;
 
         // Retrieve the most recent list of auction winners from the database
         dbManager.getDocuments("auctions", {}, {expires: -1}, Config.WINNERS_LIST_LIMIT).then((recentWinners:any[]) => {
@@ -145,9 +152,17 @@ export class AuctionManager {
         }.bind(this);
 
         if (enable) {
-            if (this.pollingTimer == null) {
-                pollFunc();
-            }
+            this.dbManager.getDocuments("auctionTypes", {}, {}, 100000).then((result:any[]) => {
+                this.auctionTypes = {};
+                for (let auctionType of result) {
+                    this.auctionTypes[auctionType.auctionId] = auctionType;
+                }
+                this.auctionTypeCounter = 40;
+
+                if (this.pollingTimer == null) {
+                    pollFunc();
+                }
+            });
         } else {
             if (this.pollingTimer) {
                 clearTimeout(this.pollingTimer);
@@ -171,6 +186,20 @@ export class AuctionManager {
     public pollAuctionTable():Promise<any> {
         // console.log("polling auction table at " + moment().format("dddd, MMMM Do YYYY, h:mm:ss a"));
         return new Promise<any>((resolve, reject) => {
+
+            // Get new auction type data refresh every 120 polls (30 seconds)
+            if (this.auctionTypeCounter <= 0) {
+                this.dbManager.getDocuments("auctionTypes", {}, {}, 100000).then((result:any[]) => {
+                    this.auctionTypes = {};
+                    for (let auctionType of result) {
+                        this.auctionTypes[auctionType.auctionId] = auctionType;
+                    }
+                    this.auctionTypeCounter = 120;
+                });
+            } else {
+                this.auctionTypeCounter--;
+            }
+
             this.eosBlockchain.getInfo().then((blockchainInfo) => {
                 let headBlockTime:number = parseInt(moment( blockchainInfo.head_block_time + "+00:00").local().format("X"));
                 this.eosBlockchain.getTable(this.serverConfig.eostimeContract, this.serverConfig.eostimeContractTable).then((data:any) => {
@@ -185,17 +214,37 @@ export class AuctionManager {
                             this.sio.sockets.emit(SocketMessage.STC_ADD_AUCTION, JSON.stringify(auction));
                         }
                         for (let auction of sortedAuctions.changed) {
-                            this.sio.sockets.emit(SocketMessage.STC_CHANGE_AUCTION, JSON.stringify(auction));
 
-                            // Tell the last bidder to update his balances
-                            let socketMessage:SocketMessage = ClientConnection.socketMessageFromAccountName(auction.last_bidder);
-                            if (socketMessage) {
-                                socketMessage.stcUpdateBalances();
+                            // Reset our auction if instructed to
+                            if (auction.resetToOriginalParams) {
+                                console.log("=========> Resetting auction id: " + auction.id);
+                                this.eosBlockchain.replaceAuctionParams(auction.id, auction.resetToOriginalParams).then((result) => {
+                                    // Async call with no return
+                                    console.log("=========> Auction id: " + auction.id + " has been reset");
+                                }, (reject) => {
+                                    console.log("1 Unexpected error resetToOriginalParams payoutAndReplace(" + auction.id + ")");
+                                    console.log(reject);
+                                    console.log("---------------");
+                                }).catch((err) => {
+                                    console.log("2 Unexpected error resetToOriginalParams payoutAndReplace(" + auction.id + ")");
+                                    console.log(err);
+                                    console.log("---------------");
+                                });
+                            } else {
+                                // Notify clients of auction change
+                                this.sio.sockets.emit(SocketMessage.STC_CHANGE_AUCTION, JSON.stringify(auction));
+
+                                // Tell the last bidder to update his balances
+                                let socketMessage:SocketMessage = ClientConnection.socketMessageFromAccountName(auction.last_bidder);
+                                if (socketMessage) {
+                                    socketMessage.stcUpdateBalances();
+                                }
                             }
                         }
                         for (let auction of sortedAuctions.ended) {
                             if (!auctionToPayout &&
                                 !auction.paid_out &&
+                                !auction.resetToOriginalParams &&
                                 !this.outstandingPayoutRestartTransactions[auction.id]) {
                                 auctionToPayout = auction;
                             }
@@ -212,37 +261,63 @@ export class AuctionManager {
                         let timeSinceLastPayout:number = now - this.lastPayoutTime;
                         if ((timeSinceLastPayout > 2000) || (auctionToPayout.init_bid_count == auctionToPayout.remaining_bid_count)) {
                             this.outstandingPayoutRestartTransactions[auctionToPayout.id] = true;
-                            this.eosBlockchain.payoutAuction(auctionToPayout.id).then((result) => {
-                                delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
+                            this.scamCheck(auctionToPayout).then((params:any) => {
 
-                                if (auctionToPayout.init_bid_count != auctionToPayout.remaining_bid_count) {
-                                    this.lastPayoutTime = new Date().getTime();
-                                    this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
+                                // --------------- FINISH UP INNER FUNCTION --------------
+                                //
+                                let finishUp = function(result) {
+                                    delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
 
-                                    // Store this winner auction in our list of recent winners cache
-                                    this.recentWinners.unshift(auctionToPayout);
-                                    if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
-                                        this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
-                                    }
+                                    let totalBids:number = auctionToPayout.init_bid_count - auctionToPayout.remaining_bid_count;
+                                    this.notifySlack("[" + auctionToPayout.last_bidder + "] won " + auctionToPayout.prize_pool + " EOS in auction id " + auctionToPayout.id + " with " + totalBids + " total bids placed.");
 
-                                    // Tell the winner to update his balances 10 seconds from now
-                                    let socketMessage: SocketMessage = ClientConnection.socketMessageFromAccountName(auctionToPayout.last_bidder);
-                                    if (socketMessage) {
-                                        socketMessage.stcUpdateBalances();
-                                        setTimeout(() => {
+                                    if (auctionToPayout.init_bid_count != auctionToPayout.remaining_bid_count) {
+                                        this.lastPayoutTime = new Date().getTime();
+                                        this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
+
+                                        // Store this winner auction in our list of recent winners cache
+                                        this.recentWinners.unshift(auctionToPayout);
+                                        if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
+                                            this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
+                                        }
+
+                                        // Tell the winner to update his balances 10 seconds from now
+                                        let socketMessage: SocketMessage = ClientConnection.socketMessageFromAccountName(auctionToPayout.last_bidder);
+                                        if (socketMessage) {
                                             socketMessage.stcUpdateBalances();
-                                        }, 10000);
+                                            setTimeout(() => {
+                                                socketMessage.stcUpdateBalances();
+                                            }, 10000);
+                                        }
+
+                                        // Save our auction that we won
+                                        return this.dbManager.insertDocument("auctions", auctionToPayout);
+                                    } else {
+                                        return Promise.resolve(null);
                                     }
+                                }.bind(this);
+                                //
+                                // --------------- END OF FINISH UP INNER FUNCTION --------------
 
-                                    // Save our auction that we won
-                                    return this.dbManager.insertDocument("auctions", auctionToPayout);
+                                if (params) {
+                                    this.eosBlockchain.payoutAndReplace(auctionToPayout.id, params).then((result) => {
+                                        return finishUp(result);
+                                    }).catch((err) => {
+                                        delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
+                                        console.log("Unexpected error finishUp() after blockchain payoutAndReplace(" + auctionToPayout.id + ")");
+                                        console.log(err);
+                                        console.log("---------------");
+                                    });
                                 } else {
-                                    return Promise.resolve(null);
+                                    this.eosBlockchain.payoutAndRestartAuction(auctionToPayout.id).then((result) => {
+                                        return finishUp(result);
+                                    }).catch((reject) => {
+                                        delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
+                                        console.log("Unexpected error finishUp() after blockchain payoutAndRestartAuction(" + auctionToPayout.id + ")");
+                                        console.log(reject);
+                                        console.log("---------------");
+                                    });
                                 }
-                            }).then((result) => {
-
-                                // Do something if we want to
-
                             }).catch((error: any) => {
                                 delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
                                 console.log("Failed to payout/rollover auction TYPE: " + auctionToPayout.type + " / ID: " + auctionToPayout.id);
@@ -252,6 +327,17 @@ export class AuctionManager {
                     }
 
                     resolve();
+                }).catch((err) => {
+                    console.log("=======================================================================");
+                    console.log("Failed to read redzones table");
+                    console.log("=======================================================================");
+                    console.log(err);
+                    console.log("=======================================================================");
+
+                    // Re-enable polling in 10 seconds
+                    setTimeout(() => {
+                        this.enablePolling(true);
+                    }, 10000);
                 });
             }).catch((err) => {
                 reject(err);
@@ -434,22 +520,112 @@ export class AuctionManager {
     // PRIVATE METHODS
     // ------------------------------------------------------------------------
 
-    // An auction structure looks like this:
-    // {
-    //     "id": 1,
-    //     "creation_time": "2018-11-08T01:56:00",
-    //     "prize_pool": "1.0090 EOS",
-    //     "bid_price": "0.0100 EOS",
-    //     "last_bidder": "ghassett1113",
-    //     "expires": "2018-11-08T18:36:00",
-    //     "remaining_bid_count": 249,
-    //     "init_prize_pool": "1.0000 EOS",
-    //     "init_bid_count": 250,
-    //     "enabled": 1,
-    //     "auto_refill": 0,
-    //     "init_duration_secs": 60000,
-    //     "init_redzone_secs": 15
-    // }
+    /**
+     * Returns the promise to use to payout an auction taking into account
+     * scamming activity.
+     *
+     * @param {any} auctionToCheck
+     * @returns {Promise<any>}
+     */
+    private scamCheck(auctionToCheck:any):Promise<any> {
+
+        return new Promise<any>((resolve, reject) => {
+
+            let auctionType:any = this.auctionTypes.hasOwnProperty(auctionToCheck.type) ? this.auctionTypes[auctionToCheck.type] : null;
+            if (auctionType && auctionType.hasOwnProperty("scammerMinBidders")) {
+
+                let scammerMinBidders:number = auctionType.scammerMinBidders;
+                let scammerMinActiveUsers:number = auctionType.scammerMinActiveUsers;
+                let scammerTimeFactor:number = auctionType.scammerTimeFactor;
+                let scammerMaxTime:number = auctionType.scammerMaxTime;
+                let scammerResetWindow: number = auctionType.scammerResetWindow;
+                let params:any = {...auctionType.auctionParams};
+
+                this.dbManager.getDistinct("eostimecontr",
+                    "bidder",
+                    {name: "rzbidreceipt", redzone_id: auctionToCheck.id}).then((bidders: any[]) => {
+
+                    let distinctIPs: any = {};
+                    let distinctIPCount: number = this.activeDistinctIPCount(distinctIPs);
+
+                    let isScam: boolean = bidders.length < scammerMinBidders || distinctIPCount < scammerMinActiveUsers;
+
+                    if (!isScam) {
+                        if (params.init_duration_secs != auctionToCheck.init_duration_secs) {
+                            // Return to original parameters
+                            console.log("Returning to original parameters");
+                            resolve(params);
+                        } else {
+                            // At original parameters, so we restart
+                            console.log("Rolling Over");
+                            resolve(null);
+                        }
+                    } else {
+                        // Increase initial duration by the factor
+                        params.init_duration_secs = Math.floor(auctionToCheck.init_duration_secs * scammerTimeFactor);
+                        if (params.init_duration_secs > scammerMaxTime) {
+                            params.init_duration_secs = scammerMaxTime;
+                        }
+                        this.notifySlack("Bumped duration of auction type " + auctionToCheck.type + " to " + params.init_duration_secs + " [bidder count: " + bidders.length + "] [distinct ips: " + distinctIPCount + "]");
+                        console.log("New Duration: " + params.init_duration_secs);
+                        resolve(params);
+                    }
+
+                });
+
+            } else {
+                // Simply roll the auction over with a rzrestart
+                resolve(null);
+            }
+        });
+    }
+
+    /**
+     * Returns the number of distinct IPs currently connected
+     * @returns {number}
+     */
+    private activeDistinctIPCount(distinctIPs:any = {}):number {
+        let toRet:number = 0;
+        for (let i:number = 0; i < ClientConnection.CONNECTIONS.length; i++) {
+            let connection:ClientConnection = ClientConnection.CONNECTIONS[i];
+            let ip:string = connection.getIPAddress();
+            if (!distinctIPs.hasOwnProperty(ip)) {
+                toRet++;
+                distinctIPs[ip] = 1;
+            } else {
+                distinctIPs[ip] += 1;
+            }
+        }
+        return toRet;
+    }
+
+    /**
+     * Adjusts the auctions from the blockchain that have technically ended to look
+     * like a running auction if enabled.
+     *
+     * @param {number} headBlockTime
+     * @param {any[]} auctionsFromBlockchain
+     * @returns {any}
+     */
+    private restartEndedAuctions(headBlockTime:number, blockchainAuction:any) {
+        let bcExpireUnixTime: number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
+        if ((bcExpireUnixTime <= headBlockTime) && (blockchainAuction.init_bid_count == blockchainAuction.remaining_bid_count)) {
+
+            // This auction in memory has expired, so let's look at the blockchain
+            // auction and see if we should spoof-restart it
+            let secsSinceExpire: number = headBlockTime - bcExpireUnixTime;
+            let secsIntoCurrentRun:number = secsSinceExpire % blockchainAuction.init_duration_secs;
+            let secsUntilCurrentRunExpires:number = blockchainAuction.init_duration_secs - secsIntoCurrentRun;
+            let expireUnixTime:number = headBlockTime + secsUntilCurrentRunExpires;
+            let m:Moment = moment.unix(expireUnixTime).utc();
+            blockchainAuction.expires = m.format("YYYY-MM-DD") + "T" + m.format("HH:mm:ss");
+            blockchainAuction.iterationCount = Math.floor(secsSinceExpire / blockchainAuction.init_duration_secs) + 1;
+
+        } else {
+            blockchainAuction.iterationCount = 0;
+            blockchainAuction.aggregatedRunTime = 0;
+        }
+    }
 
     /**
      * Merges the currently held auctions with the new auctions received
@@ -480,15 +656,46 @@ export class AuctionManager {
                 console.log(auctionsFromBlockchain);
                 toRet.removed.push(currentAuction);
             } else {
+
+                blockchainAuction.hasEnded = false;
+
+                let originalBlockchainAuctionExpireUnixTime:number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
+
+                this.restartEndedAuctions(headBlockTime, blockchainAuction);
+
+                // See if we need to reset our auction to its original params because
+                // we have exceeded our scammerResetWindow after previously bumping
+                // the auction's expire time.
+                blockchainAuction.resetToOriginalParams = null;
+                if (blockchainAuction.remaining_bid_count == blockchainAuction.init_bid_count) {
+                    if (this.auctionTypes.hasOwnProperty(blockchainAuction.type)) {
+                        let auctionType: any = this.auctionTypes[blockchainAuction.type];
+                        if (auctionType.hasOwnProperty("scammerResetWindow") && (auctionType.auctionParams.init_duration_secs != blockchainAuction.init_duration_secs)) {
+                            let secsSinceExpire: number = headBlockTime - originalBlockchainAuctionExpireUnixTime;
+                            if (secsSinceExpire > 0) {
+                                if (secsSinceExpire > auctionType.scammerResetWindow) {
+                                    // console.log("=========> Need to reset auction id: " + blockchainAuction.id + " (" + secsSinceExpire + ", " + auctionType.scammerResetWindow + ")");
+                                    blockchainAuction.resetToOriginalParams = {...auctionType.auctionParams};
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // See if we have ended
-                let expireUnixTime: number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
+                let expireUnixTime: number = blockchainAuction.hasOwnProperty("expireUnixTime") ? blockchainAuction.expireUnixTime : parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
                 if ((blockchainAuction.remaining_bid_count == 0) || (expireUnixTime <= headBlockTime)) {
                     // Yup, we ended
+                    blockchainAuction.hasEnded = true;
                     toRet.ended.push(blockchainAuction);
                 } else {
                     // See if this auction has changed
-                    if ((blockchainAuction.remaining_bid_count != currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id)) {
+                    if ((blockchainAuction.remaining_bid_count < currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id) || (blockchainAuction.iterationCount != currentAuction.iterationCount)) {
                         // Yup, it has changed
+                        let blockchainGlitch:boolean = (blockchainAuction.remaining_bid_count > currentAuction.remaining_bid_count)
+                        if (blockchainAuction.last_bidder != "eostimecontr") {
+                            this.notifySlack("Bid " + blockchainAuction.bid_price + " EOS received from [" + blockchainAuction.last_bidder + "] on auction type " + blockchainAuction.type + " id " + blockchainAuction.id);
+                        }
                         toRet.changed.push(blockchainAuction);
                     }
                 }
@@ -519,9 +726,49 @@ export class AuctionManager {
             auction.creation_time = parseInt(moment(auction.creation_time + "+00:00").local().format("X"));
             auction.block_time = headBlockTime;
             auction.status = ((auction.remaining_bid_count == 0) || (auction.expires < headBlockTime)) ? "ended" : "active";
+
+            // If the auction has not ended, present the prize pool as what the player
+            // will in-fact win if they place the bid (by adding the to-pool portion of
+            // the bid about to be placed.
+            if (!auction.hasEnded) {
+                let toPot: number = 1.0 - auction.house_portion_x100k / 100000;
+                let pool: number = parseFloat(auction.prize_pool) + parseFloat(auction.bid_price) * toPot;
+                auction.prize_pool = pool.toFixed(4);
+            }
+
+            if (this.auctionTypes.hasOwnProperty(auction.type)) {
+                let at:any = this.auctionTypes[auction.type];
+                auction.html = "<div class=\"ribbon ribbon-" + at.color + " hot\"></div><div class=\"ribbon-contents\"><i class=\"" + at.icon + "\"></i><span>" + at.text + "</span></div>";
+            }
         }
 
         this.auctions = auctionsFromBlockchain;
         return toRet;
+    }
+
+    /**
+     * Method will notify a slack integration with a message.
+     * @param {string} message
+     * @returns {Promise<void>}
+     */
+    private notifySlack(message:string):Promise<void> {
+        if (this.slackHook) {
+            return new Promise<void>((resolve, reject) => {
+                request.post(
+                    this.slackHook,
+                    {json: {text: message}},
+                    function (error, response, body) {
+                        if (!error && response.statusCode == 200) {
+                            resolve();
+                        } else {
+                            reject(error);
+                        }
+                    }
+                );
+            });
+        } else {
+            return Promise.resolve();
+        }
+
     }
 }

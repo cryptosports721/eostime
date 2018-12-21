@@ -237,6 +237,7 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loginButton).addClass("d-none");
         $(this.selectors.logoutButton).addClass("d-none");
         $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
+        (<any> $('[data-toggle="tooltip"]')).tooltip();
     }
 
     // ========================================================================

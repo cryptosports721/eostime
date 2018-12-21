@@ -255,13 +255,132 @@ export class EosBlockchain {
     }
 
     /**
-     * Calls the blockchain payout auction method
+     * Pays out the specific auctionId, and then replace it with another defined
+     * by the replacementParameters object.
+     *
+     * @param {number} auctionId
+     * @param replacementParameters
+     * @returns {Promise<any>}
+     */
+    public replaceAuctionParams(auctionId:number, replacementParameters:any):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzenable',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId,
+                        enable: false
+                    },
+                },
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzdelete',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId
+                    },
+                },
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzcreate',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: replacementParameters,
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+    }
+
+    /**
+     * Pays out the specific auctionId, and then replace it with another defined
+     * by the replacementParameters object.
+     *
+     * @param {number} auctionId
+     * @param replacementParameters
+     * @param {boolean} issueWinnerBonusTimeCoins
+     * @returns {Promise<any>}
+     */
+    public payoutAndReplace(auctionId:number, replacementParameters:any, issueWinnerBonusTimeCoins:boolean = true):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzpaywinner',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId,
+                        issue_winner_bonus_time_coins: issueWinnerBonusTimeCoins
+                    },
+                },
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzenable',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId,
+                        enable: false
+                    },
+                },
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzdelete',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        redzone_id: auctionId
+                    },
+                },
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzcreate',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: replacementParameters,
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+    }
+
+    /**
+     * Calls the blockchain payout auction method and roll over the auction
      *
      * @param {number} auctionId
      * @param {boolean} issueWinnerBonusTimeCoins
      * @returns {Promise<any>}
      */
-    public payoutAuction(auctionId:number, issueWinnerBonusTimeCoins:boolean = true):Promise<any> {
+    public payoutAndRestartAuction(auctionId:number, issueWinnerBonusTimeCoins:boolean = true):Promise<any> {
         const rpc = this.eosRpc;
         const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });

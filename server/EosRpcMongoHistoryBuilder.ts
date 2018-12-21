@@ -263,18 +263,18 @@ export class EosRpcMongoHistoryBuilder {
                         }
 
                         // Check for winner payout transaction
-                        if (this.auctionWinnerPayoutTransactionCallback) {
-                            let from: string = Config.safeProperty(document, ["from"], null);
-                            let to: string = Config.safeProperty(document, ["to"], null);
-                            let auctionId: number = Config.safeProperty(document, ["auctionId"], null);
-                            if ((account == "eosio.token") && (from == "eostimecontr") && (to != "eostimehouse") && (auctionId !== null)) {
-                                let winnerBlockNumber: number = Config.safeProperty(document, ["blockNumber"], null);
-                                let winnerTransactionId: string = Config.safeProperty(document, ["transactionId"], null);
-                                if (winnerBlockNumber && winnerTransactionId) {
-                                    this.auctionWinnerPayoutTransactionCallback(auctionId, winnerBlockNumber, winnerTransactionId);
-                                }
-                            }
-                        }
+                        // if (this.auctionWinnerPayoutTransactionCallback) {
+                        //     let from: string = Config.safeProperty(document, ["from"], null);
+                        //     let to: string = Config.safeProperty(document, ["to"], null);
+                        //     let auctionId: number = Config.safeProperty(document, ["auctionId"], null);
+                        //     if ((account == "eosio.token") && (from == "eostimecontr") && (to != "eostimehouse") && (auctionId !== null)) {
+                        //         let winnerBlockNumber: number = Config.safeProperty(document, ["blockNumber"], null);
+                        //         let winnerTransactionId: string = Config.safeProperty(document, ["transactionId"], null);
+                        //         if (winnerBlockNumber && winnerTransactionId) {
+                        //             this.auctionWinnerPayoutTransactionCallback(auctionId, winnerBlockNumber, winnerTransactionId);
+                        //         }
+                        //     }
+                        // }
 
                         return document;
                     } else {
@@ -289,24 +289,17 @@ export class EosRpcMongoHistoryBuilder {
             }
         }.bind(this);
 
-        let updateClientDividendInfo:boolean = false;
         for (let i:number = 0; i < actions.length; i++) {
             let action:any = actions[i];
             let seq:number = action.account_action_seq;
             let outerAction: any = createDocument(action.action_trace);
             if (outerAction) {
-                if ((outerAction.account == "eosio.token") && (outerAction.name == "transfer") && (outerAction.to == "eostimehouse")) {
-                    updateClientDividendInfo = true;
-                }
                 outerAction["accountActionSeq"] = seq;
                 promises.push(this.dbManager.insertDocument(collectionName, outerAction));
             }
             for (let j:number = 0; j < action.action_trace.inline_traces.length; j++) {
                 let innerAction:any = createDocument(action.action_trace.inline_traces[j]);
                 if (innerAction) {
-                    if ((innerAction.account == "eosio.token") && (innerAction.name == "transfer") && (innerAction.to == "eostimehouse")) {
-                        updateClientDividendInfo = true;
-                    }
                     innerAction["accountActionSeq"] = seq;
                     promises.push(this.dbManager.insertDocument(collectionName, innerAction));
                 }

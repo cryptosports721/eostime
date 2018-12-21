@@ -85,6 +85,29 @@ export class DBManager {
     }
 
     /**
+     * Returns an array of distinct values from a key in a collection
+     * @param {string} collectionName
+     * @param {string} key
+     * @param filter
+     * @returns {Promise<any[]>}
+     */
+    public getDistinct(collectionName:string, key: string, filter:any):Promise<any[]> {
+        return new Promise<any[]>((resolve, reject) => {
+            if (this.dbClient != null) {
+                this.dbo.collection(collectionName).distinct(key, filter, function(err, result:any[]) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(result);
+                    }
+                });
+            } else {
+                reject(new Error("No Database Connection"));
+            }
+        });
+    }
+
+    /**
      * Returns a document from the specified collection by filter
      *
      * @param {string} collectionName
@@ -93,7 +116,7 @@ export class DBManager {
      * @returns {Promise<any>}
      */
     public getDocumentByKey(collectionName:string, filter:any = null):Promise<any> {
-        return new Promise<string>((resolve, reject) => {
+        return new Promise<any>((resolve, reject) => {
             if (this.dbClient != null) {
                 this.dbo.collection(collectionName).findOne(filter, function(err, result) {
                     if (err) {

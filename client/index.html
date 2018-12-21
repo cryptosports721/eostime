@@ -14,6 +14,56 @@
         <link rel="stylesheet" href="assets/css/custom_css.css"/>
         <link rel="stylesheet" href="assets/css/flag_icons.min.css"/>
     </head>
+    <style>
+        :root{
+            --dark-blue: #2980b9;
+            --ribbon-size: 90px;
+        }
+        .ribbon{
+            position:absolute;
+            left:0px;
+            top:0px;
+            width: var(--ribbon-size);
+            height: var(--ribbon-size);
+            border-style: solid;
+            border-width: var(--ribbon-size) var(--ribbon-size) 0 0;
+            border-color: #007bff transparent transparent transparent;
+        }
+        .ribbon-red{
+            border-color: var(--red) transparent transparent transparent;
+        }
+        .ribbon-green{
+            border-color: var(--green) transparent transparent transparent;
+        }
+        .ribbon-orange{
+            border-color: var(--orange) transparent transparent transparent;
+        }
+        .ribbon-blue{
+            border-color: var(--dark-blue) transparent transparent transparent;
+        }
+        .ribbon-contents{
+            position:absolute;
+            top: 0px;
+            width:calc( (var(--ribbon-size) / 10));
+            height:calc( (var(--ribbon-size) / 1.8));
+            line-height: 0.6;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            flex-direction:column;
+            white-space: nowrap;
+            transform: rotate(-45deg);
+            text-shadow:0 1px 3px rgba(0,0,0,0.8);
+        }
+        .ribbon-contents i{
+            font-size:24px;
+            transform: rotate(45deg);
+            margin-bottom:5px;
+        }
+        .ribbon > div > span{
+            font-size:12px;
+        }
+    </style>
     <body data-gr-c-s-loaded="true">
 
         <div id="site_menu" class="site-menu"></div>
@@ -27,7 +77,8 @@
         
                 <!-- Main auctions area -->
                 <div class="main-auction-area row">
-                    <div class="col-lg-6 col-md-12 col-sm-12 col-12">
+                    <!-- <div class="col-lg-6 col-md-12 col-sm-12 col-12"> -->
+                    <div class="col-12">
 
                         <!-- TIME give ratio -->
                         <div class="row">
@@ -39,8 +90,8 @@
                                             <div class="flex-left flex-column">
                                                 <span class="font-24 english lang">Bid to win <span class="icon-eos_icon font24 m-r-5"></span> EOS</span>
                                                 <span class="font-24 chinese lang d-none">出價要贏 <span class="icon-eos_icon font-24 m-r-5"></span> EOS</span>
-                                                <span class="col-yellow english lang">Earn TIME tokens with each bid</span>
-                                                <span class="col-yellow chinese lang d-none">賺 TIME 每次出價的代幣</span>
+                                                <div class="d-none"><span class="col-yellow d-none english lang">Earn TIME tokens with each bid</span></div>
+                                                <div class="d-none"><span class="col-yellow chinese lang d-none">賺 TIME 每次出價的代幣</span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -58,7 +109,8 @@
                     </div>
                     
                     <!-- winners -->
-                    <div class="col-lg-6 col-md-12 col-sm-12 col-12">
+                    <!-- <div class="col-lg-6 col-md-12 col-sm-12 col-12"> -->
+                    <div class="col-12">
                         <div class="row">
                             
                             <!-- winners table -->
@@ -108,9 +160,10 @@
         </main>
         
         <!-- Template for an auction instance -->
-        <div class="auction-instance-template auction-instance col-lg-6 col-md-4 col-sm-6 col-12 pb-3 pr-2 pl-2 d-none">
+        <div class="auction-instance-template auction-instance col-lg-3 col-md-4 col-sm-6 col-12 pb-3 pr-2 pl-2 d-none">
             <div class="card dark text-white auction-instance-inner-container">
                 <div class="card-body">
+                    <div class="ribbon-container"></div>
                     <div class="abs-corner">
                         <i class="far fa-question-circle auction-instance-info font-16 text-muted" data-id="auction-instance-modal"></i>
                     </div>
@@ -242,7 +295,7 @@
                                             seconds of the auction, the timer will be reset to <span class="auction-instance-modal-time-redzone"></span>
                                             seconds, offering others a chance to bid if they wish to.
                                         </li>
-                                        <li>
+                                        <li class="d-none">
                                             You will receive <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
                                             TIME Tokens when you bid.
                                         </li>
@@ -277,7 +330,7 @@
                                             拍賣的秒數, 計時器將重置為 <span class="auction-instance-modal-time-redzone"></span>
                                             秒如果他們願意，為他人提供出價機會。
                                         </li>
-                                        <li>
+                                        <li class="d-none">
                                             您將收到 <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
                                             TIME 出價時的代幣。
                                         </li>
@@ -299,8 +352,10 @@
                                         All prizes are paid out automatically when the auction ends.
                                     </li>
                                 </ul>
-                                You also will be awarded 50 TIME tokens for each EOS bid. TIME tokens
-                                represent your portion of the <a href="dividend.html">dividend pool</a>.
+                                <div class="d-none">
+                                    You also will be awarded 50 TIME tokens for each EOS bid. TIME tokens
+                                    represent your portion of the <a href="dividend.html">dividend pool</a>.
+                                </div>
                             </div>
                             <div class="bid-to-earn-time-modal chinese lang modal-body-inner d-none">
                                 EOSTime 拍賣很簡單玩:
@@ -315,7 +370,9 @@
                                         所有獎品均在拍賣結束時自動支付
                                     </li>
                                 </ul>
-                                每個EOS出價也將獲得333個TIME代幣。时间令牌代表你的部分<a href="dividend.html">股息池</a>。
+                                <div class="">
+                                    每個EOS出價也將獲得50個TIME代幣。时间令牌代表你的部分<a href="dividend.html">股息池</a>。
+                                </div>
                             </div>
 
                             <!-- WINNERS TABLE -->
@@ -354,4 +411,14 @@
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js" integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A==" crossorigin="anonymous"></script>
     <script src="assets/js/bootstrap-notify.min.js"></script>
     <script src="assets/js/eostime-bundle.min.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-125965569-2');
+    </script>
 </html>

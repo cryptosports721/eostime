@@ -90,7 +90,7 @@ export class DividendManager extends ViewStateObserver {
                     json: true,
                 }
             ).then((timeTokenTable:any) => {
-                this.timeTokenSupply = parseFloat(timeTokenTable.rows[0].supply);
+                this.timeTokenSupply = parseFloat(timeTokenTable.rows[0].supply) - 12500000000;
                 return this.eos.getAccount(Config.eostimeDividendContract);
             }).then((result:any) => {
                 this.dividendBalance = parseFloat(result.core_liquid_balance);

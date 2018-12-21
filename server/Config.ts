@@ -17,6 +17,12 @@ export class Config extends ConfigBase {
 
     public static FAUCET_PAYOUT_MEMO:string = 'eostime.io faucet payout';
 
+    public static PARTNER_REFERRERS:any = {
+        "cpuemergency": true
+    };
+
+    public static HOUSE_PROFIT:number = 0.20;
+
     /**
      * Sets the schedule for dividend payouts
      * {
@@ -30,6 +36,7 @@ export class Config extends ConfigBase {
      * }
      */
     public static DIVIDEND_PAYOUT_SCHEDULE:any = {
+        hour: 11,
         minute: 0
     }
 
