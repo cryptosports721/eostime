@@ -283,6 +283,10 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loginButton).on("click", (event) => {
             let evt:CustomEvent = new CustomEvent("logIn", {"detail": ""});
             document.dispatchEvent(evt);
+            setTimeout(() => {
+                $(this.selectors.loginButton).blur();
+            }, 100);
+
 
             // $(this.selectors.loginButton).addClass("d-none");
             // $(this.selectors.logoutButton).addClass("d-none");

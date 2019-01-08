@@ -58,6 +58,8 @@ export class Config extends ConfigBase {
         "mainnet": "https://bloks.io/transaction/"
     };
 
+    public static LIMITED_MOBILE_UI:boolean = navigator.userAgent.indexOf("TokenPocket") >= 0;
+
     // public static DEFAULT_GUAGE_OPTIONS:any = {
     //     min: 0,
     //     max: 100,

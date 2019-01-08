@@ -43,14 +43,16 @@ export class SocketMessage {
     /**
      * Sends the logged-in account structure returned from scatter to the server
      * @param account
+     * @param {string} referrer
      * @param {string} network
+     * @param {string} userAgent
      * @param {string} dataToVerify
      * @param {string} publicKey
      * @param {string} sig
      */
     public static CTS_EOS_ACCOUNT:string = "CTS_EOS_ACCOUNT";
-    public ctsEOSAccount(account:any, referrer:string, network:string, dataToVerify:string, publicKey:string, sig:string):void {
-        let data:any = {"account": account, "referrer": referrer, "network": network, "data": dataToVerify, "publicKey": publicKey, "sig": sig};
+    public ctsEOSAccount(account:any, referrer:string, network:string, userAgent:string, dataToVerify:string, publicKey:string, sig:string):void {
+        let data:any = {"account": account, "referrer": referrer, "network": network, "userAgent": userAgent, "data": dataToVerify, "publicKey": publicKey, "sig": sig};
         this.socket.emit(SocketMessage.CTS_EOS_ACCOUNT, JSON.stringify(data));
     }
 
@@ -75,6 +77,18 @@ export class SocketMessage {
         this.socket.emit(SocketMessage.CTS_GET_NEXT_SERVER_HASH, JSON.stringify({
             "referrer": referrer,
             "rollUnder": rollUnder
+        }));
+    }
+
+    /**
+     * Sent to ask the server for the correct signature for an auction bid
+     * @type {string}
+     */
+    public static CTS_GET_BID_SIGNATURE:string = "CTS_GET_BID_SIGNATURE";
+    public ctsGetBidSignature(auctionType:number, bidAmount:number):void {
+        this.socket.emit(SocketMessage.CTS_GET_BID_SIGNATURE, JSON.stringify({
+            "auctionType": auctionType,
+            "bidAmount": bidAmount
         }));
     }
 
@@ -147,6 +161,19 @@ export class SocketMessage {
     public stcSendPastWinners(winners:any[]):void {
         let data:any = {...SocketMessage.standardServerDataObject(), ...{winners: winners}};
         this.socket.emit(SocketMessage.STC_PAST_WINNERS, JSON.stringify(data));
+    }
+
+    /**
+     * Sends the STC_BID_SIGNATURE message to the client with the
+     * bid signature required to make bid in auction
+     *
+     * @param {string} sig
+     * @param {number} bidAmount
+     */
+    public static STC_BID_SIGNATURE:string = "STC_BID_SIGNATURE";
+    public stcSendBidSignature(sig:string, auctionType:number, bidAmount:number):void {
+        let data:any = {...SocketMessage.standardServerDataObject(), ...{signature: sig, auctionType: auctionType, bidAmount: bidAmount}};
+        this.socket.emit(SocketMessage.STC_BID_SIGNATURE, JSON.stringify(data));
     }
 
     /**

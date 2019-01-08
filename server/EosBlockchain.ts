@@ -1,7 +1,8 @@
-import { Api, JsonRpc, RpcError, JsSignatureProvider, GetInfoResult } from 'eosjs';
+import { Api, JsonRpc, RpcError, GetInfoResult } from 'eosjs';
 import {Config} from "./Config";
 const Ecc = require('eosjs-ecc');
 const fetch = require('node-fetch');
+const JsSignatureProvider = require('eosjs/dist/eosjs-jssig');
 const { TextDecoder, TextEncoder } = require('text-encoding');
 
 export class EosBlockchain {
@@ -122,7 +123,7 @@ export class EosBlockchain {
      */
     public dividendPayout(accountName:string, amount: number, memo:string):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.housePrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.housePrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [
@@ -154,7 +155,7 @@ export class EosBlockchain {
      */
     public faucetPayout(accountName:string, amount:number):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.faucetPrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.faucetPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [
@@ -189,7 +190,7 @@ export class EosBlockchain {
      */
     public enableAuction(enable:boolean, auctionId:number):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [
@@ -234,7 +235,7 @@ export class EosBlockchain {
      */
     public createAuction(data:any):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [
@@ -264,7 +265,7 @@ export class EosBlockchain {
      */
     public replaceAuctionParams(auctionId:number, replacementParameters:any):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [
@@ -318,7 +319,7 @@ export class EosBlockchain {
      */
     public payoutAndReplace(auctionId:number, replacementParameters:any, issueWinnerBonusTimeCoins:boolean = true):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [
@@ -382,7 +383,7 @@ export class EosBlockchain {
      */
     public payoutAndRestartAuction(auctionId:number, issueWinnerBonusTimeCoins:boolean = true):Promise<any> {
         const rpc = this.eosRpc;
-        const signatureProvider = new JsSignatureProvider([this.contractPrivateKey]);
+        const signatureProvider = new JsSignatureProvider.default([this.contractPrivateKey]);
         const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
         return api.transact({
             actions: [

@@ -10,7 +10,6 @@ export class DividendManager extends ViewStateObserver {
     private socketMessage:SocketMessage = null;
     private timeTokenSupply:number = 0.0;
     private timeTokenBalance:number = 0.0;
-    private dividendBalance:number = 0.0;
 
     private timer:any = null;
     private nextPayout:number = 0;
@@ -90,10 +89,10 @@ export class DividendManager extends ViewStateObserver {
                     json: true,
                 }
             ).then((timeTokenTable:any) => {
-                this.timeTokenSupply = parseFloat(timeTokenTable.rows[0].supply) - 12500000000;
+                this.timeTokenSupply = parseFloat(timeTokenTable.rows[0].supply);
                 return this.eos.getAccount(Config.eostimeDividendContract);
             }).then((result:any) => {
-                this.dividendBalance = parseFloat(result.core_liquid_balance);
+                let houseContractBalance:number = parseFloat(result.core_liquid_balance);
                 this.updateDividendFields(animate);
             });
         }
@@ -102,9 +101,9 @@ export class DividendManager extends ViewStateObserver {
     private updateDividendFields(animate:boolean):void {
         $(".time-token-balance").text(this.timeTokenBalance.toFixed(4));
         $(".time-tokens-issued").text(this.timeTokenSupply.toFixed(4));
-        $(".dividend-pool").text(this.dividendBalance.toFixed(4));
+        $(".dividend-pool").text(this.dividendPool.toFixed(4));
 
-        let expectedPayout:number = this.dividendBalance * this.timeTokenBalance / this.timeTokenSupply;
+        let expectedPayout:number = this.dividendPool * this.timeTokenBalance / this.timeTokenSupply;
         if (isNaN(expectedPayout)) {
             $(".expected-payout").addClass("d-none");
         } else {
@@ -115,7 +114,7 @@ export class DividendManager extends ViewStateObserver {
             }
         }
 
-        let expPer100:number = this.dividendBalance * 10000/this.timeTokenSupply;
+        let expPer100:number = this.dividendPool * 10000/this.timeTokenSupply;
         if (isNaN(expPer100)) {
             $(".expected-payout-per-100K").addClass("d-none");
         } else {

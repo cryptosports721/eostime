@@ -1,5 +1,6 @@
 // Configuration object for EOSRoller server application
 import {ConfigBase} from "./ConfigBase";
+import moment = require("moment");
 
 export class Config extends ConfigBase {
 
@@ -22,9 +23,10 @@ export class Config extends ConfigBase {
     };
 
     public static HOUSE_PROFIT:number = 0.20;
+    public static STAKERS_PROFIT:number = 0.05;
 
     /**
-     * Sets the schedule for dividend payouts
+     * Sets the schedule for dividend payouts (EPOCH TIME ZONE)
      * {
      *  second (0-59)
      *  minute (0-59)
@@ -36,8 +38,17 @@ export class Config extends ConfigBase {
      * }
      */
     public static DIVIDEND_PAYOUT_SCHEDULE:any = {
-        hour: 11,
+        hour: 23,
         minute: 0
+    }
+
+    /**
+     * Returns a friendly timestamp of the current time
+     * @returns {string}
+     */
+    public static friendlyTimestamp():string {
+        let friendlyTime:string = moment().format("dddd, MMMM Do YYYY, h:mm:ss a");
+        return friendlyTime;
     }
 
     /*

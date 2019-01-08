@@ -8,6 +8,8 @@ import {EOS_NETWORK, GUIManager} from "./GUIManager";
 import {FaucetManager} from "./FaucetManager";
 import {AuctionManager} from "./AuctionManager";
 import {DividendManager} from "./DividendManager";
+import ScatterJS from "scatterjs-core";
+import ScatterEOS from "scatterjs-plugin-eosjs";
 
 module EOSTime {
 
@@ -34,6 +36,7 @@ module EOSTime {
         private faucetManager:FaucetManager = null;
         private dividendManager:DividendManager = null;
 
+        private scatter:any = null;
         private eosNetwork:string = "mainnet"; // "mainnet" or "jungle";
 
         /**
@@ -47,6 +50,7 @@ module EOSTime {
             console.log('========== EosRoller ===========');
             console.log('========= version 0.1 ==========');
             console.log('================================');
+
             window.addEventListener('load', (event) => {
 
                 // Kill console logging if so desired.
@@ -59,16 +63,18 @@ module EOSTime {
 
                     // We only support adjusting saved network if we are on the jungle node
                     if ((location.host.indexOf("jungle") >= 0) || (location.host.indexOf("localhost") >= 0)) {
-                        // Grab our initial EOS network
-                        let savedEOSNetwork: string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
-                        if (savedEOSNetwork) {
-                            this.eosNetwork = savedEOSNetwork;
-                        } else {
-                            localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
-                        }
+                        if (this.supportsLocalStorage()) {
+                            // Grab our initial EOS network
+                            let savedEOSNetwork: string = localStorage.getItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK);
+                            if (savedEOSNetwork) {
+                                this.eosNetwork = savedEOSNetwork;
+                            } else {
+                                localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                            }
 
-                        // Show our selector
-                        $(".network-selector-dropdown").removeClass("d-none");
+                            // Show our selector
+                            $(".network-selector-dropdown").removeClass("d-none");
+                        }
                     }
 
                     // The first thing we do is connect to the API server
@@ -96,45 +102,58 @@ module EOSTime {
                         let evt:CustomEvent = new CustomEvent("initializeGameGUI", {});
                         document.dispatchEvent(evt);
 
-                        // Now try to log-in
-                        ScatterJS.scatter.connect("eostime", {initTimeout: 10000}).then((connected) => {
-                            this.hasScatter = connected;
-                            if (!connected) {
-                                (<any> $).notify({
-                                    title: "<strong>Please Install Scatter</strong><br>",
-                                    message: "eostime.io requires the installation of an EOS wallet called <strong>scatter</strong>. Click on this notification for installation instructions.",
-                                    url: 'https://get-scatter.com/',
-                                    target: '_blank'
-                                },{
-                                    type: "warning",
-                                    delay: 0,
-                                });
-                            } else {
-
-                                // Try to log in for 4 seconds
-                                let retryCount:number = 16;
-                                let tryIdentity = function() {
-                                    // Try to login
-                                    if (ScatterJS.scatter.identity) {
-                                        this.login().then((result) => {
-                                            if (this.account == null) {
-                                                retryCount--;
-                                                if (retryCount > 0) {
-                                                    setTimeout(() => {
-                                                        tryIdentity();
-                                                    }, 250);
-                                                }
-                                            }
-                                        });
+                        // Try to log in for 4 seconds
+                        let retryCount:number = 16;
+                        let tryLogin = function() {
+                            // Try to login
+                            if (this.scatter.identity) {
+                                this.login().then((result) => {
+                                    if (this.account == null) {
+                                        retryCount--;
+                                        if (retryCount > 0) {
+                                            setTimeout(() => {
+                                                tryLogin();
+                                            }, 250);
+                                        }
                                     }
-
-                                }.bind(this);
-                                tryIdentity();
-
+                                });
                             }
-                        }).catch((err) => {
-                            console.log("Error connecting with scatter!")
-                        });
+
+                        }.bind(this);
+
+                        if (!this.scatter) {
+                            // First time through, need to connect with scatter
+                            ScatterJS.plugins( new ScatterEOS() );
+                            ScatterJS.scatter.connect("eostime.io", {initTimeout: 10000}).then((connected) => {
+
+                                this.scatter = ScatterJS.scatter;
+                                (<any> window).ScatterJS = null;
+
+                                this.hasScatter = connected;
+                                if (!connected) {
+                                    (<any> $).notify({
+                                        title: "<strong>Please Install Scatter</strong><br>",
+                                        message: "eostime.io requires the installation of an EOS wallet called <strong>scatter</strong>. Click on this notification for installation instructions.",
+                                        url: 'https://get-scatter.com/',
+                                        target: '_blank'
+                                    },{
+                                        type: "warning",
+                                        delay: 0,
+                                    });
+                                } else {
+                                    tryLogin();
+                                }
+                            }).catch((err) => {
+                                console.log("Error connecting with scatter!")
+                            });
+                        } else {
+                            // Happens if the socket is lost for any reason
+                            if (this.hasScatter) {
+                                tryLogin();
+                            }
+                        }
+
+
                     });
 
                 }).catch((err) => {
@@ -142,6 +161,25 @@ module EOSTime {
                 });
 
             });
+
+        }
+
+        /**
+         * Detects if localStorage is available
+         * @returns {boolean}
+         */
+        private supportsLocalStorage():boolean {
+            let uid:string = new Date().getTime().toString();
+            let storage:any;
+            let result:boolean;
+            try {
+                (storage = window.localStorage).setItem(uid, uid);
+                result = storage.getItem(uid) == uid;
+                storage.removeItem(uid);
+                return result && storage;
+            } catch (exception) {
+                return false;
+            }
         }
 
         /**
@@ -227,7 +265,7 @@ module EOSTime {
         private createPageHandlers():void {
 
             // Home Page
-            if ((window.location.pathname == "/") || (window.location.pathname.indexOf("index") >= 0) || (window.location.pathname.indexOf("eostime") >= 0)) {
+            if ((window.location.pathname == "/") || (window.location.pathname.indexOf("index") >= 0) || (window.location.pathname.indexOf("eostime") >= 0) || (window.location.pathname.indexOf("tom") >= 0)) {
                 this.auctionManager = new AuctionManager(this.socketMessage, this.guiManager);
             } else {
                 // Faucet page
@@ -278,62 +316,45 @@ module EOSTime {
 
                 if (this.eos == null) {
                     // Save a proxy instance of Eos library that integrates with scatter for signatures and transactions.
-                    this.eos = ScatterJS.scatter.eos(Config.SCATTER_NETWORK[this.eosNetwork], Eos, {"chainId": Config.SCATTER_NETWORK[this.eosNetwork].chainId}, 'https');
-
+                    this.eos = this.scatter.eos(Config.SCATTER_NETWORK[this.eosNetwork], Eos, { expireInSeconds:60 }, 'https');
                     let evt:CustomEvent = new CustomEvent("updateEos", {"detail": this.eos});
                     document.dispatchEvent(evt);
                 }
 
                 if (!this.identity) {
-                    return new Promise((resolve) => {
-                        this.identity = ScatterJS.scatter.identity;
-                        if (!this.identity) {
-                            let network: any = Config.SCATTER_NETWORK[this.eosNetwork];
-                            ScatterJS.scatter.getIdentity({accounts: [Config.SCATTER_NETWORK[this.eosNetwork]]}).then((identity) => {
-                                resolve(identity);
-                            }).catch((err) => {
-                               // User declined giving us an identity
-                               //
-                               resolve(null);
-                            });
-                        } else {
-                            resolve(this.identity);
-                        }
-                    }).then((identity: any) => {
-                        this.identity = identity;
-                        if (this.identity) {
-                            this.account = this.identity.accounts.find(acc => acc.blockchain === 'eos');
-                            if (this.account) {
-                                this.loginInProgress = false;
-                                ScatterJS.scatter.authenticate().then((sig: string) => {
-                                    const urlParams:any = new URLSearchParams(window.location.search);
-                                    const referrer:string = urlParams.get('ref');  // Comes back null if none - which is OK!
-                                    this.guiManager.updateReferralLink(this.account.name);
-                                    this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, location.host, this.identity.publicKey, sig);
-                                }).catch(error => {
-                                    this.account = null;
-                                    // TODO HANDLE Authentication Failed!
-                                });
-                            } else {
-                                this.loginInProgress = false;
-                                // TODO NEEDS EOS ACCOUNT IN SELECTED IDENTITY
-                            }
-                        } else {
-                            this.loginInProgress = false;
-                            // TODO NEEDS SCATTER IDENTITY
-                        }
-                    }).catch((reason: any) => {
+
+                    const requiredFields:any = {accounts: [Config.SCATTER_NETWORK[this.eosNetwork]]};
+                    return this.scatter.getIdentity(requiredFields).then(() => {
                         this.loginInProgress = false;
-                        // TODO HANDLE UNKNOWN CLIENT LOGIN PROBLEM
-                        console.log("HANDLE UNKNOWN CLIENT LOGIN PROBLEM");
-                        console.log(reason);
+                        this.identity = this.scatter.identity;
+                        this.account = this.identity.accounts.find(x => x.blockchain === 'eos');
+
+                        // Notify the server of the login
+                        const urlParams:any = new URLSearchParams(window.location.search);
+                        const referrer:string = urlParams.get('ref');  // Comes back null if none - which is OK!
+                        this.guiManager.updateReferralLink(this.account.name);
+                        this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, navigator.userAgent, location.host, this.identity.publicKey, "");
+                        Promise.resolve(this.account);
+                    }).catch((err) => {
+                        // The user rejected this request, or doesn't have the appropriate requirements.
+                        this.loginInProgress = false;
+                        (<any> $).notify({
+                            title: "<strong>Identity Request Failed</strong><br>",
+                            message: err && err.message ? err.message : "You must provide an identity in order to use EOSTime",
+                            url: 'https://get-scatter.com/',
+                            target: '_blank'
+                        },{
+                            type: "warning",
+                            delay: 0,
+                        });
                     });
                 } else {
                     this.loginInProgress = false;
-                    return Promise.resolve();
+                    return Promise.resolve(this.account);
                 }
             } else {
-                return Promise.resolve();
+                this.loginInProgress = false;
+                return Promise.resolve(this.account);
             }
         }
 
@@ -346,8 +367,8 @@ module EOSTime {
             this.guiManager.updateEOSBalance("0");
             this.guiManager.updateCoinBalance("0");
             this.clearScatterReferences();
-            if (ScatterJS.scatter.identity) {
-                return ScatterJS.scatter.forgetIdentity();
+            if (this.scatter.identity) {
+                return this.scatter.forgetIdentity();
             } else {
                 return Promise.resolve();
             }
@@ -392,7 +413,9 @@ module EOSTime {
                     let evt:CustomEvent = new CustomEvent("updateTIMEBalance", {"detail": coinBalance});
                     document.dispatchEvent(evt);
                 });
-            }).catch(error => console.error(error));
+            }).catch((error) => {
+                console.error(error)
+            });
         }
 
         /**
@@ -550,7 +573,9 @@ module EOSTime {
                     this.logout().then(() => {
                         this.eosNetwork = event.detail.toString();
                         this.login();
-                        localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                        if (this.supportsLocalStorage()) {
+                            localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
+                        }
 
                         // Disconnect from existing API server and connect to the new one
                         this.disconnectFromApiServer();

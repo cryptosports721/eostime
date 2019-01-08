@@ -8,6 +8,7 @@ import {ClientSession, MongoClient} from "mongodb";
 import {Moment} from "moment";
 
 const request = require('request');
+const ecc = require('eosjs-ecc');
 
 export class AuctionManager {
 
@@ -57,6 +58,7 @@ export class AuctionManager {
     private dbManager:DBManager;
     private eosBlockchain:EosBlockchain;
     private serverConfig:any;
+    private serverKey:string;
     private auctions:any[] = new Array<any>();
     private outstandingPayoutRestartTransactions:any = {};
     private pollingTimer:any = null;
@@ -68,13 +70,19 @@ export class AuctionManager {
 
     /**
      * Constructs our auction manager
+     *
+     * @param serverConfig
      * @param sio
      * @param {DBManager} dbManager
+     * @param serverKey
+     * @param {EosBlockchain} eosBlockchain
+     * @param {string} slackHook
      */
-    constructor(serverConfig:any, sio:any, dbManager:DBManager, eosBlockchain:EosBlockchain, slackHook:string) {
+    constructor(serverConfig:any, sio:any, dbManager:DBManager, serverKey, eosBlockchain:EosBlockchain, slackHook:string) {
         this.serverConfig = serverConfig;
         this.sio = sio;
         this.dbManager = dbManager;
+        this.serverKey = serverKey;
         this.eosBlockchain = eosBlockchain;
         this.slackHook = slackHook;
 
@@ -180,6 +188,25 @@ export class AuctionManager {
     }
 
     /**
+     * Returns the required bid signature for the currently running auction as
+     * specified by its type.
+     *
+     * @param {string} accountName
+     * @param {number} auctionType
+     * @returns {string}
+     */
+    public getBidSignature(accountName:string, auctionType:number):string {
+        let signature:string = null;
+        for (let auction of this.auctions) {
+            if (auction.type == auctionType) {
+                let toSign:string = accountName + auction.remaining_bid_count + auction.id;
+                signature = ecc.sign(toSign, this.serverKey);
+            }
+        }
+        return signature;
+    }
+
+    /**
      * Polls the auction table from the blockchain
      * @returns {Promise<any>}
      */
@@ -206,7 +233,13 @@ export class AuctionManager {
                     let auctionsFromBlockchain:any[] = Config.safeProperty(data, ["rows"], null);
                     let auctionToPayout:any = null;
                     if (auctionsFromBlockchain) {
+
+                        // ----------------------------------------------------------------------------
+                        // This is the main method that determines the state of the blockchain auctions
+                        // by sorting them into "removed", "added", "changed", and "ended" lists.
+                        // ----------------------------------------------------------------------------
                         let sortedAuctions:any = this.sortAuctions(headBlockTime, auctionsFromBlockchain);
+
                         for (let auction of sortedAuctions.removed) {
                             this.sio.sockets.emit(SocketMessage.STC_REMOVE_AUCTION, JSON.stringify(auction));
                         }
@@ -261,7 +294,7 @@ export class AuctionManager {
                         let timeSinceLastPayout:number = now - this.lastPayoutTime;
                         if ((timeSinceLastPayout > 2000) || (auctionToPayout.init_bid_count == auctionToPayout.remaining_bid_count)) {
                             this.outstandingPayoutRestartTransactions[auctionToPayout.id] = true;
-                            this.scamCheck(auctionToPayout).then((params:any) => {
+                            this.linkToAuctions(auctionToPayout).then((params:any) => {
 
                                 // --------------- FINISH UP INNER FUNCTION --------------
                                 //
@@ -521,6 +554,28 @@ export class AuctionManager {
     // ------------------------------------------------------------------------
 
     /**
+     * Determines what the next auction should be
+     * @param auctionToCheck
+     * @returns {Promise<any>}
+     */
+    private linkToAuctions(auctionToCheck:any):Promise<any> {
+        return new Promise<any>((resolve, reject) => {
+            let auctionType:any = this.auctionTypes.hasOwnProperty(auctionToCheck.type) ? this.auctionTypes[auctionToCheck.type] : null;
+            if (auctionType && auctionType.hasOwnProperty("nextType") && (auctionType.nextType != auctionType.auctionId)) {
+                let nextAuctionType:any = this.auctionTypes.hasOwnProperty(auctionType.nextType) ? this.auctionTypes[auctionType.nextType] : null;
+                if (nextAuctionType) {
+                    let params:any = {...nextAuctionType.auctionParams};
+                    resolve(params);
+                } else {
+                    resolve(null);
+                }
+            } else {
+                resolve(null);
+            }
+        });
+    };
+
+    /**
      * Returns the promise to use to payout an auction taking into account
      * scamming activity.
      *
@@ -652,8 +707,7 @@ export class AuctionManager {
             });
             if (!blockchainAuction) {
                 // This auction is no longer available
-                console.log("Removing: " + currentAuction.type);
-                console.log(auctionsFromBlockchain);
+                console.log("Removing: " + currentAuction.type + " @ " + Config.friendlyTimestamp());
                 toRet.removed.push(currentAuction);
             } else {
 
@@ -661,6 +715,8 @@ export class AuctionManager {
 
                 let originalBlockchainAuctionExpireUnixTime:number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
 
+                // Handles fantom auctions (ones with no bids that roll over so that we don't have to
+                // spend CPU on empty auctions)
                 this.restartEndedAuctions(headBlockTime, blockchainAuction);
 
                 // See if we need to reset our auction to its original params because
@@ -685,9 +741,18 @@ export class AuctionManager {
                 // See if we have ended
                 let expireUnixTime: number = blockchainAuction.hasOwnProperty("expireUnixTime") ? blockchainAuction.expireUnixTime : parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
                 if ((blockchainAuction.remaining_bid_count == 0) || (expireUnixTime <= headBlockTime)) {
-                    // Yup, we ended
-                    blockchainAuction.hasEnded = true;
-                    toRet.ended.push(blockchainAuction);
+
+                    // Yup, we ended - we require 5 seconds (10 polls) before we declare the auction ended
+                    if (!currentAuction.hasOwnProperty("endedPollCount")) {
+                        blockchainAuction["endedPollCount"] = 10;
+                    } else {
+                        blockchainAuction["endedPollCount"] = currentAuction.endedPollCount - 1;
+                    }
+                    if (blockchainAuction.endedPollCount <= 0) {
+                        blockchainAuction.hasEnded = true;
+                        toRet.ended.push(blockchainAuction);
+                    }
+
                 } else {
                     // See if this auction has changed
                     if ((blockchainAuction.remaining_bid_count < currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id) || (blockchainAuction.iterationCount != currentAuction.iterationCount)) {
@@ -710,6 +775,7 @@ export class AuctionManager {
                 return blockchainAuction.type == currval.type;
             });
             if (!currentAuction) {
+                console.log("Adding: " + blockchainAuction.type + " @ " + Config.friendlyTimestamp());
                 toRet.added.push(blockchainAuction);
             }
         }

@@ -1,4 +1,3 @@
-/// <reference path='./ClientConnection.ts' />
 import Process = NodeJS.Process;
 import Socket from "socket.io";
 import {ClientConnection} from "./ClientConnection";
@@ -8,18 +7,20 @@ import {EosBlockchain} from "./EosBlockchain";
 import {AuctionManager} from "./AuctionManager";
 import {DBManager} from "./DBManager";
 import moment = require("moment");
-import {EosWatcherCallbacks} from "./EosWatcherCallbacks";
-import {DBNodeos} from "./DBNodeos";
 import {DividendManager} from "./DividendManager";
 import {EosRpcMongoHistoryBuilder} from "./EosRpcMongoHistoryBuilder";
 import {SocketMessage} from "./SocketMessage";
 import {TransactionLinkManager} from "./TransactionLinkManager";
+import {FaucetManager} from "./FaucetManager";
+import {ConnectionOptions} from "typeorm";
+import {DBMysql} from "./DBMysql";
 
 const process:Process = require('process');
 const serveStatic = require('serve-static')
 const fh = require('finalhandler');
 const http = require('http');
 const sio = require('socket.io');
+const ecc = require('eosjs-ecc');
 
 const md5 = require('md5');
 
@@ -33,15 +34,21 @@ module App {
         private eosRpcMongoHistory:EosRpcMongoHistoryBuilder = null;
         private auctionManager:AuctionManager = null;
         private dbManager:DBManager = null;
+        private dbMysql:DBMysql = null;
+        private faucetManager:FaucetManager = null;
         private dividendManager:DividendManager = null;
         private transactionLinkManager:TransactionLinkManager;
         private serverConfig:any = null;
+        private slackHook:string = null;
 
         /**
          * Constructs our App
          * node App.js -port 4001 -devmode true -rollback 160000 -db mongodb://localhost:27017/eostime -username node_server -password <password> -contractkey
          */
         constructor() {
+
+            // TODO remove this was here just to debug
+            // let signature = ecc.sign('I love Katya', "5J9fgyKAchBCLHnQ91JajZR7ahuH1M1TcwaWsYFJ7aLpCZpBCPQ");
 
             // Grab our port
             let port:number = <number> this.getCliParam("-port", true);
@@ -66,13 +73,25 @@ module App {
                 console.log("Invalid EOS keys");
                 process.exit();
             }
-
-            // Grab the slack hook
-            let slackHook:string = process.env.SLACK_HOOK;
-            if (typeof slackHook == "undefined") {
-                slackHook = null;
+            let serverKey:string = process.env.PKEY_SERVERKEY;
+            if (typeof serverKey == "undefined") {
+                console.log("Missing PKEY_SERVERKEY");
+                process.exit();
             }
 
+            // Grab the slack hooks
+            let auctionSlackHook:string = process.env.AUCTION_SLACK_HOOK;
+            if (typeof auctionSlackHook == "undefined") {
+                auctionSlackHook = null;
+            }
+            let dividendSlackHook:string = process.env.DIVIDEND_SLACK_HOOK;
+            if (typeof dividendSlackHook == "undefined") {
+                dividendSlackHook = null;
+            }
+            this.slackHook = process.env.ERROR_SLACK_HOOK;
+            if (typeof this.slackHook != "undefined") {
+                this.slackHook = null;
+            }
 
             let eosEndpoint:string = <string> this.getCliParam("-eosendpoint", false);
             if (!eosEndpoint) {
@@ -100,7 +119,31 @@ module App {
             if (db && password && password) {
                 this.dbManager = new DBManager();
             } else {
-                console.log("Cannot connect to database");
+                console.log("Cannot connect to MONGO database");
+                process.exit();
+            }
+
+            // Open our MySql database
+            const mysqlHost:string = <string> process.env.MYSQL_HOST;
+            const mysqlUsername:string = <string> process.env.MYSQL_USERNAME;
+            const mysqlPassword:string = <string> process.env.MYSQL_PASSWORD;
+            const mysqlDatabase:string = <string> process.env.MYSQL_DATABASE;
+            if (mysqlHost && mysqlUsername && mysqlPassword && mysqlDatabase) {
+                const conn: ConnectionOptions = {
+                    type: "mysql",
+                    host: mysqlHost,
+                    port: 3306,
+                    username: mysqlUsername,
+                    password: mysqlPassword,
+                    database: mysqlDatabase,
+                    entities: [
+                        __dirname + "/entities/*.js"
+                    ],
+                    synchronize: true,
+                }
+                this.dbMysql = new DBMysql(conn);
+            } else {
+                console.log("Cannot connect to MYSQL database - are environment variables set?");
                 process.exit();
             }
 
@@ -115,32 +158,43 @@ module App {
                 return this.dbManager.getConfig("serverConfig");
             }).then((serverConfig:any) => {
                 this.serverConfig = serverConfig;
+                return this.dbMysql.connect();
+            }).then((mysqlConnected:boolean) => {
+                if (mysqlConnected) {
+                    this.faucetManager = new FaucetManager(this.dbManager, () => {
+                        return this.eosBlockchain
+                    });
+                    this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
+                    this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, serverKey, this.eosBlockchain, auctionSlackHook);
+                    this.eosRpcMongoHistory = new EosRpcMongoHistoryBuilder(historyEndpoint, this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
+                    this.eosRpcMongoHistory.start();
+                    this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, () => {
+                        return this.eosRpcMongoHistory.getBlockTimestamp()
+                    }, dividendSlackHook, this.updateDividendCallback.bind(this));
+                    this.dividendManager.start();
+                    this.transactionLinkManager = new TransactionLinkManager(this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
+                    this.transactionLinkManager.start();
 
-                this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
-                this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.eosBlockchain, slackHook);
-                this.eosRpcMongoHistory = new EosRpcMongoHistoryBuilder(historyEndpoint, this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
-                this.eosRpcMongoHistory.start();
-                this.dividendManager = new DividendManager(this.dbManager, this.eosBlockchain, this.eosRpcMongoHistory, this.updateDividendCallback.bind(this));
-                this.dividendManager.start();
-                this.transactionLinkManager = new TransactionLinkManager(this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
-                this.transactionLinkManager.start();
-
-                if (!startat) {
-                    console.log("Missing parameter startat");
-                    process.exit();
-                }
-
-                if (startat == "head") {
-                    // Start at the current head block
-                    return this.eosBlockchain.getInfo();
-                } else {
-                    if (startat == "last") {
-                        // Start at the block stored in the database
-                        return this.dbManager.getConfig("currentBlockNumber");
-                    } else {
-                        // Start at the block specified
-                        return this.auctionManager.rollbackToBlock(parseInt(startat));
+                    if (!startat) {
+                        console.log("Missing parameter startat");
+                        process.exit();
                     }
+
+                    if (startat == "head") {
+                        // Start at the current head block
+                        return this.eosBlockchain.getInfo();
+                    } else {
+                        if (startat == "last") {
+                            // Start at the block stored in the database
+                            return this.dbManager.getConfig("currentBlockNumber");
+                        } else {
+                            // Start at the block specified
+                            return this.auctionManager.rollbackToBlock(parseInt(startat));
+                        }
+                    }
+                } else {
+                    // Could not connect to MySql database
+                    process.exit();
                 }
 
             }).then((val:any) => {
@@ -182,7 +236,7 @@ module App {
 
                         // Use auction manager to poll the blockchain
                         // Todo REMOVE comment this before deploying to AWS
-                        this.auctionManager.enablePolling(true);
+                        // this.auctionManager.enablePolling(true);
 
                         // Finally, attach event handlers
                         this.attachEventHandlers();
@@ -214,7 +268,7 @@ module App {
             this.sio.on('connect', (socket:Socket.Socket) => {
 
                 // Spawn new EOS client connection manager for this socket
-                new ClientConnection(socket, this.dbManager, this.auctionManager, this.dividendManager,() => {return this.eosBlockchain});
+                new ClientConnection(socket, this.dbManager, this.auctionManager, this.dividendManager, this.faucetManager,() => {return this.eosBlockchain});
 
             });
 
@@ -247,8 +301,12 @@ module App {
                         await localThis.transactionLinkManager.stop();
                     }
                     if (localThis.dbManager) {
-                        console.log("Disconnecting from database");
+                        console.log("Disconnecting from NODEOS database");
                         localThis.dbManager.closeDbConnection();
+                    }
+                    if (localThis.dbMysql) {
+                        console.log("Disconnecting from MYSQL database");
+                        localThis.dbMysql.close();
                     }
                 } catch (err) {
                     console.log("Failed to exit gracefully")
