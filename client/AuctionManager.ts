@@ -503,6 +503,14 @@ export class AuctionManager extends ViewStateObserver {
             $elem.find(this.selectors.ribbonContainer).html(auction.html);
         }
 
+        let $clockAcceleratesMesage:JQuery<HTMLElement> = $elem.find(".auction-instance-clock-accelerates-message");
+        if (auction.clock_multiplier_x100k == 0.0) {
+            $clockAcceleratesMesage.addClass("d-none");
+        } else {
+            $clockAcceleratesMesage.removeClass("d-none");
+            (<any> $clockAcceleratesMesage).find('div').animateCss('pulse infinite');
+        }
+
         $elem.find(this.selectors.auctionInstanceId).text(auction.type.toString() + "-" + auction.id.toString());
         $elem.find(this.selectors.auctionInstanceBidderOuter).addClass("d-none");
         $elem.find(this.selectors.auctionInstanceNoBidder).addClass("d-none");
@@ -572,6 +580,16 @@ export class AuctionManager extends ViewStateObserver {
             } else {
                 $body.find(".auction-instance-modal-bid-price-increase-outer").addClass("d-none");
             }
+
+            if (auction.clock_multiplier_x100k != 0.0) {
+                let val:number = auction.clock_multiplier_x100k/1000;
+                $body.find(".auction-instance-modal-clock-accelerator").text(val.toFixed(2) + "%");
+                $body.find(".auction-instance-modal-clock-accelerator-outer").removeClass("d-none");
+            } else {
+                $body.find(".auction-instance-modal-clock-accelerator-outer").removeClass("d-none");
+            }
+
+            $body.find(".auction-instance-modal-remaining-bids").text(auction.remaining_bid_count);
 
             $body.find(".auction-instance-modal-time-redzone").text(auction.init_redzone_secs.toString());
 
@@ -748,6 +766,7 @@ export class AuctionManager extends ViewStateObserver {
                     this.eos.transfer(this.account.name, Config.eostimeContract, assetAndQuantity, memo, options).then((result) => {
                         console.log(result);
                     }).catch(err => {
+                        console.log(err);
                         $auctionElement.find(this.selectors.auctionInstanceBusy).addClass("d-none");
                         try {
                             err = JSON.parse(err);

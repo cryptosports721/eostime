@@ -86,10 +86,12 @@
                                 <div class="card dark">
                                     <div class="card-body p-4">
                                         <div class="flex-center">
-                                            <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
-                                            <div class="flex-left flex-column">
-                                                <span class="font-24 english lang">Bid to win <span class="icon-eos_icon font24 m-r-5"></span> EOS</span>
-                                                <span class="font-24 chinese lang d-none">出價要贏 <span class="icon-eos_icon font-24 m-r-5"></span> EOS</span>
+                                            <div class="row">
+                                                <div class="col-12 text-center">
+                                                    <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
+                                                    <span class="font-24 english lang">Bid to win <span class="icon-eos_icon font24 m-r-5"></span> EOS</span>
+                                                    <span class="font-24 chinese lang d-none">出價要贏 <span class="icon-eos_icon font-24 m-r-5"></span> EOS</span>
+                                                </div>
                                                 <div class="d-none"><span class="col-yellow d-none english lang">Earn TIME tokens with each bid</span></div>
                                                 <div class="d-none"><span class="col-yellow chinese lang d-none">賺 TIME 每次出價的代幣</span></div>
                                             </div>
@@ -170,6 +172,14 @@
                     <div class="auction-instance-busy d-none">
                         <div><img src="assets/images/loading.svg"></div>
                     </div>
+                    <div class="auction-instance-clock-accelerates-message d-none">
+                        <div class="english lang d-none" style="position: absolute; top: 204px; left: 48px; font-size: 8pt; color: #48dbfb">
+                            CLOCK ACCELERATES ON EACH BID!
+                        </div>
+                        <div class="chinese lang d-none" style="position: absolute; top: 204px; left: 89px; font-size: 8pt; color: #48dbfb">
+                            时钟加速每个出价
+                        </div>
+                    </div>
                     <!--<div class="auction-instance-small-text text-right font-muted abs-corner">ID: <span class="auction-instance-id">76</span></div>-->
                     <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
                     <div class="flex-center">
@@ -213,6 +223,13 @@
                             <span class="chinese lang d-none">出價 </span>
                             <span class="auction-instance-bid-amount"></span>
                         </button>
+                    </div>
+                    <div class="col-12 pt-2 text-muted d-none english lang" style="font-size: 8pt;">
+                        If an auction ends because the bid counter goes to zero, the last bid recorded by our contract on the EOS blockchain is the winner.
+                        Please time your bids to take into account network delays.
+                    </div>
+                    <div class="col-12 pt-2 text-muted d-none chinese lang" style="font-size: 8pt;">
+                        如果竞价结束，因为竞价计数器变为零，我们在服务器上注册的最后一个竞价是赢家。 请为您的出价计算时间，以考虑网络延迟。
                     </div>
                 </div>
             </div>
@@ -287,6 +304,9 @@
                                             The current bid price is
                                             <span class="icon-eos_icon font-16 font-blue-glow m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
                                         </li>
+                                        <li>
+                                            This auction will end when the timer expires or when <span class="auction-instance-modal-remaining-bids"></span> more bid(s) are received.
+                                        </li>
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             The bid price will increase by <span class="auction-instance-modal-bid-price-increase"></span> after each bid.
                                         </li>
@@ -294,6 +314,11 @@
                                             If a bid is received in the last <span class="auction-instance-modal-time-redzone"></span>
                                             seconds of the auction, the timer will be reset to <span class="auction-instance-modal-time-redzone"></span>
                                             seconds, offering others a chance to bid if they wish to.
+                                        </li>
+                                        <li class="auction-instance-modal-clock-accelerator-outer">
+                                            This auction accelerates on each bid. If the time remaining in the auction is greater than <span class="auction-instance-modal-time-redzone"></span> seconds,
+                                            each bid will cause the time remaining to be set to <span class="auction-instance-modal-clock-accelerator"></span> of
+                                            the time remaining prior to the bid.
                                         </li>
                                         <li>
                                             You will receive <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
@@ -322,6 +347,9 @@
                                             目前的出價是
                                             <span class="icon-eos_icon font-16 font-blue-glow m-r-5"></span> <span class="auction-instance-modal-bid-price"></span> EOS
                                         </li>
+                                        <li>
+                                            此计划将在计时器到期或何时结束 <span class="auction-instance-modal-remaining-bids"></span> 收到更多出价。
+                                        </li>
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             出價將增加 <span class="auction-instance-modal-bid-price-increase"></span> 每次競標後。
                                         </li>
@@ -329,6 +357,10 @@
                                             如果在最後收到出價 <span class="auction-instance-modal-time-redzone"></span>
                                             拍賣的秒數, 計時器將重置為 <span class="auction-instance-modal-time-redzone"></span>
                                             秒如果他們願意，為他人提供出價機會。
+                                        </li>
+                                        <li class="auction-instance-modal-clock-accelerator-outer">
+                                            此次拍卖会在每次竞价时加速。 如果拍卖剩余的时间大于 <span class="auction-instance-modal-time-redzone"></span> 秒,
+                                            每次出价都会导致剩余时间设置为 <span class="auction-instance-modal-clock-accelerator"></span> 在投标之前剩余的时间。
                                         </li>
                                         <li>
                                             您將收到 <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
@@ -409,7 +441,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.6/lib/eos.min.js" integrity="sha512-IS9vyI+sMK7MYNJgHj9G8Li21QYs59sRW/Nyzi+dKUh6bF6OfpOnvzSCTiegWftY1ozOmmyacCH2QIJpZgbuKw==" crossorigin="anonymous"></script>
     <script src="assets/js/bootstrap-notify.min.js"></script>
-    <script src="assets/js/eostime-bundle.min.js?nonce=1546043189"></script>
+    <script src="assets/js/eostime-bundle.min.js?nonce=1546043193"></script>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>

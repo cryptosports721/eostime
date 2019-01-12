@@ -8,6 +8,10 @@ import {AuctionManager} from "./AuctionManager";
 import {DividendManager} from "./DividendManager";
 import {FaucetManager} from "./FaucetManager";
 import {BannedUsers} from "./BannedUsers";
+import {DBMysql} from "./DBMysql";
+import {user} from "./entities/user";
+import {QueryRunner, EntityManager, SelectQueryBuilder} from "typeorm";
+import {ipAddress} from "./entities/ipAddress";
 
 const moment = require('moment');
 
@@ -17,12 +21,13 @@ export class ClientConnection {
     public static CONNECTIONS:ClientConnection[] = new Array<ClientConnection>();
 
     // Private class members
-    private ipAddress;
+    private ipAddress = "127.0.0.1";
     private socketMessage:SocketMessage;
     private eos: () => EosBlockchain;
     private network:string = null;
     private accountInfo:any = null;
     private dbManager:DBManager = null;
+    private dbMySql:DBMysql = null;
     private auctionManager:AuctionManager = null;
     private dividendManager:DividendManager = null;
     private faucetManager:FaucetManager = null;
@@ -49,9 +54,10 @@ export class ClientConnection {
      * @param {DividendManager} dividendManager
      * @param {() => EosBlockchain} eos
      */
-    constructor(_socket:Socket.Socket, dbManager:DBManager, auctionManager:AuctionManager, dividendManager:DividendManager, faucetManager:FaucetManager, eos: () => EosBlockchain) {
+    constructor(_socket:Socket.Socket, dbManager:DBManager, dbMysql:DBMysql, auctionManager:AuctionManager, dividendManager:DividendManager, faucetManager:FaucetManager, eos: () => EosBlockchain) {
 
         this.dbManager = dbManager;
+        this.dbMySql = dbMysql;
         this.auctionManager = auctionManager;
         this.dividendManager = dividendManager;
         this.faucetManager = faucetManager;
@@ -59,27 +65,29 @@ export class ClientConnection {
         this.bannedUsers = new BannedUsers(this.dbManager);
 
         // Deal with load balancer forwarding the originator's IP address
-        if (_socket.request && _socket.request.headers && _socket.request.headers["x-forwarded-for"]) {
-            this.ipAddress = _socket.request.headers["x-forwarded-for"];
-        } else {
-            this.ipAddress = _socket.handshake.address;
-        }
+        if (_socket) {
+            if (_socket.request && _socket.request.headers && _socket.request.headers["x-forwarded-for"]) {
+                this.ipAddress = _socket.request.headers["x-forwarded-for"];
+            } else {
+                this.ipAddress = _socket.handshake.address;
+            }
 
-        if (!this.isBlockedIPAddress(this.ipAddress)) {
+            if (!this.isBlockedIPAddress(this.ipAddress)) {
 
-            // Setup this ClientConnection
-            this.socketMessage = new SocketMessage(_socket);
-            this.attachAPIHandlers();
+                // Setup this ClientConnection
+                this.socketMessage = new SocketMessage(_socket);
+                this.attachAPIHandlers();
 
-            // Add ourselves to the active list of connections
-            ClientConnection.CONNECTIONS.push(this);
+                // Add ourselves to the active list of connections
+                ClientConnection.CONNECTIONS.push(this);
 
-            // Let the client know that we are connected
-            this.socketMessage.stcConnected();
+                // Let the client know that we are connected
+                this.socketMessage.stcConnected();
 
-        } else {
-            // Kill the socket and associated resources
-            _socket.disconnect();
+            } else {
+                // Kill the socket and associated resources
+                _socket.disconnect();
+            }
         }
     }
 
@@ -392,13 +400,120 @@ export class ClientConnection {
     }
 
     /**
-     * Registers an account in the database if it has not already been registered.
+     * Registers an account in the database if it has not already been registered (Using MySQL database).
      *
      * @param accountInfo
      * @param {string} referrer
      * @returns {Promise<void>}
      */
-    private registerClientAccount(accountInfo:any, referrer:string) : Promise<void> {
+    public registerClientAccount(accountInfo:any, referrer:string) : Promise<user> {
+
+        return new Promise<user>(async (resolve, reject) => {
+
+            try {
+                let account: user = await this.dbMySql.qb(user, "user").where({accountName: accountInfo.account_name}).getOne();
+                if (account) {
+                    // We already have registered this guy, so update his information
+                    account.lastConnectedDatetime = new Date();
+                    account.connectionCount++;
+                    if (Config.PARTNER_REFERRERS.hasOwnProperty(referrer) && Config.PARTNER_REFERRERS[referrer]) {
+                        account.referrer = referrer;
+                        accountInfo.referrer = account.referrer;
+                    } else {
+                        accountInfo.referrer = account.referrer;
+                    }
+                } else {
+                    account = new user();
+                    account.lastConnectedDatetime = account.creationDatetime = new Date();
+                    account.accountName = accountInfo.account_name;
+                    account.connectionCount = 1;
+                    if (referrer) {
+                        let dbReferrer: user = await this.dbMySql.qb(user, "user").where({accountName: referrer}).getOne();
+                        if (dbReferrer && (dbReferrer.accountName != accountInfo.account_name)) {
+                            // Referrer exists in the database and is not user herself, so it's a go!
+                            account.referrer = dbReferrer.accountName;
+                        }
+                    }
+                }
+                account.eosBalance = parseFloat(accountInfo.core_liquid_balance.split(" ")[0]);
+                account.timeBalance = parseFloat(accountInfo.timeBalance.split(" ")[0]);
+                await account.save();
+
+                // Record IP address
+                let ip:ipAddress = await this.dbMySql.qb(ipAddress, "ipAddress").leftJoinAndSelect("ipAddress.user_", "u").where({ipAddress: this.ipAddress}).andWhere("u.id = " + account.id).getOne();
+                if (ip) {
+                    ip.connectionCount++;
+                } else {
+                    ip = new ipAddress();
+                    ip.ipAddress = this.ipAddress;
+                    ip.user_ = account;
+                }
+                await ip.save();
+
+                resolve(account);
+            } catch (err) {
+                reject(err);
+            }
+
+        });
+
+        // return this.dbManager.getDocumentByKey("users", {accountName: accountInfo.account_name}).then((user) => {
+        //     if (user) {
+        //         // We have already seen this guy
+        //         if (user.ipAddresses.indexOf(this.ipAddress) < 0) {
+        //             user.ipAddresses.push(this.ipAddress);
+        //         }
+        //         user.eosBalance = accountInfo.core_liquid_balance;
+        //         user.timeBalance = accountInfo.timeBalance;
+        //         user.lastConnectedTime = moment().format();
+        //         if (Config.PARTNER_REFERRERS.hasOwnProperty(referrer) && Config.PARTNER_REFERRERS[referrer]) {
+        //             user.referrer = referrer;
+        //             accountInfo.referrer = user.referrer;
+        //         } else {
+        //             accountInfo.referrer = user.referrer;
+        //         }
+        //         return this.dbManager.updateDocumentByKey("users", {accountName: accountInfo.account_name}, user);
+        //     } else {
+        //         // This is a new user
+        //         let user: any = {
+        //             accountName: accountInfo.account_name,
+        //             connectionCount: 1,
+        //             eosBalance: accountInfo.core_liquid_balance,
+        //             timeBalance: accountInfo.timeBalance,
+        //             lastFaucetTime: null,
+        //             lastConnectedTime: moment().format(),
+        //             ipAddresses: [this.ipAddress]
+        //         };
+        //         if (referrer) {
+        //             return this.dbManager.getDocumentByKey("users", {accountName: referrer}).then((referrer) => {
+        //                 if (referrer && (referrer.accountName != accountInfo.account_name)) {
+        //                     // Referrer exists in the database and is not user herself, so it's a go!
+        //                     user.referrer = referrer.accountName;
+        //                 }  else {
+        //                     // Referrer did not exist in the database or referred himself - so we ignore!
+        //                     user.referrer = null;
+        //                 }
+        //                 return this.dbManager.insertDocument("users", user);
+        //             });
+        //         } else {
+        //             // No referrer passed in
+        //             user.referrer = null;
+        //             return this.dbManager.insertDocument("users", user);
+        //         }
+        //     }
+        // }).catch((err) => {
+        //     console.log(err);
+        // });
+    }
+
+    /**
+     * Registers an account in the database if it has not already been registered (using MongoDB)
+     *
+     * @param accountInfo
+     * @param {string} referrer
+     * @returns {Promise<void>}
+     */
+    private register_ClientAccount(accountInfo:any, referrer:string) : Promise<void> {
         return this.dbManager.getDocumentByKey("users", {accountName: accountInfo.account_name}).then((user) => {
             if (user) {
                 // We have already seen this guy

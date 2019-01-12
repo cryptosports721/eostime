@@ -1,11 +1,13 @@
 import "reflect-metadata";
-import {ConnectionOptions, createConnection, getConnection} from "typeorm";
+import {BaseEntity, ConnectionOptions, createConnection, getConnection, ObjectType, SelectQueryBuilder} from "typeorm";
 import {Connection} from "typeorm/connection/Connection";
 import {dividend} from "./entities/dividend";
 import {payment} from "./entities/payment";
 import {Config} from "./Config";
 import {user} from "./entities/user";
 import {EntityManager} from "typeorm/entity-manager/EntityManager";
+import {QueryRunner} from "typeorm/query-runner/QueryRunner";
+import {Repository} from "typeorm/repository/Repository";
 const mysql = require('mysql');
 
 export class DBMysql {
@@ -30,7 +32,7 @@ export class DBMysql {
                 this.conn = connection;
                 resolve(true);
             }).catch((error) => {
-                console.log("Could not open eostime database and start the EOS blockchain watcher");
+                console.log("Could not open eostime MYSQL database and start the EOS blockchain watcher");
                 console.log(error.message);
                 resolve(false);
             });
@@ -49,6 +51,17 @@ export class DBMysql {
     }
 
     /**
+     * Query builder for any entity
+     * @param Entity
+     * @param {string} alias
+     * @returns {SelectQueryBuilder<Entity>}
+     */
+    public qb<T>(Entity: new () => T, alias:string):SelectQueryBuilder<T> {
+        let repo:Repository<T> = this.conn.getRepository(Entity);
+        return repo.createQueryBuilder();
+    }
+
+    /**
      * Creates a dividend receipt in the database from the dividend receipt JSON
      * in a single transaction.
      *
@@ -61,7 +74,7 @@ export class DBMysql {
            let success:boolean = true;
            if (this.conn) {
                const now:Date = new Date();
-               const queryRunner = this.conn.createQueryRunner();
+               const queryRunner:QueryRunner = this.conn.createQueryRunner();
                await queryRunner.connect();
                await queryRunner.startTransaction();
                try {
@@ -74,17 +87,29 @@ export class DBMysql {
                    div.stakersProfit = dividendJsonReceipt.stakersProfit;
                    div.dividendBalance = dividendJsonReceipt.dividendBalance;
                    div.eostimecontrRecharge = dividendJsonReceipt.eostimecontrRecharge;
-                   div.paymentState = dividendJsonReceipt.paymentState;
                    div.eostimecontrRecharge = 100.0;
                    await queryRunner.manager.save(div);
+
+                   // Transfer back to eostimecontr
+                   if (dividendJsonReceipt.dividendInfo.topOff > 0) {
+                       let transferToContr:payment = new payment();
+                       transferToContr.creationDatetime = now;
+                       transferToContr.accountName = Config.eostimeContract;
+                       transferToContr.amount = dividendJsonReceipt.dividendInfo.topOff;
+                       transferToContr.currency = "EOS";
+                       transferToContr.paymentState = "pending";
+                       transferToContr.paymentType = "transfer";
+                       transferToContr.dividend_ = div;
+                       await queryRunner.manager.save(transferToContr);
+                   }
 
                    // Create our housePayment
                    let housePmt:payment = new payment();
                    housePmt.creationDatetime = now;
-                   housePmt.accountName = Config.eostimeDividendContract;
+                   housePmt.accountName = Config.eostimeTokenCorpo;
                    housePmt.amount = div.houseProfit;
                    housePmt.currency = "EOS";
-                   housePmt.paymentState = div.paymentState;
+                   housePmt.paymentState = "pending";
                    housePmt.paymentType = "house";
                    housePmt.dividend_ = div;
                    await queryRunner.manager.save(housePmt);
@@ -96,7 +121,7 @@ export class DBMysql {
                        stakerPayment.accountName = sp.account;
                        stakerPayment.amount = sp.amount;
                        stakerPayment.currency = "EOS";
-                       stakerPayment.paymentState = div.paymentState;
+                       stakerPayment.paymentState = "pending";
                        stakerPayment.paymentType = "staker";
                        let u:user = await this.userFromAccount(queryRunner.manager, sp.account);
                        if (u) {
@@ -126,8 +151,6 @@ export class DBMysql {
                    }
 
                    await queryRunner.commitTransaction();
-                   await queryRunner.release();
-                   resolve();
 
                } catch (err) {
                    success = false;
@@ -144,6 +167,92 @@ export class DBMysql {
                reject();
            }
 
+        });
+    }
+
+    /**
+     * Returns the entity manager
+     * @returns {EntityManager}
+     */
+    public entityManager():EntityManager {
+        return this.conn.manager;
+    }
+
+    /**
+     * Returns a repository to use on the database
+     * @param {ObjectType<BaseEntity>} target
+     * @returns {Repository<BaseEntity>}
+     */
+    public repository(target:ObjectType<BaseEntity>):Repository<BaseEntity> {
+        return this.conn.getRepository(target);
+    }
+
+    /**
+     * Returns our connection
+     * @returns {Connection}
+     */
+    public getConnection():Connection {
+        return this.conn;
+    }
+
+    /**
+     * Creates a query runner on our database
+     * @returns {QueryRunner}
+     */
+    public queryRunner():QueryRunner {
+        return this.conn.createQueryRunner();
+    }
+
+    /**
+     * Starts a transaction on the mysql database
+     * @returns {Promise<QueryRunner>}
+     */
+    public startTransaction():Promise<QueryRunner> {
+        return new Promise<QueryRunner>(async (resolve, reject) => {
+            let success = true;
+            if (this.conn) {
+                const now:Date = new Date();
+                const queryRunner:QueryRunner = this.conn.createQueryRunner();
+                await queryRunner.connect();
+                await queryRunner.startTransaction();
+                resolve(queryRunner);
+            } else {
+                reject();
+            }
+        });
+    }
+
+    /**
+     * Commits a previously started transaction
+     * @param {QueryRunner} queryRunner
+     * @returns {Promise<void>}
+     */
+    public commitTransaction(queryRunner:QueryRunner):Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                await queryRunner.commitTransaction();
+                await queryRunner.release();
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Rolls back a previously started transaction
+     * @param {QueryRunner} queryRunner
+     * @returns {Promise<void>}
+     */
+    public rollbackTransaction(queryRunner:QueryRunner):Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                await queryRunner.rollbackTransaction();
+                await queryRunner.release();
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 

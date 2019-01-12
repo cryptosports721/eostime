@@ -1,10 +1,13 @@
 import {DBManager} from "./DBManager";
 import {DividendManager} from "./DividendManager";
 import {EosBlockchain} from "./EosBlockchain";
+import {FaucetManager} from "./FaucetManager";
 import {Config} from "./Config";
 import moment = require("moment");
 import {DBMysql} from "./DBMysql";
 import {ConnectionOptions} from "typeorm";
+import {ClientConnection} from "./ClientConnection";
+import {user} from "./entities/user";
 
 const readline = require('readline');
 
@@ -16,6 +19,8 @@ module CliApp {
         private dbMysql:DBMysql = null;
         private dividendManager:DividendManager = null;
         private eosBlockchain:EosBlockchain = null;
+        private clientConnection:ClientConnection = null;
+        private faucetManager:FaucetManager = null;
         private rl:any = null;
 
         private stdinListeners:((string) => void)[] = new Array<(string) => void>();
@@ -74,12 +79,16 @@ module CliApp {
 
             this.dbManager.openDbConnection(db, username, password).then((result) => {
                 return this.dbManager.getConfig("serverConfig");
-            }).then((serverConfig:any) => {
+            }).then(async (serverConfig:any) => {
                 this.eosBlockchain = new EosBlockchain(eosEndpoint, serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
                 this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, null, null, null);
                 return this.dbMysql.connect();
             }).then((mysqlConnected:boolean) => {
                 if (mysqlConnected) {
+
+                    this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain});
+                    this.clientConnection = new ClientConnection(null, this.dbManager, this.dbMysql, null, this.dividendManager, this.faucetManager, () => {return this.eosBlockchain});
+
                     // Our outer menu listener
                     const menuListener = async function (data: string) {
                         if (data != "\n") {
@@ -99,6 +108,20 @@ module CliApp {
                                     break;
                                 case "e":
                                     process.exit();
+                                    break;
+                                case "f":
+                                    let dividendInfo:any = await this.dividendManager.getDividendInfo();
+                                    console.log("\n=======\n");
+                                    console.log(dividendInfo);
+                                    console.log("\n=======\n");
+                                    break;
+                                case "g":
+                                    // let account:user = await this.clientConnection.registerClientAccount({account_name: "rockthecasba", core_liquid_balance: "0.7902 EOS", timeBalance: "5.2207 TIME"}, "chassettny11");
+                                    // let faucetInfo:any = await this.faucetManager.getFaucetInfo("chassettny11", "127.0.0.1");
+                                    // let award:any = await this.faucetManager.faucetDraw("chassettny11", "127.0.0.1");
+                                    break;
+                                case "h":
+                                    await this.dividendManager.payDividends();
                                     break;
                             }
                             this.outputMenu();
@@ -138,6 +161,9 @@ module CliApp {
             process.stdout.write("c - Transfer EOS from eostimehouse to eostimecontr\n");
             process.stdout.write("d - List TIME transactions for account\n");
             process.stdout.write("e - Exit\n");
+            process.stdout.write("f - Get dividend info\n");
+            process.stdout.write("g - code test\n");
+            process.stdout.write("h - Pay dividends NO VERIFY!! \n");
             process.stdout.write("=====================================\n");
             process.stdout.write("> ");
         }

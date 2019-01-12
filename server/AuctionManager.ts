@@ -759,7 +759,10 @@ export class AuctionManager {
                         // Yup, it has changed
                         let blockchainGlitch:boolean = (blockchainAuction.remaining_bid_count > currentAuction.remaining_bid_count)
                         if (blockchainAuction.last_bidder != "eostimecontr") {
-                            this.notifySlack("Bid " + blockchainAuction.bid_price + " EOS received from [" + blockchainAuction.last_bidder + "] on auction type " + blockchainAuction.type + " id " + blockchainAuction.id);
+                            let bidPrice:number = parseFloat(blockchainAuction.bid_price.split(" ")[0]);
+                            if (bidPrice > 2) {
+                                this.notifySlack("Bid " + blockchainAuction.bid_price + " EOS received from [" + blockchainAuction.last_bidder + "] on auction type " + blockchainAuction.type + " id " + blockchainAuction.id);
+                            }
                         }
                         toRet.changed.push(blockchainAuction);
                     }
@@ -809,6 +812,19 @@ export class AuctionManager {
         }
 
         this.auctions = auctionsFromBlockchain;
+
+        // To remove an auction, we need to see it go away for 3 seconds
+        for (let i:number = 0; i < toRet.removed.length; i++) {
+            let removedAuction:any = toRet.removed[i];
+            let cyclesInRemovedList:number = removedAuction.hasOwnProperty("cyclesRemoved") ? removedAuction["cyclesRemoved"] : 0;
+            if (cyclesInRemovedList < 10) {
+                removedAuction["cyclesRemoved"] = cyclesInRemovedList + 1;
+                this.auctions.push(removedAuction);
+                toRet.removed.splice(i, 1);
+                i--;
+            }
+        }
+
         return toRet;
     }
 

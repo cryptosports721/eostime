@@ -70,17 +70,8 @@ export class dividend extends BaseEntity {
     eostimecontrRecharge:number;
         
 
-    @Column("enum",{ 
-        nullable:true,
-        default: () => "'processing'",
-        enum:["pending","processing","paid","error"],
-        name:"paymentState"
-        })
-    paymentState:string | null;
-        
-
    
-    @OneToMany(type=>payment, payment=>payment.dividend_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })
+    @OneToMany(type=>payment, payment=>payment.dividend_,{ onDelete: 'CASCADE' ,onUpdate: 'NO ACTION' })
     payments:payment[];
     
 }

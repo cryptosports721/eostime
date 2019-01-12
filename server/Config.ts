@@ -22,6 +22,7 @@ export class Config extends ConfigBase {
         "cpuemergency": true
     };
 
+    public static TOPOFF_MAIN_CONTRACT = 100;
     public static HOUSE_PROFIT:number = 0.20;
     public static STAKERS_PROFIT:number = 0.05;
 

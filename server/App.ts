@@ -161,9 +161,7 @@ module App {
                 return this.dbMysql.connect();
             }).then((mysqlConnected:boolean) => {
                 if (mysqlConnected) {
-                    this.faucetManager = new FaucetManager(this.dbManager, () => {
-                        return this.eosBlockchain
-                    });
+                    this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain;});
                     this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
                     this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, serverKey, this.eosBlockchain, auctionSlackHook);
                     this.eosRpcMongoHistory = new EosRpcMongoHistoryBuilder(historyEndpoint, this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
@@ -171,7 +169,12 @@ module App {
                     this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, () => {
                         return this.eosRpcMongoHistory.getBlockTimestamp()
                     }, dividendSlackHook, this.updateDividendCallback.bind(this));
-                    this.dividendManager.start();
+
+                    let processDividends:string = process.env.PROCESS_DIVIDENDS;
+                    if ((typeof processDividends != "undefined") && (processDividends.toLowerCase() == "true")) {
+                        this.dividendManager.start();
+                    }
+
                     this.transactionLinkManager = new TransactionLinkManager(this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
                     this.transactionLinkManager.start();
 
@@ -236,7 +239,7 @@ module App {
 
                         // Use auction manager to poll the blockchain
                         // Todo REMOVE comment this before deploying to AWS
-                        // this.auctionManager.enablePolling(true);
+                        this.auctionManager.enablePolling(true);
 
                         // Finally, attach event handlers
                         this.attachEventHandlers();
@@ -268,7 +271,7 @@ module App {
             this.sio.on('connect', (socket:Socket.Socket) => {
 
                 // Spawn new EOS client connection manager for this socket
-                new ClientConnection(socket, this.dbManager, this.auctionManager, this.dividendManager, this.faucetManager,() => {return this.eosBlockchain});
+                new ClientConnection(socket, this.dbManager, this.dbMysql, this.auctionManager, this.dividendManager, this.faucetManager,() => {return this.eosBlockchain});
 
             });
 

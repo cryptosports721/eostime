@@ -9,6 +9,8 @@ export class ConfigBase {
     public static eostimeContract:string = "eostimecontr";
     public static eostimeContractAuctionTable:string = "redzones";
     public static eostimeDividendContract:string = "eostimehouse";
+    public static eostimeTokenContract:string = "eostimetoken";
+    public static eostimeTokenCorpo:string = "eostimecorpo";
 
     /**
      * Returns the first public key from the accountInfo structure that has the permission "active"

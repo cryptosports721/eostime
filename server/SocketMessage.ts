@@ -177,6 +177,24 @@ export class SocketMessage {
     }
 
     /**
+     * Sends the STC_UZCREATE_MEMO message to the client with the
+     * memo needed to sponsor an auction in this format:
+     *
+     * URZCREATE/redzone_type/init_bid_price/bid_multiplier_x100k/clock_multiplier_x100k/house_portion_x100k/referrer_portion_x100k/bidder_timecoins_per_eos/winner_timecoins_per_eos/back_to_back_bids_allowed/init_bid_count/init_duration_secs/init_redzone_secs/signature
+     *
+     * {
+     *  redzone_type: <number>,
+     *  init_bid_price:
+     * }
+     * @type {string}
+     */
+    public static STC_AUCTION_CREATE_SIGNATURE:string = "STC_AUCTION_CREATE_SIGNATURE";
+    public stcSendAuctionCreateSignature(memo:string):void {
+        let data:any = {...SocketMessage.standardServerDataObject(), ...{memo: memo}};
+        this.socket.emit(SocketMessage.STC_AUCTION_CREATE_SIGNATURE, JSON.stringify(data));
+    }
+
+    /**
      * Sends a server error message to the client.
      */
     public static STC_ERROR:string = "STC_ERROR";

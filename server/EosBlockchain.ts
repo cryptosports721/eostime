@@ -114,6 +114,10 @@ export class EosBlockchain {
         return this.eosRpc.get_info();
     }
 
+    public getScope():Promise<any> {
+        return this.eosRpc
+    }
+
     /**
      * Pays out from the dividend account to the target account
      * @param {string} accountName
@@ -457,12 +461,29 @@ export class EosBlockchain {
      *
      * @param {string} contract
      * @param {string} table
-     * @param {number} pos
-     * @param {number} offset
+     * @param {string} scope
+     * @param {number} lowerBound
+     * @param {number} upperBound
+     * @param {number} limit
      * @returns {Promise<any>}
      */
-    public getTable(contract:string, table: string, lowerBound:number = 0, upperBound:number = -1, limit: number = 10):Promise<any> {
-        return this.eosRpc.get_table_rows({json:true, code:contract, scope:contract, table:table, table_key: 0, lower_bound: lowerBound, upper_bound: upperBound, limit: limit});
+    public getTable(contract:string, table: string, scope:string = null, lowerBound:number = 0, upperBound:number = -1, limit: number = 10):Promise<any> {
+        if (scope === null) {
+            scope = contract;
+        }
+        return this.eosRpc.get_table_rows({json:true, code:contract, scope:scope, table:table, table_key: 0, lower_bound: lowerBound, upper_bound: upperBound, limit: limit});
+    }
+
+    /**
+     *
+     * @param {string} contract
+     * @param {string} lowerBound
+     * @param {string} upperBound
+     * @param {number} limit
+     * @returns {Promise<any>}
+     */
+    public getTableByScope(contract:string, lowerBound:string = "", upperBound:string = "", limit: number = 10):Promise<any> {
+        return this.eosRpc.get_table_by_scope({json:true, code:contract, table: "", lower_bound: lowerBound, upper_bound: upperBound, limit: limit});
     }
 
     /**

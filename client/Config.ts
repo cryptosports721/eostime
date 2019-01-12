@@ -42,6 +42,7 @@ export class Config extends ConfigBase {
             "port": 4001
         },
         "mainnet": {
+            // "host": "http://63.33.62.156",
             "host": "https://mainnet-elb.eostime.io",
             "port": 4001
         }

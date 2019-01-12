@@ -15,12 +15,6 @@ export class ipAddress extends BaseEntity {
     id:number;
         
 
-   
-    @ManyToOne(type=>user, user=>user.ipAddresss,{ primary:true, nullable:false,onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
-    @JoinColumn({ name:'user_id'})
-    user_:user | null;
-
-
     @Column("varchar",{ 
         nullable:false,
         length:128,
@@ -28,4 +22,18 @@ export class ipAddress extends BaseEntity {
         })
     ipAddress:string;
         
+
+    @Column("int",{ 
+        nullable:false,
+        default: () => "'1'",
+        name:"connectionCount"
+        })
+    connectionCount:number;
+        
+
+   
+    @ManyToOne(type=>user, user=>user.ipAddresss,{ primary:true, nullable:false,onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
+    @JoinColumn({ name:'user_id'})
+    user_:user | null;
+
 }

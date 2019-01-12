@@ -7,7 +7,6 @@ import {user} from "./user";
 @Index("id_UNIQUE",["id",],{unique:true})
 @Index("fk_payment_dividend1_idx",["dividend_",])
 @Index("transactionId_idx",["transactionId",])
-@Index("blockNumber_idx",["blockNumber",])
 @Index("accountName_idx",["accountName",])
 @Index("paymentState_idx",["paymentState",])
 @Index("creationDatetime_idx",["creationDatetime",])
@@ -74,28 +73,29 @@ export class payment extends BaseEntity {
     @Column("enum",{ 
         nullable:false,
         default: () => "'house'",
-        enum:["staker","house","dividend","partner"],
+        enum:["staker","house","dividend","partner","faucet","transfer"],
         name:"paymentType"
         })
     paymentType:string;
         
 
-    @Column("int",{ 
+    @Column("varchar",{ 
         nullable:true,
-        name:"blockNumber"
-        })
-    blockNumber:number | null;
-        
-
-    @Column("int",{ 
-        nullable:true,
+        length:128,
         name:"transactionId"
         })
-    transactionId:number | null;
+    transactionId:string | null;
+        
+
+    @Column("blob",{ 
+        nullable:true,
+        name:"error"
+        })
+    error:Buffer | null;
         
 
    
-    @ManyToOne(type=>dividend, dividend=>dividend.payments,{ onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
+    @ManyToOne(type=>dividend, dividend=>dividend.payments,{ onDelete: 'CASCADE',onUpdate: 'NO ACTION' })
     @JoinColumn({ name:'dividend_id'})
     dividend_:dividend | null;
 
