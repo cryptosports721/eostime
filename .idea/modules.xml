@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/../eosroller/.idea/eosroller.iml" filepath="$PROJECT_DIR$/../eosroller/.idea/eosroller.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/eostime.iml" filepath="$PROJECT_DIR$/.idea/eostime.iml" />
     </modules>
   </component>
 </project>

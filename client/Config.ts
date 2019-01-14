@@ -7,6 +7,7 @@ export enum ViewState {
     LOGGED_OUT
 }
 
+
 export class Config extends ConfigBase {
 
     public static LOCAL_STORAGE_KEY_EOS_NETWORK:string = "LOCAL_STORAGE_EOS_NETWORK";

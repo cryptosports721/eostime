@@ -13,6 +13,7 @@ import ScatterEOS from "scatterjs-plugin-eosjs";
 
 module EOSTime {
 
+
     // Defined in the scatterjs-core js file, which is required
     declare var ScatterJS:any;
 
