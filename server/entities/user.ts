@@ -1,6 +1,4 @@
 import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne,OneToMany,OneToOne,PrimaryColumn,PrimaryGeneratedColumn,RelationId} from "typeorm";
-import {auctions} from "./auctions";
-import {bid} from "./bid";
 import {ipAddress} from "./ipAddress";
 import {payment} from "./payment";
 
@@ -95,15 +93,13 @@ export class user extends BaseEntity {
     referrer:string | null;
         
 
-   
-    @OneToMany(type=>auctions, auctions=>auctions.user_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })
-    auctionss:auctions[];
-    
-
-   
-    @OneToMany(type=>bid, bid=>bid.user_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })
-    bs:bid[];
-    
+    @Column("varchar",{ 
+        nullable:true,
+        length:64,
+        name:"clientSeed"
+        })
+    clientSeed:string | null;
+        
 
    
     @OneToMany(type=>ipAddress, ipAddress=>ipAddress.user_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })

@@ -1,12 +1,13 @@
 import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne,OneToMany,OneToOne,PrimaryColumn,PrimaryGeneratedColumn,RelationId} from "typeorm";
-import {user} from "./user";
-import {auctions} from "./auctions";
 
 
 @Entity("bid",{schema:"eostime"})
 @Index("id_UNIQUE",["id",],{unique:true})
-@Index("fk_bid_user1_idx",["user_",])
+@Index("bidId_UNIQUE",["bidId",],{unique:true})
 @Index("amount_idx",["amount",])
+@Index("accountName",["accountName",])
+@Index("auctionId",["auctionId",])
+@Index("creationDatetime_idx",["creationDatetime",])
 export class bid extends BaseEntity {
 
     @PrimaryGeneratedColumn({
@@ -14,6 +15,36 @@ export class bid extends BaseEntity {
         name:"id"
         })
     id:number;
+        
+
+    @Column("datetime",{ 
+        nullable:false,
+        name:"creationDatetime"
+        })
+    creationDatetime:Date;
+        
+
+    @Column("int",{ 
+        nullable:false,
+        unique: true,
+        name:"bidId"
+        })
+    bidId:number;
+        
+
+    @Column("int",{ 
+        nullable:true,
+        name:"auctionId"
+        })
+    auctionId:number | null;
+        
+
+    @Column("varchar",{ 
+        nullable:false,
+        length:12,
+        name:"accountName"
+        })
+    accountName:string;
         
 
     @Column("float",{ 
@@ -33,14 +64,27 @@ export class bid extends BaseEntity {
     currency:string;
         
 
-   
-    @ManyToOne(type=>user, user=>user.bs,{  nullable:false,onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
-    @JoinColumn({ name:'user_id'})
-    user_:user | null;
+    @Column("float",{ 
+        nullable:true,
+        precision:12,
+        name:"housePortion"
+        })
+    housePortion:number | null;
+        
 
+    @Column("float",{ 
+        nullable:true,
+        precision:12,
+        name:"referrerPortion"
+        })
+    referrerPortion:number | null;
+        
 
-   
-    @OneToMany(type=>auctions, auctions=>auctions.bid_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })
-    auctionss:auctions[];
-    
+    @Column("float",{ 
+        nullable:true,
+        precision:12,
+        name:"bidderTimeTokens"
+        })
+    bidderTimeTokens:number | null;
+        
 }

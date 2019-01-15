@@ -85,10 +85,11 @@ export class SocketMessage {
      * @type {string}
      */
     public static CTS_GET_BID_SIGNATURE:string = "CTS_GET_BID_SIGNATURE";
-    public ctsGetBidSignature(auctionType:number, bidAmount:number):void {
+    public ctsGetBidSignature(auctionType:number, bidAmount:number, clientSeed:number):void {
         this.socket.emit(SocketMessage.CTS_GET_BID_SIGNATURE, JSON.stringify({
             "auctionType": auctionType,
-            "bidAmount": bidAmount
+            "bidAmount": bidAmount,
+            "clientSeed": clientSeed
         }));
     }
 
@@ -305,6 +306,13 @@ export class SocketMessage {
      * @param {string} sig Signature of the betting parameters
      */
     public static STC_WINNER_AUCTION:string = "STC_WINNER_AUCTION";
+
+    /**
+     * Message notifying the client of an auction's current client seed.
+     *
+     * @type {string}
+     */
+    public static STC_LEADER_CLIENT_SEED:string = "STC_LEADER_CLIENT_SEED";
 
     /**
      * Tells client to update its coin balances

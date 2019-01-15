@@ -8,12 +8,13 @@ import {AuctionManager} from "./AuctionManager";
 import {DBManager} from "./DBManager";
 import moment = require("moment");
 import {DividendManager} from "./DividendManager";
-import {EosRpcMongoHistoryBuilder} from "./EosRpcMongoHistoryBuilder";
 import {SocketMessage} from "./SocketMessage";
 import {TransactionLinkManager} from "./TransactionLinkManager";
 import {FaucetManager} from "./FaucetManager";
 import {ConnectionOptions} from "typeorm";
 import {DBMysql} from "./DBMysql";
+import {EosRpcMySqlHistoryBuilder} from "./EosRpcMySqlHistoryBuilderd";
+import {HarpoonManager} from "./HarpoonManager";
 
 const process:Process = require('process');
 const serveStatic = require('serve-static')
@@ -30,14 +31,13 @@ module App {
 
         private sio:any = null;
         private eosBlockchain:EosBlockchain = null;
-        private eosWatcher:EosWatcher = null;
-        private eosRpcMongoHistory:EosRpcMongoHistoryBuilder = null;
         private auctionManager:AuctionManager = null;
         private dbManager:DBManager = null;
         private dbMysql:DBMysql = null;
         private faucetManager:FaucetManager = null;
         private dividendManager:DividendManager = null;
-        private transactionLinkManager:TransactionLinkManager;
+        private historyBuilder:EosRpcMySqlHistoryBuilder = null;
+        private harpoonManager:HarpoonManager = null;
         private serverConfig:any = null;
         private slackHook:string = null;
 
@@ -61,9 +61,6 @@ module App {
             if (developerMode) {
                 Config.DEVELOPER_MODE = developerMode.toUpperCase() == "TRUE";
             }
-
-            // Grab startat
-            let startat:string = <string> this.getCliParam("-startat", false);
 
             // Grab private keys
             let contractPrivateKey:string = process.env.PKEY_EOSTIMECONTR;
@@ -155,104 +152,46 @@ module App {
 
             // Open the database then start the EOS blockchain watcher
             this.dbManager.openDbConnection(db, username, password).then((result) => {
-                return this.dbManager.getConfig("serverConfig");
-            }).then((serverConfig:any) => {
-                this.serverConfig = serverConfig;
                 return this.dbMysql.connect();
-            }).then((mysqlConnected:boolean) => {
+            }).then(async (mysqlConnected:boolean) => {
                 if (mysqlConnected) {
+                    let serverConfigString = await this.dbMysql.getConfig("serverConfig");
+                    this.serverConfig = JSON.parse(serverConfigString);
                     this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain;});
                     this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
-                    this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, serverKey, this.eosBlockchain, auctionSlackHook);
-                    this.eosRpcMongoHistory = new EosRpcMongoHistoryBuilder(historyEndpoint, this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
-                    this.eosRpcMongoHistory.start();
-                    this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, () => {
-                        return this.eosRpcMongoHistory.getBlockTimestamp()
-                    }, dividendSlackHook, this.updateDividendCallback.bind(this));
+                    this.harpoonManager = new HarpoonManager(this.dbMysql, serverKey);
+                    this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.dbMysql, this.harpoonManager, serverKey, this.eosBlockchain, auctionSlackHook);
+                    this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, dividendSlackHook, this.updateDividendCallback.bind(this));
+                    this.historyBuilder = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
+                    this.historyBuilder.start();
+
 
                     let processDividends:string = process.env.PROCESS_DIVIDENDS;
                     if ((typeof processDividends != "undefined") && (processDividends.toLowerCase() == "true")) {
                         this.dividendManager.start();
                     }
 
-                    this.transactionLinkManager = new TransactionLinkManager(this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
-                    this.transactionLinkManager.start();
+                    // this.transactionLinkManager = new TransactionLinkManager(this.dbManager, this.updateDividendCallback.bind(this), this.auctionManager.winnerPayoutTransaction.bind(this.auctionManager));
+                    // this.transactionLinkManager.start();
 
-                    if (!startat) {
-                        console.log("Missing parameter startat");
-                        process.exit();
+                    // Use auction manager to poll the blockchain
+                    let pollAuctions:string = process.env.POLL_AUCTIONS;
+                    if ((typeof pollAuctions != "undefined") && (pollAuctions.toLowerCase() == "true")) {
+                        this.auctionManager.enablePolling(true);
                     }
 
-                    if (startat == "head") {
-                        // Start at the current head block
-                        return this.eosBlockchain.getInfo();
-                    } else {
-                        if (startat == "last") {
-                            // Start at the block stored in the database
-                            return this.dbManager.getConfig("currentBlockNumber");
-                        } else {
-                            // Start at the block specified
-                            return this.auctionManager.rollbackToBlock(parseInt(startat));
-                        }
-                    }
+                    // Finally, attach event handlers
+                    this.attachEventHandlers();
+
                 } else {
                     // Could not connect to MySql database
-                    process.exit();
-                }
-
-            }).then((val:any) => {
-                if (val && val.head_block_num) {
-                    return Promise.resolve(val);
-                } else {
-                    return this.dbManager.getConfig("currentBlockNumber");
-                }
-            }).then((val:any) => {
-                let currentBlockNumber:number = null;
-                if (val) {
-                    if (typeof val == "number") {
-                        currentBlockNumber = val;
-                    } else {
-                        currentBlockNumber = Config.safeProperty(val, ["head_block_num"], null);
-                    }
-                    if (currentBlockNumber != null) {
-
-                        // See if we have a MongoDB for the nodeos blockchain (being fed by
-                        // a local instance of NODEOS)
-                        // const nodeosDatabase:string = <string> process.env.NODEOS_MONGO_DATABASE;
-                        // if (nodeosDatabase) {
-                        //     // We have a local NODEOS database we can use.
-                        //     let dbNodeos:DBNodeos = new DBNodeos();
-                        //     dbNodeos.init(nodeosDatabase).then(() => {
-                        //         this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, new EosWatcherCallbacks(this.dbManager, this.auctionManager), this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this), dbNodeos);
-                        //         this.eosWatcher.run();
-                        //     }).catch((err) => {
-                        //         console.log("Could not open Nodeos DB");
-                        //         console.log(err);
-                        //         process.exit();
-                        //     });
-                        // } else {
-                        //     // Run our EOS blockchain watcher using nodeos endpoint as
-                        //     // a history-capable node.
-                        //     this.eosWatcher = new EosWatcher(eosEndpoint, currentBlockNumber, new EosWatcherCallbacks(this.dbManager, this.auctionManager), this.processedBlockCallback.bind(this), this.rollbackToCallback.bind(this), null);
-                        //     this.eosWatcher.run();
-                        // }
-
-                        // Use auction manager to poll the blockchain
-                        // Todo REMOVE comment this before deploying to AWS
-                        this.auctionManager.enablePolling(true);
-
-                        // Finally, attach event handlers
-                        this.attachEventHandlers();
-                    }
-                }
-                if (currentBlockNumber == null) {
-                    console.log("Could not resolve currentBlockNumber");
                     process.exit();
                 }
 
             }).catch((err) => {
                 console.log("Could not open eostime database and start the EOS blockchain watcher");
                 console.log(err.message);
+                console.log(err);
                 process.exit();
             });
         }
@@ -295,14 +234,10 @@ module App {
                         console.log("Stopping dividend payouts");
                         await localThis.dividendManager.stop();
                     }
-                    if (localThis.eosRpcMongoHistory) {
-                        console.log("Stopping history scraper");
-                        await localThis.eosRpcMongoHistory.stop();
-                    }
-                    if (localThis.transactionLinkManager) {
-                        console.log("Stopping transaction link manager");
-                        await localThis.transactionLinkManager.stop();
-                    }
+                    // if (localThis.transactionLinkManager) {
+                    //     console.log("Stopping transaction link manager");
+                    //     await localThis.transactionLinkManager.stop();
+                    // }
                     if (localThis.dbManager) {
                         console.log("Disconnecting from NODEOS database");
                         localThis.dbManager.closeDbConnection();
@@ -378,30 +313,6 @@ module App {
                 let data: any = {...dividendInfo, ...SocketMessage.standardServerDataObject()};
                 this.sio.sockets.emit(SocketMessage.STC_DIVIDEND_INFO, JSON.stringify(data));
             }
-        }
-
-        /**
-         * Watcher callback executed on each block processed
-         * @param {number} blockNumber
-         * @returns {Promise<void>}
-         */
-        private processedBlockCallback(blockNumber:number, timestamp:string):Promise<void> {
-            if (blockNumber % 10000 === 0) {
-                console.log("Processing block #: " + blockNumber.toString() + " @ " + moment().format());
-            }
-            return this.auctionManager.processBlock(blockNumber, timestamp);
-        }
-
-        /**
-         * Watcher callback executed when we need to rollback to a previous block
-         * @param {number} blockNumber
-         * @returns {Promise<void>}
-         */
-        private rollbackToCallback(blockNumber:number):Promise<void> {
-            console.log("rollbackToCallback(" + blockNumber.toString() + ")");
-            return this.auctionManager.rollbackToBlock(blockNumber).catch((err) => {
-                console.log(err);
-            });
         }
 
         // ----------------------------------------------------------------------------

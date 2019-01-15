@@ -347,6 +347,16 @@ export class ClientConnection {
             payload = JSON.parse(payload);
             if (this.accountInfo && payload && payload.hasOwnProperty("auctionType") && payload.hasOwnProperty("bidAmount")) {
                 let accountName:string = (this.bannedUsers.isBanned(this.accountInfo.account_name, this.ipAddress)) ? "invalid-account-name" : this.accountInfo.account_name;
+
+                // Store the user's clientSeed when he asks for the bid sig
+                // and when he becomes
+                let clientSeed:any = Config.safeProperty(payload, ["clientSeed"], null);
+                if (clientSeed && typeof clientSeed == "number" && !isNaN(clientSeed)) {
+                    let bidder:user = await this.dbMySql.entityManager().findOne(user, {accountName: this.accountInfo.account_name});
+                    bidder.clientSeed = clientSeed.toString();
+                    bidder.save();
+                }
+
                 let signature: string = this.auctionManager.getBidSignature(accountName, payload.auctionType);
                 if (signature) {
                     this.socketMessage.stcSendBidSignature(signature, payload.auctionType, payload.bidAmount);

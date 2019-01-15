@@ -6,6 +6,12 @@ import {EosBlockchain} from "./EosBlockchain";
 import moment = require("moment");
 import {ClientSession, MongoClient} from "mongodb";
 import {Moment} from "moment";
+import {DBMysql} from "./DBMysql";
+import {auctions} from "./entities/auctions";
+import {bid} from "./entities/bid";
+import {HarpoonManager} from "./HarpoonManager";
+import {user} from "./entities/user";
+import {serverSeeds} from "./entities/serverSeeds";
 
 const request = require('request');
 const ecc = require('eosjs-ecc');
@@ -56,6 +62,7 @@ export class AuctionManager {
 
     private sio:any;
     private dbManager:DBManager;
+    private dbMySql:DBMysql;
     private eosBlockchain:EosBlockchain;
     private serverConfig:any;
     private serverKey:string;
@@ -67,6 +74,7 @@ export class AuctionManager {
     private auctionTypeCounter:number = 0;
     private auctionTypes:any = {};
     private slackHook:string;
+    private harpoonManager:HarpoonManager;
 
     /**
      * Constructs our auction manager
@@ -74,34 +82,57 @@ export class AuctionManager {
      * @param serverConfig
      * @param sio
      * @param {DBManager} dbManager
+     * @param {DBMysql} dbMySql
      * @param serverKey
      * @param {EosBlockchain} eosBlockchain
      * @param {string} slackHook
      */
-    constructor(serverConfig:any, sio:any, dbManager:DBManager, serverKey, eosBlockchain:EosBlockchain, slackHook:string) {
+    constructor(serverConfig:any, sio:any, dbManager:DBManager, dbMySql:DBMysql, harpoonManager:HarpoonManager, serverKey, eosBlockchain:EosBlockchain, slackHook:string) {
         this.serverConfig = serverConfig;
         this.sio = sio;
         this.dbManager = dbManager;
+        this.dbMySql = dbMySql;
         this.serverKey = serverKey;
         this.eosBlockchain = eosBlockchain;
         this.slackHook = slackHook;
+        this.harpoonManager = harpoonManager;
 
-        // Retrieve the most recent list of auction winners from the database
-        dbManager.getDocuments("auctions", {}, {expires: -1}, Config.WINNERS_LIST_LIMIT).then((recentWinners:any[]) => {
-            if (recentWinners && recentWinners.length > 0) {
-                this.recentWinners = recentWinners;
-                console.log("Recent Winners at startup: ");
-                for (let winner of this.recentWinners) {
-                    let expires:string = moment.unix(winner.expires).format();
-                    console.log(winner.last_bidder + " won " + winner.prize_pool + " at " + expires);
+        if (this.dbMySql) {
+            this.dbMySql.loadRecentWinners(Config.WINNERS_LIST_LIMIT).then((recentWinners) => {
+                if (recentWinners && recentWinners.length > 0) {
+                    this.recentWinners = recentWinners;
+                    console.log("Recent Winners at startup: ");
+                    for (let winner of this.recentWinners) {
+                        let expires: string = moment.unix(winner.expires).format();
+                        console.log(winner.last_bidder + " won " + winner.prize_pool + " at " + expires);
+                    }
+                } else {
+                    this.recentWinners = Array<any>();
                 }
-            } else {
-                this.recentWinners = Array<any>();
-            }
-        }, (reason) => {
-            console.log("Unable to retrieve most recent list of auctions");
-            console.log(reason);
-        });
+            }, (reason) => {
+                console.log("Unable to retrieve most recent list of auctions");
+                console.log(reason);
+            })
+        }
+
+        // if (this.dbManager) {
+        //     // Retrieve the most recent list of auction winners from the database
+        //     dbManager.getDocuments("auctions", {}, {expires: -1}, Config.WINNERS_LIST_LIMIT).then((recentWinners: any[]) => {
+        //         if (recentWinners && recentWinners.length > 0) {
+        //             this.recentWinners = recentWinners;
+        //             console.log("Recent Winners at startup: ");
+        //             for (let winner of this.recentWinners) {
+        //                 let expires: string = moment.unix(winner.expires).format();
+        //                 console.log(winner.last_bidder + " won " + winner.prize_pool + " at " + expires);
+        //             }
+        //         } else {
+        //             this.recentWinners = Array<any>();
+        //         }
+        //     }, (reason) => {
+        //         console.log("Unable to retrieve most recent list of auctions");
+        //         console.log(reason);
+        //     });
+        // }
     }
 
     public getRecentWinners():any[] {
@@ -229,7 +260,7 @@ export class AuctionManager {
 
             this.eosBlockchain.getInfo().then((blockchainInfo) => {
                 let headBlockTime:number = parseInt(moment( blockchainInfo.head_block_time + "+00:00").local().format("X"));
-                this.eosBlockchain.getTable(this.serverConfig.eostimeContract, this.serverConfig.eostimeContractTable).then((data:any) => {
+                this.eosBlockchain.getTable(this.serverConfig.eostimeContract, this.serverConfig.eostimeContractTable).then(async (data:any) => {
                     let auctionsFromBlockchain:any[] = Config.safeProperty(data, ["rows"], null);
                     let auctionToPayout:any = null;
                     if (auctionsFromBlockchain) {
@@ -241,10 +272,23 @@ export class AuctionManager {
                         let sortedAuctions:any = this.sortAuctions(headBlockTime, auctionsFromBlockchain);
 
                         for (let auction of sortedAuctions.removed) {
-                            this.sio.sockets.emit(SocketMessage.STC_REMOVE_AUCTION, JSON.stringify(auction));
+                            if (this.sio) {
+                                this.sio.sockets.emit(SocketMessage.STC_REMOVE_AUCTION, JSON.stringify(auction));
+                            }
                         }
                         for (let auction of sortedAuctions.added) {
-                            this.sio.sockets.emit(SocketMessage.STC_ADD_AUCTION, JSON.stringify(auction));
+
+                            // Add the auction's current server seed hash and client seed
+                            let seeds:any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
+                            auction.serverSeedHash = seeds.serverHash;
+                            auction.clientSeed = seeds.clientSeed;
+
+                            // Attach current bidders
+                            auction.bidders = await this.dbMySql.auctionBids(auction.id);
+
+                            if (this.sio) {
+                                this.sio.sockets.emit(SocketMessage.STC_ADD_AUCTION, JSON.stringify(auction));
+                            }
                         }
                         for (let auction of sortedAuctions.changed) {
 
@@ -252,20 +296,65 @@ export class AuctionManager {
                             if (auction.resetToOriginalParams) {
                                 console.log("=========> Resetting auction id: " + auction.id);
                                 this.eosBlockchain.replaceAuctionParams(auction.id, auction.resetToOriginalParams).then((result) => {
-                                    // Async call with no return
                                     console.log("=========> Auction id: " + auction.id + " has been reset");
                                 }, (reject) => {
-                                    console.log("1 Unexpected error resetToOriginalParams payoutAndReplace(" + auction.id + ")");
+                                    console.log("Unexpected error resetToOriginalParams payoutAndReplace(" + auction.id + ")");
                                     console.log(reject);
-                                    console.log("---------------");
-                                }).catch((err) => {
-                                    console.log("2 Unexpected error resetToOriginalParams payoutAndReplace(" + auction.id + ")");
-                                    console.log(err);
                                     console.log("---------------");
                                 });
                             } else {
+
+                                // Add the auction's current server seed hash and client seed
+                                let seeds:any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
+                                auction.serverSeedHash = seeds.serverHash;
+                                auction.clientSeed = seeds.clientSeed;
+
+                                // Create a bid record in the MySql database if one isn't already there.
+                                //
+                                if (auction.last_bidder != "eostimecontr") {
+                                    let data: any = {
+                                        block_time: blockchainInfo.head_block_time,
+                                        redzone_id: auction.id,
+                                        bidder: auction.last_bidder,
+                                        bid_id: auction.last_bid_id,
+                                        bid_price: parseFloat(auction.previous_bid_price).toFixed(4) + " EOS",
+                                        currency: "EOS"
+                                    }
+                                    try {
+                                        await this.dbMySql.recordBid(data);
+                                    } catch (err) {
+                                        console.log("Failed to create bid record in AuctionManager");
+                                        console.log(err);
+                                    }
+                                }
+
+                                // Get the bidder's client seed and update the appropriate serverSeed record
+                                // for this auction.
+                                let dbUser:user = await this.dbMySql.entityManager().findOne(user, {accountName: auction.last_bidder});
+                                if (dbUser) {
+                                    let ss: serverSeeds = await this.dbMySql.entityManager().findOne(serverSeeds, {auctionId: auction.id});
+                                    if (ss) {
+                                        ss.clientSeed = dbUser.clientSeed;
+                                        ss.save();
+
+                                        // Broadcast out the auction's new client seed
+                                        if (this.sio) {
+                                            let payload:any = {
+                                                auctionId: auction.id,
+                                                clientSeed: dbUser.clientSeed
+                                            }
+                                            this.sio.sockets.emit(SocketMessage.STC_LEADER_CLIENT_SEED, JSON.stringify(payload));
+                                        }
+                                    }
+                                }
+
+                                // Add the bidders list for this auction
+                                auction.bidders = await this.dbMySql.auctionBids(auction.id);
+
                                 // Notify clients of auction change
-                                this.sio.sockets.emit(SocketMessage.STC_CHANGE_AUCTION, JSON.stringify(auction));
+                                if (this.sio) {
+                                    this.sio.sockets.emit(SocketMessage.STC_CHANGE_AUCTION, JSON.stringify(auction));
+                                }
 
                                 // Tell the last bidder to update his balances
                                 let socketMessage:SocketMessage = ClientConnection.socketMessageFromAccountName(auction.last_bidder);
@@ -281,7 +370,18 @@ export class AuctionManager {
                                 !this.outstandingPayoutRestartTransactions[auction.id]) {
                                 auctionToPayout = auction;
                             }
-                            this.sio.sockets.emit(SocketMessage.STC_END_AUCTION, JSON.stringify(auction));
+
+                            // Add the auction's current server seed hash and client seed
+                            let seeds:any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
+                            auction.serverSeedHash = seeds.serverHash;
+                            auction.clientSeed = seeds.clientSeed;
+
+                            // Add the bidders list for this auction
+                            auction.bidders = await this.dbMySql.auctionBids(auction.id);
+
+                            if (this.sio) {
+                                this.sio.sockets.emit(SocketMessage.STC_END_AUCTION, JSON.stringify(auction));
+                            }
                         }
                     }
 
@@ -294,21 +394,38 @@ export class AuctionManager {
                         let timeSinceLastPayout:number = now - this.lastPayoutTime;
                         if ((timeSinceLastPayout > 2000) || (auctionToPayout.init_bid_count == auctionToPayout.remaining_bid_count)) {
                             this.outstandingPayoutRestartTransactions[auctionToPayout.id] = true;
-                            this.linkToAuctions(auctionToPayout).then((params:any) => {
+                            this.linkToAuctions(auctionToPayout).then(async (params:any) => {
 
                                 // --------------- FINISH UP INNER FUNCTION --------------
                                 //
-                                let finishUp = function(result) {
+                                let finishUp = async function(result) {
+
+                                    console.log("finishUp(result): ");
+                                    console.log(result);
+
                                     delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
+
+                                    auctionToPayout["transactionId"] = result.transaction_id;
+                                    auctionToPayout["blockNumber"] = result.processed.block_num;
 
                                     let totalBids:number = auctionToPayout.init_bid_count - auctionToPayout.remaining_bid_count;
                                     this.notifySlack("[" + auctionToPayout.last_bidder + "] won " + auctionToPayout.prize_pool + " EOS in auction id " + auctionToPayout.id + " with " + totalBids + " total bids placed.");
 
                                     if (auctionToPayout.init_bid_count != auctionToPayout.remaining_bid_count) {
                                         this.lastPayoutTime = new Date().getTime();
-                                        this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
+
+                                        // Add the bidders list for this winning auction auction
+                                        auctionToPayout.bidders = await this.dbMySql.auctionBids(auctionToPayout.id);
+
+                                        if (this.sio) {
+                                            this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
+                                        }
+
+                                        // Save our auction record to MySql db
+                                        let auct:auctions = await this.completeAuctionData(auctionToPayout);
 
                                         // Store this winner auction in our list of recent winners cache
+                                        let recentWinnerObject:any = await this.dbMySql.winningAuctionObjectFromInstance(auct);
                                         this.recentWinners.unshift(auctionToPayout);
                                         if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
                                             this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
@@ -323,7 +440,7 @@ export class AuctionManager {
                                             }, 10000);
                                         }
 
-                                        // Save our auction that we won
+                                        // Save our auction that we won to Mongo (eventually going away)
                                         return this.dbManager.insertDocument("auctions", auctionToPayout);
                                     } else {
                                         return Promise.resolve(null);
@@ -332,24 +449,46 @@ export class AuctionManager {
                                 //
                                 // --------------- END OF FINISH UP INNER FUNCTION --------------
 
+                                // Creates an auction record to guarantee that we beat the
+                                // history scanner which cannot possibly see this auction before
+                                // it is paid out (generating an rzreceipt)
+                                //
+                                let newAuctionRecord:auctions = new auctions();
+                                newAuctionRecord.creationDatetime = new Date(auctionToPayout.block_time * 1000.0);
+                                newAuctionRecord.auctionId = auctionToPayout.id;
+                                await this.dbMySql.entityManager().save(newAuctionRecord);
+
                                 if (params) {
-                                    this.eosBlockchain.payoutAndReplace(auctionToPayout.id, params).then((result) => {
-                                        return finishUp(result);
-                                    }).catch((err) => {
+
+                                    try {
+                                        // Hit the blockchain
+                                        let result: any = await this.eosBlockchain.payoutAndReplace(auctionToPayout.id, params);
+
+                                        // Complete the process and notify clients
+                                        await finishUp(result);
+
+                                    } catch (err) {
                                         delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
-                                        console.log("Unexpected error finishUp() after blockchain payoutAndReplace(" + auctionToPayout.id + ")");
+                                        console.log("Unexpected error payoutAndReplace(" + auctionToPayout.id + ")");
                                         console.log(err);
                                         console.log("---------------");
-                                    });
+                                    }
                                 } else {
-                                    this.eosBlockchain.payoutAndRestartAuction(auctionToPayout.id).then((result) => {
-                                        return finishUp(result);
-                                    }).catch((reject) => {
+
+                                    try {
+
+                                        // Hit the blockchain
+                                        let result:any = await this.eosBlockchain.payoutAndRestartAuction(auctionToPayout.id);
+
+                                        // Complete the process and notify clients
+                                        await finishUp(result);
+
+                                    } catch (err) {
                                         delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
-                                        console.log("Unexpected error finishUp() after blockchain payoutAndRestartAuction(" + auctionToPayout.id + ")");
+                                        console.log("Unexpected error payoutAndRestartAuction(" + auctionToPayout.id + ")");
                                         console.log(reject);
                                         console.log("---------------");
-                                    });
+                                    }
                                 }
                             }).catch((error: any) => {
                                 delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
@@ -379,6 +518,42 @@ export class AuctionManager {
     }
 
     /**
+     * Updates our auction record with its full compliment of data
+     * @param data
+     * @returns {Promise<void>}
+     */
+    private completeAuctionData(data:any):Promise<auctions> {
+        return new Promise<auctions>(async (resolve, reject) => {
+            try {
+                let auction:auctions = null;
+                await this.dbMySql.getConnection().manager.transaction(async (transactionalEntityManager) => {
+                    auction = await transactionalEntityManager.findOne(auctions, {auctionId: data.id});
+                    if (!auction) {
+                        throw new Error("Could not find preliminary auction data in database for auction ID: " + data.id);
+                    }
+                    auction.endedDatetime = new Date(data.expires * 1000.0);
+                    auction.auctionType = data.type;
+                    auction.prizePool = parseFloat(data.prize_pool);
+                    auction.lastBidderAccount = data.last_bidder;
+                    auction.endingBidPrice = parseFloat(data.bid_price);
+                    auction.endingBidId = data.last_bid_id;
+                    auction.blockNumber = data.blockNumber;
+                    auction.transactionId = data.transactionId;
+                    let winningBid: bid = await transactionalEntityManager.findOne(bid, {bidId: data.last_bid_id});
+                    if (winningBid) {
+                        auction.endingBidPrice = winningBid.amount;
+                    }
+                    await auction.save();
+                });
+                resolve(auction);
+            } catch (err) {
+                console.log(err);
+                reject(err);
+            }
+        });
+    }
+
+    /**
      * Sets our auction status as having been paid (we saw a
      * eostimecontr::rzpaywinner action on the blockchain).
      * @param payload
@@ -404,43 +579,6 @@ export class AuctionManager {
             winner_payment_txid: txid
         };
         return this.dbManager.updateDocumentByKey("auctions", {id: auctionId}, updatedValues);
-    }
-
-    /**
-     * Called as each block is processed from the blockchain
-     * @param {number} blockNumber
-     * @param {string} timestamp
-     * @returns {Promise<any>}
-     */
-    public processBlock(blockNumber:number, timestamp:string):Promise<void> {
-        return this.dbManager.setConfig("currentBlockNumber", blockNumber);
-    }
-
-    /**
-     * Called when the watcher needs to roll back while scanning the blockchain
-     * @param {number} blockNumber
-     * @returns {Promise<any>}
-     */
-    public rollbackToBlock(blockNumber:number):Promise<any> {
-        // let txFunc:(client:MongoClient, session:ClientSession) => void = async (client:MongoClient, session:ClientSession) => {
-        //     try {
-        //         await this.dbManager.updateDocumentByKey("applicationSettings", {key: "currentBlockNumber"}, {value: blockNumber}, session);
-        //         await this.dbManager.deleteDocumentsByKey("bidreceipts", {blockNumber: {$gt: blockNumber}}, session);
-        //         await this.dbManager.deleteDocumentsByKey("eostimecontr",{blockNumber: {$gt: blockNumber}}, session);
-        //         await this.dbManager.deleteDocumentsByKey("timetokens", {blockNumber: {$gt: blockNumber}}, session);
-        //     } catch (err) {
-        //         console.log("Error rolling back to block " + blockNumber.toString());
-        //         console.log(err);
-        //     }
-        // };
-        // return this.dbManager.executeTransaction(txFunc);
-
-        let promises:Promise<void>[] = new Array<Promise<void>>();
-        promises.push(this.dbManager.updateDocumentByKey("applicationSettings", {key: "currentBlockNumber"}, {value: blockNumber}));
-        promises.push(this.dbManager.deleteDocumentsByKey("bidreceipts", {blockNumber: {$gt: blockNumber}}));
-        promises.push(this.dbManager.deleteDocumentsByKey("eostimecontr",{blockNumber: {$gt: blockNumber}}));
-        promises.push(this.dbManager.deleteDocumentsByKey("timetokens", {blockNumber: {$gt: blockNumber}}));
-        return Promise.all(promises);
     }
 
     /**
@@ -757,13 +895,13 @@ export class AuctionManager {
                     // See if this auction has changed
                     if ((blockchainAuction.remaining_bid_count < currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id) || (blockchainAuction.iterationCount != currentAuction.iterationCount)) {
                         // Yup, it has changed
-                        let blockchainGlitch:boolean = (blockchainAuction.remaining_bid_count > currentAuction.remaining_bid_count)
                         if (blockchainAuction.last_bidder != "eostimecontr") {
                             let bidPrice:number = parseFloat(blockchainAuction.bid_price.split(" ")[0]);
                             if (bidPrice > 2) {
                                 this.notifySlack("Bid " + blockchainAuction.bid_price + " EOS received from [" + blockchainAuction.last_bidder + "] on auction type " + blockchainAuction.type + " id " + blockchainAuction.id);
                             }
                         }
+                        blockchainAuction.previous_bid_price = currentAuction.bid_price;
                         toRet.changed.push(blockchainAuction);
                     }
                 }

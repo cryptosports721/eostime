@@ -8,6 +8,10 @@ import {user} from "./entities/user";
 import {EntityManager} from "typeorm/entity-manager/EntityManager";
 import {QueryRunner} from "typeorm/query-runner/QueryRunner";
 import {Repository} from "typeorm/repository/Repository";
+import {applicationSettings} from "./entities/applicationSettings";
+import {bid} from "./entities/bid";
+import moment = require("moment");
+import {auctions} from "./entities/auctions";
 const mysql = require('mysql');
 
 export class DBMysql {
@@ -59,115 +63,6 @@ export class DBMysql {
     public qb<T>(Entity: new () => T, alias:string):SelectQueryBuilder<T> {
         let repo:Repository<T> = this.conn.getRepository(Entity);
         return repo.createQueryBuilder();
-    }
-
-    /**
-     * Creates a dividend receipt in the database from the dividend receipt JSON
-     * in a single transaction.
-     *
-     * @param dividendJsonReceipt
-     * @returns {Promise<void>}
-     */
-    public newDividendReceipt(dividendJsonReceipt:any):Promise<void> {
-        return new Promise<void>(async (resolve, reject) => {
-
-           let success:boolean = true;
-           if (this.conn) {
-               const now:Date = new Date();
-               const queryRunner:QueryRunner = this.conn.createQueryRunner();
-               await queryRunner.connect();
-               await queryRunner.startTransaction();
-               try {
-
-                   let div: dividend = new dividend();
-                   div.creationDatetime = now;
-                   div.timeTokenSupply = dividendJsonReceipt.timeTokenSupply;
-                   div.originalDividendBalance = dividendJsonReceipt.originalDividendBalance;
-                   div.houseProfit = dividendJsonReceipt.houseProfit;
-                   div.stakersProfit = dividendJsonReceipt.stakersProfit;
-                   div.dividendBalance = dividendJsonReceipt.dividendBalance;
-                   div.eostimecontrRecharge = dividendJsonReceipt.eostimecontrRecharge;
-                   div.eostimecontrRecharge = 100.0;
-                   await queryRunner.manager.save(div);
-
-                   // Transfer back to eostimecontr
-                   if (dividendJsonReceipt.dividendInfo.topOff > 0) {
-                       let transferToContr:payment = new payment();
-                       transferToContr.creationDatetime = now;
-                       transferToContr.accountName = Config.eostimeContract;
-                       transferToContr.amount = dividendJsonReceipt.dividendInfo.topOff;
-                       transferToContr.currency = "EOS";
-                       transferToContr.paymentState = "pending";
-                       transferToContr.paymentType = "transfer";
-                       transferToContr.dividend_ = div;
-                       await queryRunner.manager.save(transferToContr);
-                   }
-
-                   // Create our housePayment
-                   let housePmt:payment = new payment();
-                   housePmt.creationDatetime = now;
-                   housePmt.accountName = Config.eostimeTokenCorpo;
-                   housePmt.amount = div.houseProfit;
-                   housePmt.currency = "EOS";
-                   housePmt.paymentState = "pending";
-                   housePmt.paymentType = "house";
-                   housePmt.dividend_ = div;
-                   await queryRunner.manager.save(housePmt);
-
-                   // Create our stakerPayment
-                   for (let sp of dividendJsonReceipt.stakersPayments) {
-                       let stakerPayment:payment = new payment();
-                       stakerPayment.creationDatetime = now;
-                       stakerPayment.accountName = sp.account;
-                       stakerPayment.amount = sp.amount;
-                       stakerPayment.currency = "EOS";
-                       stakerPayment.paymentState = "pending";
-                       stakerPayment.paymentType = "staker";
-                       let u:user = await this.userFromAccount(queryRunner.manager, sp.account);
-                       if (u) {
-                           stakerPayment.user_ = u;
-                       }
-                       stakerPayment.dividend_ = div;
-                       await queryRunner.manager.save(stakerPayment);
-                   }
-
-                   // Loop through and create our staker payments
-                   for (let accountName in dividendJsonReceipt.accounts) {
-                       let pmt:any = dividendJsonReceipt.accounts[accountName];
-                       let userPayment:payment = new payment();
-                       userPayment.amount = pmt.distribution;
-                       userPayment.currency = "EOS";
-                       userPayment.creationDatetime = now;
-                       userPayment.paymentState = (userPayment.amount > 0) ? pmt.paymentState : "paid";
-                       userPayment.paymentType = "dividend";
-                       userPayment.accountName = pmt.accountName;
-                       userPayment.proportion = pmt.proportion;
-                       let u:user = await this.userFromAccount(queryRunner.manager, accountName);
-                       if (u) {
-                           userPayment.user_ = u;
-                       }
-                       userPayment.dividend_ = div;
-                       await queryRunner.manager.save(userPayment);
-                   }
-
-                   await queryRunner.commitTransaction();
-
-               } catch (err) {
-                   success = false;
-                   await queryRunner.rollbackTransaction();
-               } finally {
-                   await queryRunner.release();
-               }
-               if (success) {
-                   resolve();
-               } else {
-                   reject();
-               }
-           } else {
-               reject();
-           }
-
-        });
     }
 
     /**
@@ -250,6 +145,185 @@ export class DBMysql {
                 await queryRunner.rollbackTransaction();
                 await queryRunner.release();
                 resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Gets a value from our applicationSettings table
+     * @param {string} key
+     * @returns {Promise<string>}
+     */
+    public getConfig(key:string):Promise<string> {
+        return new Promise<string>(async (resolve, reject) => {
+            try {
+                let val: applicationSettings = await this.conn.manager.findOne(applicationSettings, {key: key});
+                if (typeof val == 'undefined') {
+                    resolve(val);
+                } else {
+                    resolve(val.value);
+                }
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Creates or updates an entry in the applicationSettings table
+     * @param {string} key
+     * @param {string} val
+     * @returns {Promise<void>}
+     */
+    public setConfig(key:string, val: string):Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                let appSetting: applicationSettings = await this.conn.manager.findOne(applicationSettings, {key: key});
+                if (appSetting) {
+                    appSetting.value = val;
+                    appSetting.save();
+                } else {
+                    appSetting = new applicationSettings();
+                    appSetting.key = key;
+                    appSetting.value = val;
+                }
+                await appSetting.save();
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------------
+    // Usefull table-specific classes
+    // ------------------------------------------------------------------------
+
+    /**
+     * Returns the recent list of winners from the MySql database
+     * @param {number} count
+     * @returns {Promise<auctions[]>}
+     */
+    public loadRecentWinners(count:number):Promise<auctions[]> {
+        return new Promise<auctions[]>(async (resolve, reject) => {
+            try {
+                let toRet:any[] = new Array<any>();
+                let recentAuctions:auctions[] = await this.qb(auctions, "auctions").where("auctions.lastBidderAccount IS NOT NULL").orderBy("auctions.endedDatetime", "DESC").limit(count).getMany();
+                for (let recentAuction of recentAuctions) {
+                    let a:any = await this.winningAuctionObjectFromInstance(recentAuction);
+                    toRet.push(a);
+                }
+                resolve(toRet);
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Returns a winning auction object compatible with the client from
+     * a TypeORM auctions class. Includes a list of bids in decending order.
+     *
+     * @param {auctions} auction
+     * @returns {Promise<any>}
+     */
+    public winningAuctionObjectFromInstance(auction:auctions):Promise<any> {
+        return new Promise<any>(async (resolve, reject) => {
+            try {
+                let winningAuction: any = {
+                    id: auction.auctionId,
+                    type: auction.auctionType,
+                    last_bidder: auction.lastBidderAccount,
+                    prize_pool: auction.prizePool,
+                    creation_time: Math.floor(auction.creationDatetime.getTime()/1000),
+                    expires: Math.floor(auction.endedDatetime.getTime()/1000),
+                    blockNumber: auction.blockNumber,
+                    transactionId: auction.transactionId
+                };
+                winningAuction["bids"] = await this.auctionBids(auction.auctionId);
+                resolve(winningAuction);
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    public auctionBids(auctionId:number):Promise<any[]> {
+        return new Promise<any[]>(async (resolve, reject) => {
+            try {
+                let bids:bid[] = await this.qb(bid, "bid").where("bid.auctionId = :id", { id: auctionId }).orderBy("bid.bidId", "DESC").getMany();
+                let b:any[] = new Array<any>();
+                for (let bid of bids) {
+                    b.push({
+                        accountName: bid.accountName,
+                        amount: bid.amount,
+                        currency: bid.currency
+                    });
+                }
+                resolve(b);
+
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Records a bid record (deals with creating or updating)
+     * @param data
+     * @returns {Promise<void>}
+     */
+    public recordBid(data:any):Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                let timestamp: Date = new Date(parseInt(moment(data.block_time + "+00:00").local().format("X")) * 1000.0);
+                let newBid: bid = await this.entityManager().findOne(bid, {bidId: data.bid_id});
+                if (!newBid) {
+                    newBid = new bid();
+                    newBid.bidId = data.bid_id;
+                }
+                newBid.auctionId = data.redzone_id;
+                newBid.accountName = data.bidder;
+                newBid.amount = parseFloat(data.bid_price.split(" ")[0]);
+                newBid.currency = "EOS";
+                newBid.creationDatetime = timestamp;
+
+                if (data.hasOwnProperty("house_portion")) {
+                    newBid.housePortion = parseFloat(data.house_portion.split(" ")[0]);
+                }
+                if (data.hasOwnProperty("bidder_bonus")) {
+                    newBid.bidderTimeTokens = parseFloat(data.bidder_bonus.split(" ")[0]);
+                }
+                if (data.hasOwnProperty("referrer_bonus")) {
+                    newBid.referrerPortion = parseFloat(data.referrer_bonus.split(" ")[0]);
+                }
+                try {
+                    await newBid.save();
+                    resolve();
+                } catch (err) {
+                    if (err && err.code && (err.code != "ER_DUP_ENTRY")) {
+                        console.log("Error saving record to MySql database");
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        if (data.hasOwnProperty("house_portion") && data.hasOwnProperty("bidder_bonus") && data.hasOwnProperty("referrer_bonus")) {
+
+                            // Perhaps the AuctionManager already wrote the record, so we just update
+                            // the record with additional information picked up from the bid receipt.
+                            //
+                            let amBid: bid = await this.entityManager().findOne(bid, {bidId: data.bid_id});
+                            if (amBid) {
+                                amBid.housePortion = parseFloat(data.house_portion.split(" ")[0]);
+                                amBid.referrerPortion = parseFloat(data.referrer_bonus.split(" ")[0]);
+                                amBid.bidderTimeTokens = parseFloat(data.bidder_bonus.split(" ")[0]);
+                                await amBid.save();
+                            }
+                            resolve();
+                        }
+                    }
+                }
             } catch (err) {
                 reject(err);
             }

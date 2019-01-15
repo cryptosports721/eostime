@@ -1,5 +1,4 @@
 import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne,OneToMany,OneToOne,PrimaryColumn,PrimaryGeneratedColumn,RelationId} from "typeorm";
-import {auctions} from "./auctions";
 
 
 @Entity("auctionType",{schema:"eostime"})
@@ -58,9 +57,4 @@ export class auctionType extends BaseEntity {
         })
     blockchainParams:Buffer | null;
         
-
-   
-    @OneToMany(type=>auctions, auctions=>auctions.auctionType_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })
-    auctionss:auctions[];
-    
 }

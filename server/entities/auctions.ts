@@ -1,20 +1,17 @@
 import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne,OneToMany,OneToOne,PrimaryColumn,PrimaryGeneratedColumn,RelationId} from "typeorm";
-import {bid} from "./bid";
-import {user} from "./user";
-import {auctionType} from "./auctionType";
 
 
 @Entity("auctions",{schema:"eostime"})
 @Index("id_UNIQUE",["id",],{unique:true})
 @Index("auctionId_UNIQUE",["auctionId",],{unique:true})
-@Index("fk_auctions_user1_idx",["user_",])
 @Index("lastBidderAccount_idx",["lastBidderAccount",])
 @Index("creationDatetime_idx",["creationDatetime",])
 @Index("prizePool_idx",["prizePool",])
-@Index("fk_auctions_bid1_idx",["bid_",])
 @Index("transactionId_idx",["transactionId",])
 @Index("blockNumber_idx",["blockNumber",])
-@Index("fk_auctions_auctionType1_idx",["auctionType_",])
+@Index("auctionType_idx",["auctionType",])
+@Index("endingBidId_idx",["endingBidId",])
+@Index("bonuseTimeTokens_idx",["bonusTimeTokens",])
 export class auctions extends BaseEntity {
 
     @PrimaryGeneratedColumn({
@@ -33,25 +30,47 @@ export class auctions extends BaseEntity {
 
     @Column("int",{ 
         nullable:true,
+        name:"auctionType"
+        })
+    auctionType:number | null;
+        
+
+    @Column("int",{ 
+        nullable:false,
         unique: true,
         name:"auctionId"
         })
-    auctionId:number | null;
+    auctionId:number;
         
 
     @Column("float",{ 
-        nullable:false,
+        nullable:true,
         precision:12,
         name:"prizePool"
         })
-    prizePool:number;
+    prizePool:number | null;
+        
+
+    @Column("float",{ 
+        nullable:true,
+        precision:12,
+        name:"bonusTimeTokens"
+        })
+    bonusTimeTokens:number | null;
         
 
     @Column("datetime",{ 
-        nullable:false,
+        nullable:true,
         name:"endedDatetime"
         })
-    endedDatetime:Date;
+    endedDatetime:Date | null;
+        
+
+    @Column("int",{ 
+        nullable:true,
+        name:"endingBidId"
+        })
+    endingBidId:number | null;
         
 
     @Column("float",{ 
@@ -84,22 +103,4 @@ export class auctions extends BaseEntity {
         })
     transactionId:string | null;
         
-
-   
-    @ManyToOne(type=>bid, bid=>bid.auctionss,{  nullable:false,onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
-    @JoinColumn({ name:'bid_id'})
-    bid_:bid | null;
-
-
-   
-    @ManyToOne(type=>user, user=>user.auctionss,{  nullable:false,onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
-    @JoinColumn({ name:'user_id'})
-    user_:user | null;
-
-
-   
-    @ManyToOne(type=>auctionType, auctionType=>auctionType.auctionss,{  nullable:false,onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
-    @JoinColumn({ name:'auctionType_id'})
-    auctionType_:auctionType | null;
-
 }

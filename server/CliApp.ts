@@ -7,9 +7,13 @@ import moment = require("moment");
 import {DBMysql} from "./DBMysql";
 import {ConnectionOptions} from "typeorm";
 import {ClientConnection} from "./ClientConnection";
-import {user} from "./entities/user";
+import {EosRpcMySqlHistoryBuilder} from "./EosRpcMySqlHistoryBuilderd";
+import {AuctionManager} from "./AuctionManager";
+import {HarpoonManager} from "./HarpoonManager";
+import {bid} from "./entities/bid";
 
 const readline = require('readline');
+const crypto = require('crypto');
 
 module CliApp {
 
@@ -21,6 +25,8 @@ module CliApp {
         private eosBlockchain:EosBlockchain = null;
         private clientConnection:ClientConnection = null;
         private faucetManager:FaucetManager = null;
+        private historyManager:EosRpcMySqlHistoryBuilder = null;
+        private auctionManager:AuctionManager = null;
         private rl:any = null;
 
         private stdinListeners:((string) => void)[] = new Array<(string) => void>();
@@ -77,17 +83,28 @@ module CliApp {
                 eosEndpoint = Config.safeProperty(Config.EOS_ENDPOINTS, [eosEndpoint], Config.EOS_ENDPOINTS.localhost);
             }
 
+            const historyEndpoint:string = <string> process.env.HISTORY_RPC_ENDPOINT;
+            if (!historyEndpoint) {
+                console.log("No history RPC endpoint specified - please define HISTORY_RPC_ENDPOINT environment var");
+                process.exit();
+            }
+
             this.dbManager.openDbConnection(db, username, password).then((result) => {
                 return this.dbManager.getConfig("serverConfig");
             }).then(async (serverConfig:any) => {
                 this.eosBlockchain = new EosBlockchain(eosEndpoint, serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
-                this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, null, null, null);
-                return this.dbMysql.connect();
-            }).then((mysqlConnected:boolean) => {
-                if (mysqlConnected) {
+                this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, null, null);
 
+                return this.dbMysql.connect();
+            }).then(async (mysqlConnected:boolean) => {
+                if (mysqlConnected) {
+                    let serverConfigString:string = await this.dbMysql.getConfig("serverConfig");
+                    let serverConfig:any = JSON.parse(serverConfigString);
                     this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain});
                     this.clientConnection = new ClientConnection(null, this.dbManager, this.dbMysql, null, this.dividendManager, this.faucetManager, () => {return this.eosBlockchain});
+                    this.historyManager = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
+                    let hm:HarpoonManager = new HarpoonManager(this.dbMysql, "");
+                    this.auctionManager = new AuctionManager(serverConfig, null, null, this.dbMysql, hm,null, this.eosBlockchain, null);
 
                     // Our outer menu listener
                     const menuListener = async function (data: string) {
@@ -119,9 +136,21 @@ module CliApp {
                                     // let account:user = await this.clientConnection.registerClientAccount({account_name: "rockthecasba", core_liquid_balance: "0.7902 EOS", timeBalance: "5.2207 TIME"}, "chassettny11");
                                     // let faucetInfo:any = await this.faucetManager.getFaucetInfo("chassettny11", "127.0.0.1");
                                     // let award:any = await this.faucetManager.faucetDraw("chassettny11", "127.0.0.1");
+
+                                    // let hm:HarpoonManager = new HarpoonManager(this.dbMysql, "");
+                                    // var sha512 = crypto.createHash('sha512').update('mystring').digest("hex");
+                                    let bids:any[] = await this.dbMysql.auctionBids(86528);
+                                    console.log(bids);
+
                                     break;
                                 case "h":
                                     await this.dividendManager.payDividends();
+                                    break;
+                                case "i":
+                                    await this.historyManager.start();
+                                    break;
+                                case "j":
+                                    await this.historyManager.stop();
                                     break;
                             }
                             this.outputMenu();
@@ -164,6 +193,8 @@ module CliApp {
             process.stdout.write("f - Get dividend info\n");
             process.stdout.write("g - code test\n");
             process.stdout.write("h - Pay dividends NO VERIFY!! \n");
+            process.stdout.write("i - Start MySql history builder \n");
+            process.stdout.write("j - Stop MySql history builder \n");
             process.stdout.write("=====================================\n");
             process.stdout.write("> ");
         }

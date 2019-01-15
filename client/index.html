@@ -218,11 +218,25 @@
                             <span class="english lang d-none">Login</span>
                             <span class="chinese lang d-none">登錄</span>
                         </button>
-                        <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-yellow shadow-x">
-                            <span class="english lang d-none">Bid </span>
-                            <span class="chinese lang d-none">出價 </span>
-                            <span class="auction-instance-bid-amount"></span>
-                        </button>
+                        <div class="row" style="width: 100%">
+                            <div class="col-6 pl-1 pr-1">
+                                <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
+                                    <span class="english lang d-none">Bid </span>
+                                    <span class="chinese lang d-none">出價 </span>
+                                    <span class="auction-instance-bid-amount"></span>
+                                </button>
+                            </div>
+                            <div class="col-6 pl-1 pr-1">
+                                <button type="button" class="auction-instance-bomb-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
+                                    <span class="english lang d-none"><i class="fas fa-bomb"></i></span>
+                                    <span class="chinese lang d-none"><i class="fas fa-bomb"></i></span>
+                                    <span class="auction-instance-bomb-odds"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-1">
+                        <div class="text-center auction-instance-server-hash" style="font-size: 7pt;"></div>
                     </div>
                     <div class="col-12 pt-2 text-muted d-none english lang" style="font-size: 8pt;">
                         If an auction ends because the bid counter goes to zero, the last bid recorded by our contract on the EOS blockchain is the winner.
@@ -441,7 +455,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.6/lib/eos.min.js" integrity="sha512-IS9vyI+sMK7MYNJgHj9G8Li21QYs59sRW/Nyzi+dKUh6bF6OfpOnvzSCTiegWftY1ozOmmyacCH2QIJpZgbuKw==" crossorigin="anonymous"></script>
     <script src="assets/js/bootstrap-notify.min.js"></script>
-    <script src="assets/js/eostime-bundle.min.js?nonce=1546043193"></script>
+    <script src="assets/js/eostime-bundle.js?nonce=1546043193"></script>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>

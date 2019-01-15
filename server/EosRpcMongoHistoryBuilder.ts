@@ -261,21 +261,6 @@ export class EosRpcMongoHistoryBuilder {
                                 }
                             }
                         }
-
-                        // Check for winner payout transaction
-                        // if (this.auctionWinnerPayoutTransactionCallback) {
-                        //     let from: string = Config.safeProperty(document, ["from"], null);
-                        //     let to: string = Config.safeProperty(document, ["to"], null);
-                        //     let auctionId: number = Config.safeProperty(document, ["auctionId"], null);
-                        //     if ((account == "eosio.token") && (from == "eostimecontr") && (to != "eostimehouse") && (auctionId !== null)) {
-                        //         let winnerBlockNumber: number = Config.safeProperty(document, ["blockNumber"], null);
-                        //         let winnerTransactionId: string = Config.safeProperty(document, ["transactionId"], null);
-                        //         if (winnerBlockNumber && winnerTransactionId) {
-                        //             this.auctionWinnerPayoutTransactionCallback(auctionId, winnerBlockNumber, winnerTransactionId);
-                        //         }
-                        //     }
-                        // }
-
                         return document;
                     } else {
                         console.log("Couldn't parse action into database document.");

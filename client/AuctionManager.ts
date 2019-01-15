@@ -52,7 +52,11 @@ export class AuctionManager extends ViewStateObserver {
         "auctionWinnerInstanceIdLink": ".auction-winner-id-link",
         "auctionWinnerInstanceDuration": ".auction-winner-duration",
         "auctionWinnerInstanceAmount": ".auction-winner-amount span:nth-child(2)",
-        "ribbonContainer": ".ribbon-container"
+        "ribbonContainer": ".ribbon-container",
+        "auctionClientSeed": ".auction-instance-seed",
+        "auctionServerHash" : ".auction-instance-server-hash",
+        "auctionBombButton" : ".auction-instance-bomb-button",
+        "auctionBombOdds" : ".auction-instance-bomb-odds"
     };
 
     /**
@@ -197,6 +201,20 @@ export class AuctionManager extends ViewStateObserver {
             });
             if ($auctionElementToUpdate) {
                 this._eosBid($auctionElementToUpdate, payload.signature);
+            }
+        });
+
+        this.socketMessage.getSocket().on(SocketMessage.STC_LEADER_CLIENT_SEED, (payload:any) => {
+            payload = JSON.parse(payload);
+            console.log("Leader seed in auction: " + payload.auctionId + " is " + payload.clientSeed);
+            let $auctionElementToUpdate: JQuery<HTMLElement> = this.auctionElements.find(($elem:JQuery<HTMLElement>) => {
+                let auctionToCheck:any = $elem.data("auction");
+                return (auctionToCheck.id == payload.auctionId);
+            });
+            if ($auctionElementToUpdate) {
+                let auctionData:any = $auctionElementToUpdate.data("auction");
+                auctionData.clientSeed = payload.clientSeed;
+                this.updateAuctionElement($auctionElementToUpdate);
             }
         });
     }
@@ -406,6 +424,11 @@ export class AuctionManager extends ViewStateObserver {
                 return false;
             }
         });
+
+        // Turn tool tips on for serverSeedHash
+        $clone.find(this.selectors.auctionServerHash).attr("data-toggle", "tooltip").attr("data-placement","top");
+        (<any> $clone.find(this.selectors.auctionServerHash)).tooltip();
+
         if (!didInsert) {
             $(this.selectors.auctionInstancesContainer).append($clone);
         }
@@ -438,6 +461,10 @@ export class AuctionManager extends ViewStateObserver {
             this.auctionElements.push($clone);
             this.initializeAuctionElement($clone, auction);
             $(this.selectors.auctionInstancesContainer).append($clone);
+
+            // Turn tool tips on for serverSeedHash
+            $clone.find(this.selectors.auctionServerHash).attr("data-toggle", "tooltip").attr("data-placement","top");
+            (<any> $clone.find(this.selectors.auctionServerHash)).tooltip();
         }
         $(this.selectors.mainAuctionArea).removeClass("d-none");
         $(this.selectors.auctionInstancesLoading).addClass("d-none");
@@ -523,6 +550,13 @@ export class AuctionManager extends ViewStateObserver {
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
         $elem.find(this.selectors.auctionInstanceRemainingBids).text(auction.remaining_bid_count);
         $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
+
+        $elem.find(this.selectors.auctionClientSeed).text(auction.clientSeed);
+        $elem.find(this.selectors.auctionServerHash).text(auction.serverSeedHash);
+        $elem.find(this.selectors.auctionServerHash).attr("title", auction.serverSeedHash);
+        $elem.find(this.selectors.auctionServerHash).attr("data-original-title", auction.serverSeedHash);
+        (<any> $elem.find(this.selectors.auctionServerHash)).tooltip('hide');
+
         $elem.data("lastUpdateTime", Math.floor(new Date().getTime()/1000));
         this.updateAuctionElementButtonState($elem, auction);
         this.updateRemainingTime($elem);
@@ -530,15 +564,6 @@ export class AuctionManager extends ViewStateObserver {
             let $currentTarget:JQuery<HTMLElement> = $(event.currentTarget);
             let $auctionElement:JQuery<HTMLElement> = $currentTarget.closest(this.selectors.auctionInstance);
             this.eosBid($auctionElement).then((result) => {
-
-                // TODO Temporary, we really update the GUI only on message coming back from server and don't deal with the promise
-                // let auction:any = $auctionElement.data("auction");
-                // auction.remaining_bid_count = result.remaining_bid_count;
-                // auction.last_bidder = result.last_bidder;
-                // auction.prize_pool = result.prize_pool;
-                // auction.expires = result.expires;
-                // this.updateAuctionElement($auctionElement);
-
                 $currentTarget.focusout();
             }).catch((err) => {
                 console.log(err);
@@ -629,6 +654,12 @@ export class AuctionManager extends ViewStateObserver {
         $elem.find(this.selectors.auctionInstancePrizePool).text(auction.prize_pool);
         $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
         this.updateAuctionElementButtonState($elem, auction);
+
+        $elem.find(this.selectors.auctionClientSeed).text(auction.clientSeed);
+        $elem.find(this.selectors.auctionServerHash).text(auction.serverSeedHash);
+        $elem.find(this.selectors.auctionServerHash).attr("title", auction.serverSeedHash);
+        $elem.find(this.selectors.auctionServerHash).attr("data-original-title", auction.serverSeedHash);
+        (<any> $elem.find(this.selectors.auctionServerHash)).tooltip('hide');
 
         $elem.find(this.selectors.ribbonContainer).empty();
         if (auction.hasOwnProperty("html")) {
@@ -727,13 +758,10 @@ export class AuctionManager extends ViewStateObserver {
      * @returns {Promise<any>}
      */
     private eosBid($auctionElement:JQuery<HTMLElement>):Promise<any> {
-        // if (location.host.indexOf("jungle") >= 0) {
-            let auction:any = $auctionElement.data("auction");
-            this.socketMessage.ctsGetBidSignature(auction.type, auction.bid_price);
-            return Promise.resolve();
-        // } else {
-        //     return this._eosBid($auctionElement, null);
-        // }
+        let auction:any = $auctionElement.data("auction");
+        let random:number = Math.floor(Math.random()*100000);
+        this.socketMessage.ctsGetBidSignature(auction.type, auction.bid_price, random);
+        return Promise.resolve();
     }
 
     /**
