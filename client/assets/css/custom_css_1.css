@@ -575,6 +575,15 @@ li.big{
 .no-bg{
     background:transparent;
 }
+.question-circle:hover,
+.question-circle:active,
+.question-circle:focus{
+    color:white !important;;
+    text-shadow:0 0 5px white;
+    cursor:pointer;
+    -webkit-appearance: unset;
+    transition:all ease 0.2s;
+}
 .abs-corner{
     position:absolute;
     top:5px;

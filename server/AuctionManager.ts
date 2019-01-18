@@ -12,6 +12,7 @@ import {bid} from "./entities/bid";
 import {HarpoonManager} from "./HarpoonManager";
 import {user} from "./entities/user";
 import {serverSeeds} from "./entities/serverSeeds";
+import {auctionType} from "./entities/auctionType";
 
 const request = require('request');
 const ecc = require('eosjs-ecc');
@@ -101,10 +102,8 @@ export class AuctionManager {
             this.dbMySql.loadRecentWinners(Config.WINNERS_LIST_LIMIT).then((recentWinners) => {
                 if (recentWinners && recentWinners.length > 0) {
                     this.recentWinners = recentWinners;
-                    console.log("Recent Winners at startup: ");
                     for (let winner of this.recentWinners) {
                         let expires: string = moment.unix(winner.expires).format();
-                        console.log(winner.last_bidder + " won " + winner.prize_pool + " at " + expires);
                     }
                 } else {
                     this.recentWinners = Array<any>();
@@ -173,41 +172,51 @@ export class AuctionManager {
      * Enables polling of the auction table
      * @param {boolean} enable
      */
-    public enablePolling(enable:boolean):void {
+    public async enablePolling(enable:boolean):Promise<void> {
 
-        let pollFunc = async function() {
-            this.pollAuctionTable().then((result) => {
-                this.pollingTimer = setTimeout(() => {
-                    this.pollingTimer = null;
-                    pollFunc();
-                }, 250);
-            }).catch((err) => {
-                console.log("Error polling auction table - retry in 5 seconds");
-                this.pollingTimer = setTimeout(() => {
-                    this.pollingTimer = null;
-                    pollFunc();
-                }, 5000);
-            });
-        }.bind(this);
+        return new Promise<void>((resolve, reject) => {
+            try {
+                let pollFunc = async function () {
+                    this.pollAuctionTable().then((result) => {
+                        this.pollingTimer = setTimeout(() => {
+                            this.pollingTimer = null;
+                            pollFunc();
+                        }, 250);
+                    }).catch((err) => {
+                        console.log("Error polling auction table - retry in 5 seconds");
+                        this.pollingTimer = setTimeout(() => {
+                            this.pollingTimer = null;
+                            pollFunc();
+                        }, 5000);
+                    });
+                }.bind(this);
 
-        if (enable) {
-            this.dbManager.getDocuments("auctionTypes", {}, {}, 100000).then((result:any[]) => {
-                this.auctionTypes = {};
-                for (let auctionType of result) {
-                    this.auctionTypes[auctionType.auctionId] = auctionType;
-                }
-                this.auctionTypeCounter = 40;
+                this.dbMySql.entityManager().find(auctionType, {}).then((auctionTypes) => {
+                    for (let at of auctionTypes) {
+                        this.auctionTypes[at.typeId] = at;
+                        this.auctionTypeCounter = 120;
+                    }
 
-                if (this.pollingTimer == null) {
-                    pollFunc();
-                }
-            });
-        } else {
-            if (this.pollingTimer) {
-                clearTimeout(this.pollingTimer);
-                this.pollingTimer = null;
+                    if (enable) {
+                        pollFunc();
+                    } else {
+                        if (this.pollingTimer) {
+                            clearTimeout(this.pollingTimer);
+                            this.pollingTimer = null;
+                        }
+                    }
+
+                    resolve();
+
+                }, (reason) => {
+                    console.log("Couldn't find any auctionTypes");
+                    console.log(reason);
+                });
+
+            } catch (err) {
+                reject(err);
             }
-        }
+        });
     }
 
     /**
@@ -243,17 +252,20 @@ export class AuctionManager {
      */
     public pollAuctionTable():Promise<any> {
         // console.log("polling auction table at " + moment().format("dddd, MMMM Do YYYY, h:mm:ss a"));
-        return new Promise<any>((resolve, reject) => {
+        return new Promise<any>(async (resolve, reject) => {
 
             // Get new auction type data refresh every 120 polls (30 seconds)
             if (this.auctionTypeCounter <= 0) {
-                this.dbManager.getDocuments("auctionTypes", {}, {}, 100000).then((result:any[]) => {
+                try {
                     this.auctionTypes = {};
-                    for (let auctionType of result) {
-                        this.auctionTypes[auctionType.auctionId] = auctionType;
+                    let auctionTypes: auctionType[] = await this.dbMySql.entityManager().find(auctionType, {});
+                    for (let at of auctionTypes) {
+                        auctionTypes[at.typeId] = at;
+                        this.auctionTypeCounter = 120;
                     }
-                    this.auctionTypeCounter = 120;
-                });
+                } catch (err) {
+                    reject(err);
+                }
             } else {
                 this.auctionTypeCounter--;
             }
@@ -269,7 +281,7 @@ export class AuctionManager {
                         // This is the main method that determines the state of the blockchain auctions
                         // by sorting them into "removed", "added", "changed", and "ended" lists.
                         // ----------------------------------------------------------------------------
-                        let sortedAuctions:any = this.sortAuctions(headBlockTime, auctionsFromBlockchain);
+                        let sortedAuctions:any = await this.sortAuctions(headBlockTime, auctionsFromBlockchain);
 
                         for (let auction of sortedAuctions.removed) {
                             if (this.sio) {
@@ -278,13 +290,7 @@ export class AuctionManager {
                         }
                         for (let auction of sortedAuctions.added) {
 
-                            // Add the auction's current server seed hash and client seed
-                            let seeds:any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
-                            auction.serverSeedHash = seeds.serverHash;
-                            auction.clientSeed = seeds.clientSeed;
-
-                            // Attach current bidders
-                            auction.bidders = await this.dbMySql.auctionBids(auction.id);
+                            await this.addProvablyFairSeedsToAuctions();
 
                             if (this.sio) {
                                 this.sio.sockets.emit(SocketMessage.STC_ADD_AUCTION, JSON.stringify(auction));
@@ -303,11 +309,6 @@ export class AuctionManager {
                                     console.log("---------------");
                                 });
                             } else {
-
-                                // Add the auction's current server seed hash and client seed
-                                let seeds:any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
-                                auction.serverSeedHash = seeds.serverHash;
-                                auction.clientSeed = seeds.clientSeed;
 
                                 // Create a bid record in the MySql database if one isn't already there.
                                 //
@@ -348,8 +349,7 @@ export class AuctionManager {
                                     }
                                 }
 
-                                // Add the bidders list for this auction
-                                auction.bidders = await this.dbMySql.auctionBids(auction.id);
+                                await this.addProvablyFairSeedsToAuctions();
 
                                 // Notify clients of auction change
                                 if (this.sio) {
@@ -371,18 +371,14 @@ export class AuctionManager {
                                 auctionToPayout = auction;
                             }
 
-                            // Add the auction's current server seed hash and client seed
-                            let seeds:any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
-                            auction.serverSeedHash = seeds.serverHash;
-                            auction.clientSeed = seeds.clientSeed;
-
-                            // Add the bidders list for this auction
-                            auction.bidders = await this.dbMySql.auctionBids(auction.id);
+                            await this.addProvablyFairSeedsToAuctions();
 
                             if (this.sio) {
                                 this.sio.sockets.emit(SocketMessage.STC_END_AUCTION, JSON.stringify(auction));
                             }
                         }
+
+                        await this.addProvablyFairSeedsToAuctions();
                     }
 
                     // Payout a winning auction (asynchronously)
@@ -415,7 +411,7 @@ export class AuctionManager {
                                         this.lastPayoutTime = new Date().getTime();
 
                                         // Add the bidders list for this winning auction auction
-                                        auctionToPayout.bidders = await this.dbMySql.auctionBids(auctionToPayout.id);
+                                        auctionToPayout.bidders = await this.dbMySql.auctionBids(auctionToPayout.id, auctionToPayout.auctionType);
 
                                         if (this.sio) {
                                             this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
@@ -451,11 +447,16 @@ export class AuctionManager {
 
                                 // Creates an auction record to guarantee that we beat the
                                 // history scanner which cannot possibly see this auction before
-                                // it is paid out (generating an rzreceipt)
+                                // it is paid out (generating an rzreceipt). The only reason I see
+                                // if one exists already is because I bring the server up and down
+                                // and if an auction completes while it is down it creates problems.
                                 //
-                                let newAuctionRecord:auctions = new auctions();
+                                let newAuctionRecord: auctions = await this.dbMySql.entityManager().findOne(auctions, {auctionId: auctionToPayout.id});
+                                if (!newAuctionRecord) {
+                                    newAuctionRecord = new auctions();
+                                    newAuctionRecord.auctionId = auctionToPayout.id;
+                                }
                                 newAuctionRecord.creationDatetime = new Date(auctionToPayout.block_time * 1000.0);
-                                newAuctionRecord.auctionId = auctionToPayout.id;
                                 await this.dbMySql.entityManager().save(newAuctionRecord);
 
                                 if (params) {
@@ -486,7 +487,7 @@ export class AuctionManager {
                                     } catch (err) {
                                         delete this.outstandingPayoutRestartTransactions[auctionToPayout.id];
                                         console.log("Unexpected error payoutAndRestartAuction(" + auctionToPayout.id + ")");
-                                        console.log(reject);
+                                        console.log(err);
                                         console.log("---------------");
                                     }
                                 }
@@ -514,6 +515,133 @@ export class AuctionManager {
             }).catch((err) => {
                 reject(err);
             });
+        });
+    }
+
+    /**
+     * Returns an object containing account names and current harpoon odds
+     * for each particular account
+     *
+     * @param {number} auctionId
+     * @param {any[]} bids
+     * @param {number} totalOdds_
+     * @returns {any}
+     */
+    public oddsFromBids(auctionId:number, bids:any[], totalOdds_:number):any {
+
+        let lastCheckCount:number = 0;
+        let lastCheckIdx:number = 0;
+        let uniqueCheckedAccounts:any = {};
+
+        // This function returns the # of unique accounts that are ahead
+        // of a specified index into the bids array. It starts at the specified
+        // index, and works its way backwards to the "lastCheckIdx", looking
+        // for unique account names and incrimenting the "lastCheckCount"
+        // var each time it finds one. Finally, it sets the lastCheckIdx
+        // to where it started from (which will be the ending point of
+        // the next call).
+        let aheadOf = (idx:number):number => {
+            for (let i:number = idx - 1; i >= lastCheckIdx; i--) {
+                let bid:any = bids[i];
+                if (!uniqueCheckedAccounts.hasOwnProperty(bid.accountName) && !this.hasHarpooned(auctionId, bid.accountName)) {
+                    uniqueCheckedAccounts[bid.accountName] = true;
+                    lastCheckCount++;
+                }
+            }
+            lastCheckIdx = idx;
+            return lastCheckCount;
+        };
+
+        // Loop through all bids, extracting and counting unique accounts.
+        let toRet:any = {};
+        for (let i:number = 0; i < bids.length; i++) {
+            let bid:any = bids[i];
+            if (!toRet.hasOwnProperty(bid.accountName) && !this.hasHarpooned(auctionId, bid.accountName)) {
+                let aheadOfMe:number = aheadOf(i);
+                toRet[bid.accountName] = {aheadOf: aheadOfMe, odds: 0};
+            }
+        }
+
+        // At this point, lastCheckCount == total number of accounts
+        // that will get the harpoon button.
+        //
+        let harpoonButtonCount:number = lastCheckCount;
+        if (lastCheckCount > 0) {
+
+            if (harpoonButtonCount == 1) {
+                for (let key in toRet) {
+                    let o: any = toRet[key];
+                    if (o.aheadOf == 1) {
+                        o.odds = totalOdds_;
+                    }
+                }
+            } else {
+                // We have multiple harpoon buttons to distribute
+                // the odds to (at least 2)
+                //
+                // We scale the odds according to the formula (example for 5 harpoon buttons - n=5)
+                //
+                // 1*nthRootTotalOdds * g*nthRootTotalOdds * g^2*nthRootTotalOdds * g^3*nthRootTotalOdds * g^4*nthRootTotalOdds
+                // ------------------------------------------------------------------------------------------------------------
+                //                                               g^10
+                //
+                // We then take the nth root of the denominator and apply it individually
+                //
+                // 1*nthRootTotalOdds * g*nthRootTotalOdds * g^2*nthRootTotalOdds * g^3*nthRootTotalOdds * g^4*nthRootTotalOdds
+                // ------------------   ------------------   --------------------   --------------------   --------------------
+                //   nthRootOfDenom       nthRootOfDenom         nthRootOfDenom         nthRootOfDenom         nthRootOfDenom
+                //
+                // We don't want the last term to go above 1, so calculate g by setting a fantom sixth factor = 1, making
+                // the real fifth factor just slightly less than 1.
+                //
+                // g^15 * nthRootTotalOdds
+                // ----------------------- = 1  therefore g =  nthRootOf(1/nthRootTotalOdds)(
+                //          g^10
+                //
+                let nthRootTotalOdds:number = Math.pow((1 - totalOdds_), 1/harpoonButtonCount);
+                let g:number = Math.pow(1/nthRootTotalOdds, 1/harpoonButtonCount);
+                let denominator:number = Math.pow(g, harpoonButtonCount*((harpoonButtonCount - 1) / 2));
+                let nthRootOfDenominator:number = Math.pow(denominator, 1/harpoonButtonCount);
+                for (let key in toRet) {
+                    let o: any = toRet[key];
+                    if (o.aheadOf > 0) {
+                        let factor:number = Math.pow(g, o.aheadOf - 1);
+                        let odds:number = (factor * nthRootTotalOdds)/nthRootOfDenominator;
+                        o.odds = (1 - odds);
+                    }
+                }
+            }
+        }
+
+        return toRet;
+    }
+
+    private hasHarpooned(auctionId:number, accountName:string):boolean {
+        // TBD - check to see if the account has harpooned
+        return false;
+    }
+
+    /**
+     * Attaches the server seed hash and client seed (if any) to the current auctions
+     * being held by this manager.
+     *
+     * @returns {Promise<void>}
+     */
+    private addProvablyFairSeedsToAuctions():Promise<void> {
+
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                for (let auction of this.auctions) {
+                    if (!auction.hasOwnProperty("serverSeedHash")) {
+                        let seeds: any = await this.harpoonManager.getServerHashAndClientSeed(auction.id);
+                        auction.serverSeedHash = seeds.serverHash;
+                        auction.clientSeed = seeds.clientSeed;
+                    }
+                }
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 
@@ -699,10 +827,10 @@ export class AuctionManager {
     private linkToAuctions(auctionToCheck:any):Promise<any> {
         return new Promise<any>((resolve, reject) => {
             let auctionType:any = this.auctionTypes.hasOwnProperty(auctionToCheck.type) ? this.auctionTypes[auctionToCheck.type] : null;
-            if (auctionType && auctionType.hasOwnProperty("nextType") && (auctionType.nextType != auctionType.auctionId)) {
+            if (auctionType && auctionType.nextType && (auctionType.nextType != auctionType.typeId)) {
                 let nextAuctionType:any = this.auctionTypes.hasOwnProperty(auctionType.nextType) ? this.auctionTypes[auctionType.nextType] : null;
                 if (nextAuctionType) {
-                    let params:any = {...nextAuctionType.auctionParams};
+                    let params:any = JSON.parse(nextAuctionType.blockchainParams);
                     resolve(params);
                 } else {
                     resolve(null);
@@ -712,66 +840,6 @@ export class AuctionManager {
             }
         });
     };
-
-    /**
-     * Returns the promise to use to payout an auction taking into account
-     * scamming activity.
-     *
-     * @param {any} auctionToCheck
-     * @returns {Promise<any>}
-     */
-    private scamCheck(auctionToCheck:any):Promise<any> {
-
-        return new Promise<any>((resolve, reject) => {
-
-            let auctionType:any = this.auctionTypes.hasOwnProperty(auctionToCheck.type) ? this.auctionTypes[auctionToCheck.type] : null;
-            if (auctionType && auctionType.hasOwnProperty("scammerMinBidders")) {
-
-                let scammerMinBidders:number = auctionType.scammerMinBidders;
-                let scammerMinActiveUsers:number = auctionType.scammerMinActiveUsers;
-                let scammerTimeFactor:number = auctionType.scammerTimeFactor;
-                let scammerMaxTime:number = auctionType.scammerMaxTime;
-                let scammerResetWindow: number = auctionType.scammerResetWindow;
-                let params:any = {...auctionType.auctionParams};
-
-                this.dbManager.getDistinct("eostimecontr",
-                    "bidder",
-                    {name: "rzbidreceipt", redzone_id: auctionToCheck.id}).then((bidders: any[]) => {
-
-                    let distinctIPs: any = {};
-                    let distinctIPCount: number = this.activeDistinctIPCount(distinctIPs);
-
-                    let isScam: boolean = bidders.length < scammerMinBidders || distinctIPCount < scammerMinActiveUsers;
-
-                    if (!isScam) {
-                        if (params.init_duration_secs != auctionToCheck.init_duration_secs) {
-                            // Return to original parameters
-                            console.log("Returning to original parameters");
-                            resolve(params);
-                        } else {
-                            // At original parameters, so we restart
-                            console.log("Rolling Over");
-                            resolve(null);
-                        }
-                    } else {
-                        // Increase initial duration by the factor
-                        params.init_duration_secs = Math.floor(auctionToCheck.init_duration_secs * scammerTimeFactor);
-                        if (params.init_duration_secs > scammerMaxTime) {
-                            params.init_duration_secs = scammerMaxTime;
-                        }
-                        this.notifySlack("Bumped duration of auction type " + auctionToCheck.type + " to " + params.init_duration_secs + " [bidder count: " + bidders.length + "] [distinct ips: " + distinctIPCount + "]");
-                        console.log("New Duration: " + params.init_duration_secs);
-                        resolve(params);
-                    }
-
-                });
-
-            } else {
-                // Simply roll the auction over with a rzrestart
-                resolve(null);
-            }
-        });
-    }
 
     /**
      * Returns the number of distinct IPs currently connected
@@ -827,143 +895,145 @@ export class AuctionManager {
      * @param {any[]} auctionsFromBlockchain
      * @returns {any}
      */
-    private sortAuctions(headBlockTime:number , auctionsFromBlockchain:any[]):any {
+    private sortAuctions(headBlockTime:number , auctionsFromBlockchain:any[]):Promise<any> {
 
-        let toRet:any = {
-            "removed": new Array<any>(),
-            "added": new Array<any>(),
-            "changed": new Array<any>(),
-            "ended": new Array<any>()
-        };
+        return new Promise<any>(async (resolve, reject) => {
 
-        // Loop through our existing auctions looking for removed, ended, or changed entries
-        for (let currentAuction of this.auctions) {
+            try {
+                let toRet: any = {
+                    "removed": new Array<any>(),
+                    "added": new Array<any>(),
+                    "changed": new Array<any>(),
+                    "ended": new Array<any>()
+                };
 
-            // Let's make sure the auction is still in the table
-            let blockchainAuction: any = auctionsFromBlockchain.find((bcval) => {
-                return currentAuction.type == bcval.type;
-            });
-            if (!blockchainAuction) {
-                // This auction is no longer available
-                console.log("Removing: " + currentAuction.type + " @ " + Config.friendlyTimestamp());
-                toRet.removed.push(currentAuction);
-            } else {
+                // Loop through our existing auctions looking for removed, ended, or changed entries
+                for (let currentAuction of this.auctions) {
 
-                blockchainAuction.hasEnded = false;
-
-                let originalBlockchainAuctionExpireUnixTime:number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
-
-                // Handles fantom auctions (ones with no bids that roll over so that we don't have to
-                // spend CPU on empty auctions)
-                this.restartEndedAuctions(headBlockTime, blockchainAuction);
-
-                // See if we need to reset our auction to its original params because
-                // we have exceeded our scammerResetWindow after previously bumping
-                // the auction's expire time.
-                blockchainAuction.resetToOriginalParams = null;
-                if (blockchainAuction.remaining_bid_count == blockchainAuction.init_bid_count) {
-                    if (this.auctionTypes.hasOwnProperty(blockchainAuction.type)) {
-                        let auctionType: any = this.auctionTypes[blockchainAuction.type];
-                        if (auctionType.hasOwnProperty("scammerResetWindow") && (auctionType.auctionParams.init_duration_secs != blockchainAuction.init_duration_secs)) {
-                            let secsSinceExpire: number = headBlockTime - originalBlockchainAuctionExpireUnixTime;
-                            if (secsSinceExpire > 0) {
-                                if (secsSinceExpire > auctionType.scammerResetWindow) {
-                                    // console.log("=========> Need to reset auction id: " + blockchainAuction.id + " (" + secsSinceExpire + ", " + auctionType.scammerResetWindow + ")");
-                                    blockchainAuction.resetToOriginalParams = {...auctionType.auctionParams};
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // See if we have ended
-                let expireUnixTime: number = blockchainAuction.hasOwnProperty("expireUnixTime") ? blockchainAuction.expireUnixTime : parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
-                if ((blockchainAuction.remaining_bid_count == 0) || (expireUnixTime <= headBlockTime)) {
-
-                    // Yup, we ended - we require 5 seconds (10 polls) before we declare the auction ended
-                    if (!currentAuction.hasOwnProperty("endedPollCount")) {
-                        blockchainAuction["endedPollCount"] = 10;
+                    // Let's make sure the auction is still in the table
+                    let blockchainAuction: any = auctionsFromBlockchain.find((bcval) => {
+                        return currentAuction.type == bcval.type;
+                    });
+                    if (!blockchainAuction) {
+                        // This auction is no longer available
+                        console.log("Removing: " + currentAuction.type + " @ " + Config.friendlyTimestamp());
+                        toRet.removed.push(currentAuction);
                     } else {
-                        blockchainAuction["endedPollCount"] = currentAuction.endedPollCount - 1;
-                    }
-                    if (blockchainAuction.endedPollCount <= 0) {
-                        blockchainAuction.hasEnded = true;
-                        toRet.ended.push(blockchainAuction);
-                    }
 
-                } else {
-                    // See if this auction has changed
-                    if ((blockchainAuction.remaining_bid_count < currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id) || (blockchainAuction.iterationCount != currentAuction.iterationCount)) {
-                        // Yup, it has changed
-                        if (blockchainAuction.last_bidder != "eostimecontr") {
-                            let bidPrice:number = parseFloat(blockchainAuction.bid_price.split(" ")[0]);
-                            if (bidPrice > 2) {
-                                this.notifySlack("Bid " + blockchainAuction.bid_price + " EOS received from [" + blockchainAuction.last_bidder + "] on auction type " + blockchainAuction.type + " id " + blockchainAuction.id);
+                        blockchainAuction.hasEnded = false;
+
+                        let originalBlockchainAuctionExpireUnixTime: number = parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
+
+                        // Handles fantom auctions (ones with no bids that roll over so that we don't have to
+                        // spend CPU on empty auctions)
+                        this.restartEndedAuctions(headBlockTime, blockchainAuction);
+
+                        // See if we have ended
+                        let expireUnixTime: number = blockchainAuction.hasOwnProperty("expireUnixTime") ? blockchainAuction.expireUnixTime : parseInt(moment(blockchainAuction.expires + "+00:00").local().format("X"));
+                        if ((blockchainAuction.remaining_bid_count == 0) || (expireUnixTime <= headBlockTime)) {
+
+                            // Yup, we ended - we require 5 seconds (10 polls) before we declare the auction ended
+                            if (!currentAuction.hasOwnProperty("endedPollCount")) {
+                                blockchainAuction["endedPollCount"] = 10;
+                            } else {
+                                blockchainAuction["endedPollCount"] = currentAuction.endedPollCount - 1;
+                            }
+                            if (blockchainAuction.endedPollCount <= 0) {
+                                blockchainAuction.hasEnded = true;
+                                toRet.ended.push(blockchainAuction);
+                            }
+
+                        } else {
+                            // See if this auction has changed
+                            if ((blockchainAuction.remaining_bid_count < currentAuction.remaining_bid_count) || (blockchainAuction.id != currentAuction.id) || (blockchainAuction.iterationCount != currentAuction.iterationCount)) {
+                                // Yup, it has changed
+                                if (blockchainAuction.last_bidder != "eostimecontr") {
+                                    let bidPrice: number = parseFloat(blockchainAuction.bid_price.split(" ")[0]);
+                                    if (bidPrice > 2) {
+                                        this.notifySlack("Bid " + blockchainAuction.bid_price + " EOS received from [" + blockchainAuction.last_bidder + "] on auction type " + blockchainAuction.type + " id " + blockchainAuction.id);
+                                    }
+                                }
+                                blockchainAuction.previous_bid_price = currentAuction.bid_price;
+                                toRet.changed.push(blockchainAuction);
                             }
                         }
-                        blockchainAuction.previous_bid_price = currentAuction.bid_price;
-                        toRet.changed.push(blockchainAuction);
                     }
                 }
+
+                // Loop through our auctions from the blockchain looking for ones
+                // that need to be added.
+                for (let blockchainAuction of auctionsFromBlockchain) {
+                    // Let's make sure the auction is still in the table
+                    let currentAuction: any = this.auctions.find((currval) => {
+                        return blockchainAuction.type == currval.type;
+                    });
+                    if (!currentAuction) {
+                        console.log("Adding: " + blockchainAuction.type + " @ " + Config.friendlyTimestamp());
+                        toRet.added.push(blockchainAuction);
+                    }
+                }
+
+                // We are going to use our server time as block time (assumes
+                // miners are using pretty accurate clock)
+                headBlockTime = Math.floor(new Date().getTime() / 1000);
+
+                // Tune up our auction data
+                for (let auction of auctionsFromBlockchain) {
+                    auction.prize_pool = auction.prize_pool.split(" ")[0];
+                    auction.bid_price = auction.bid_price.split(" ")[0];
+                    auction.expires = parseInt(moment(auction.expires + "+00:00").local().format("X"));
+                    auction.creation_time = parseInt(moment(auction.creation_time + "+00:00").local().format("X"));
+                    auction.block_time = headBlockTime;
+                    auction.status = ((auction.remaining_bid_count == 0) || (auction.expires < headBlockTime)) ? "ended" : "active";
+
+                    // Attach current bidders
+                    auction.bidders = await this.dbMySql.auctionBids(auction.id);
+
+                    // Attach the odds for each account playing in the auction
+                    if (this.auctionTypes.hasOwnProperty(auction.type)) {
+                        let at: auctionType = this.auctionTypes[auction.type];
+                        auction.odds = this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
+                    } else {
+                        auction.odds = {};
+                    }
+
+                    // If the auction has not ended, present the prize pool as what the player
+                    // will in-fact win if they place the bid (by adding the to-pool portion of
+                    // the bid about to be placed.
+                    if (!auction.hasEnded) {
+                        let toPot: number = 1.0 - auction.house_portion_x100k / 100000;
+                        let pool: number = parseFloat(auction.prize_pool) + parseFloat(auction.bid_price) * toPot;
+                        auction.prize_pool = pool.toFixed(4);
+                    }
+
+                    if (this.auctionTypes.hasOwnProperty(auction.type)) {
+                        let at: any = this.auctionTypes[auction.type];
+                        auction.harpoon = at.harpoon;
+                        auction.html = "<div class=\"ribbon ribbon-" + at.color + " hot\"></div><div class=\"ribbon-contents\"><i class=\"" + at.icon + "\"></i><span>" + at.text + "</span></div>";
+                    }
+                }
+
+                this.auctions = auctionsFromBlockchain;
+
+                // To remove an auction, we need to see it go away for 3 seconds
+                for (let i: number = 0; i < toRet.removed.length; i++) {
+                    let removedAuction: any = toRet.removed[i];
+                    let cyclesInRemovedList: number = removedAuction.hasOwnProperty("cyclesRemoved") ? removedAuction["cyclesRemoved"] : 0;
+                    if (cyclesInRemovedList < 10) {
+                        removedAuction["cyclesRemoved"] = cyclesInRemovedList + 1;
+                        this.auctions.push(removedAuction);
+                        toRet.removed.splice(i, 1);
+                        i--;
+                    }
+                }
+
+                resolve(toRet);
+
+            } catch (err) {
+                reject(err);
             }
-        }
 
-        // Loop through our auctions from the blockchain looking for ones
-        // that need to be added.
-        for (let blockchainAuction of auctionsFromBlockchain) {
-            // Let's make sure the auction is still in the table
-            let currentAuction: any = this.auctions.find((currval) => {
-                return blockchainAuction.type == currval.type;
-            });
-            if (!currentAuction) {
-                console.log("Adding: " + blockchainAuction.type + " @ " + Config.friendlyTimestamp());
-                toRet.added.push(blockchainAuction);
-            }
-        }
-
-        // We are going to use our server time as block time (assumes
-        // miners are using pretty accurate clock)
-        headBlockTime = Math.floor(new Date().getTime() / 1000);
-
-        // Tune up our auction data
-        for (let auction of auctionsFromBlockchain) {
-            auction.prize_pool = auction.prize_pool.split(" ")[0];
-            auction.bid_price = auction.bid_price.split(" ")[0];
-            auction.expires = parseInt(moment(auction.expires + "+00:00").local().format("X"));
-            auction.creation_time = parseInt(moment(auction.creation_time + "+00:00").local().format("X"));
-            auction.block_time = headBlockTime;
-            auction.status = ((auction.remaining_bid_count == 0) || (auction.expires < headBlockTime)) ? "ended" : "active";
-
-            // If the auction has not ended, present the prize pool as what the player
-            // will in-fact win if they place the bid (by adding the to-pool portion of
-            // the bid about to be placed.
-            if (!auction.hasEnded) {
-                let toPot: number = 1.0 - auction.house_portion_x100k / 100000;
-                let pool: number = parseFloat(auction.prize_pool) + parseFloat(auction.bid_price) * toPot;
-                auction.prize_pool = pool.toFixed(4);
-            }
-
-            if (this.auctionTypes.hasOwnProperty(auction.type)) {
-                let at:any = this.auctionTypes[auction.type];
-                auction.html = "<div class=\"ribbon ribbon-" + at.color + " hot\"></div><div class=\"ribbon-contents\"><i class=\"" + at.icon + "\"></i><span>" + at.text + "</span></div>";
-            }
-        }
-
-        this.auctions = auctionsFromBlockchain;
-
-        // To remove an auction, we need to see it go away for 3 seconds
-        for (let i:number = 0; i < toRet.removed.length; i++) {
-            let removedAuction:any = toRet.removed[i];
-            let cyclesInRemovedList:number = removedAuction.hasOwnProperty("cyclesRemoved") ? removedAuction["cyclesRemoved"] : 0;
-            if (cyclesInRemovedList < 10) {
-                removedAuction["cyclesRemoved"] = cyclesInRemovedList + 1;
-                this.auctions.push(removedAuction);
-                toRet.removed.splice(i, 1);
-                i--;
-            }
-        }
-
-        return toRet;
+        });
     }
 
     /**

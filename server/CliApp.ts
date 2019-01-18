@@ -11,6 +11,7 @@ import {EosRpcMySqlHistoryBuilder} from "./EosRpcMySqlHistoryBuilderd";
 import {AuctionManager} from "./AuctionManager";
 import {HarpoonManager} from "./HarpoonManager";
 import {bid} from "./entities/bid";
+import {auctions} from "./entities/auctions";
 
 const readline = require('readline');
 const crypto = require('crypto');
@@ -139,8 +140,106 @@ module CliApp {
 
                                     // let hm:HarpoonManager = new HarpoonManager(this.dbMysql, "");
                                     // var sha512 = crypto.createHash('sha512').update('mystring').digest("hex");
-                                    let bids:any[] = await this.dbMysql.auctionBids(86528);
-                                    console.log(bids);
+                                    // console.log(bids);
+                                    let bids:any[] = [
+                                        {accountName: "A"},
+                                        {accountName: "B"},
+                                        {accountName: "C"},
+                                        {accountName: "D"},
+                                        {accountName: "C"},
+                                        {accountName: "B"},
+                                        {accountName: "A"},
+                                        {accountName: "F"},
+                                        {accountName: "C"},
+                                        {accountName: "F"},
+                                        {accountName: "G"},
+                                        {accountName: "B"},
+                                        {accountName: "C"}
+                                    ];
+                                    let c:any[] = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    let s:number = 0;
+                                    let o:number = 1;
+                                    for (let key in c) {
+                                        let a:any = c[key];
+                                        if (a.odds > 0) {
+                                            o *= (1- a.odds);
+                                        }
+                                    }
+                                    console.log(c);
+
+                                    bids = [
+                                        {accountName: "A"},
+                                        {accountName: "B"},
+                                        {accountName: "C"}
+                                    ];
+                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    o = 1;
+                                    for (let key in c) {
+                                        let a:any = c[key];
+                                        if (a.odds > 0) {
+                                            o *= (1 - a.odds);
+                                        }
+                                    }
+                                    console.log(c);
+
+                                    bids = [
+                                        {accountName: "A"}
+                                    ];
+                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    o = 1;
+                                    for (let key in c) {
+                                        let a:any = c[key];
+                                        if (a.odds > 0) {
+                                            o *= (1 - a.odds);
+                                        }
+                                    }
+                                    console.log(c);
+
+                                    bids = [
+                                        {accountName: "A"},
+                                        {accountName: "B"}
+                                    ];
+                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    o = 1;
+                                    for (let key in c) {
+                                        let a:any = c[key];
+                                        if (a.odds > 0) {
+                                            o *= (1 - a.odds);
+                                        }
+                                    }
+                                    console.log(c);
+
+                                    bids = [
+                                        {accountName: "A"},
+                                        {accountName: "B"},
+                                        {accountName: "C"},
+                                        {accountName: "D"},
+                                        {accountName: "E"},
+                                        {accountName: "F"},
+                                        {accountName: "G"},
+                                        {accountName: "H"},
+                                        {accountName: "I"},
+                                        {accountName: "J"},
+                                        {accountName: "K"},
+                                        {accountName: "L"},
+                                        {accountName: "M"},
+                                        {accountName: "N"},
+                                        {accountName: "O"},
+                                        {accountName: "P"},
+                                        {accountName: "Q"},
+                                        {accountName: "R"},
+                                        {accountName: "S"},
+                                        {accountName: "T"}
+                                    ];
+                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    o = 1;
+                                    for (let key in c) {
+                                        let a:any = c[key];
+                                        if (a.odds > 0) {
+                                            o *= (1 - a.odds);
+                                        }
+                                    }
+                                    console.log(c);
 
                                     break;
                                 case "h":

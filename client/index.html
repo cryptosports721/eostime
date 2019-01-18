@@ -11,7 +11,7 @@
         <link rel="stylesheet" href="assets/css/animate.min.css"/>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
         <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
-        <link rel="stylesheet" href="assets/css/custom_css_1.css?nonce=2"/>
+        <link rel="stylesheet" href="assets/css/custom_css_1.css?nonce=5"/>
         <link rel="stylesheet" href="assets/css/flag_icons.min.css"/>
     </head>
     <style>
@@ -172,21 +172,32 @@
                     <div class="auction-instance-busy d-none">
                         <div><img src="assets/images/loading.svg"></div>
                     </div>
-                    <div class="auction-instance-clock-accelerates-message d-none">
-                        <div class="english lang d-none" style="position: absolute; top: 204px; left: 48px; font-size: 8pt; color: #48dbfb">
-                            CLOCK ACCELERATES ON EACH BID!
-                        </div>
-                        <div class="chinese lang d-none" style="position: absolute; top: 204px; left: 89px; font-size: 8pt; color: #48dbfb">
-                            时钟加速每个出价
-                        </div>
-                    </div>
                     <!--<div class="auction-instance-small-text text-right font-muted abs-corner">ID: <span class="auction-instance-id">76</span></div>-->
                     <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
                     <div class="flex-center">
                         <div>
-                            <div class="auction-instance-bidder-no-bidders english lang auction-instance-med-text text-center flex-center-row d-none">Be the first bid!</div>
-                            <div class="auction-instance-bidder-no-bidders chinese lang auction-instance-med-text text-center flex-center-row d-none">成為第一個投標</div>
-                            <div class="auction-instance-bidder auction-instance-med-text flex-center-row d-none"><i class="far fa-user font-16 m-r-10 font-muted"></i><span class="col-blue"></span></div>
+                            <div class="auction-instance-bidder-no-bidders english lang auction-instance-med-text text-center flex-center-row d-none" style="padding-bottom: 25px;">Be the first bid!</div>
+                            <div class="auction-instance-bidder-no-bidders chinese lang auction-instance-med-text text-center flex-center-row d-none" style="padding-bottom: 25px;">成為第一個投標</div>
+                            <div class="auction-instance-bidder auction-instance-med-text text-left d-none">
+                                <div class="row">
+                                    <div class="col-2">
+                                        <i class="far fa-user font-16 m-r-10 font-muted"></i>
+                                    </div>
+                                    <div class="col-10 auction-instance-bidder-account-name col-blue" style="padding-left: 2px;">
+
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-2" style="line-height: 2; font-size: 7pt">
+                                        &nbsp;
+                                    </div>
+                                    <div class="col-10" style="line-height: 2; font-size: 7pt; padding-left: 2px; cursor: pointer;">
+                                        <div class="auction-client-seed-container d-none">
+                                            <span class="english lang d-none">Leader's Client Seed: </span><span class="chinese lang d-none">领导者的客户种子：</span><span class="text-center auction-instance-client-seed"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="auction-instance-remaining-time flex-center-row">
                                 <div class="count_down" class="flex-center">
                                     <i class="far fa-clock font-16 m-r-10 font-muted"></i>
@@ -207,9 +218,19 @@
                                 <i class="fas fa-ticket-alt font-16 m-r-10 font-muted"></i>
                                 <span></span>
                             </div>
+                            <div style="min-height: 20px;">
+                                <div class="auction-instance-clock-accelerates-message text-center d-none">
+                                    <div class="english lang d-none" style="font-size: 8pt; color: #48dbfb">
+                                        CLOCK ACCELERATES ON EACH BID!
+                                    </div>
+                                    <div class="chinese lang d-none" style="font-size: 8pt; color: #48dbfb">
+                                        时钟加速每个出价
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div style="height: 42px;" class="m-t-20 flex-center">
+                    <div style="height: 42px;" class="flex-center">
                         <div class="auction-instance-ended no-user-select d-none">
                             <span class="english lang d-none">ENDED</span>
                             <span class="chinese lang d-none">結束</span>
@@ -218,32 +239,39 @@
                             <span class="english lang d-none">Login</span>
                             <span class="chinese lang d-none">登錄</span>
                         </button>
-                        <div class="row" style="width: 100%">
-                            <div class="col-6 pl-1 pr-1">
+                        <div class="bid-button-container d-none row" style="width: 100%;">
+                            <div class="col-6 pl-1 pr-1 bid-button-col">
                                 <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
                                     <span class="english lang d-none">Bid </span>
                                     <span class="chinese lang d-none">出價 </span>
                                     <span class="auction-instance-bid-amount"></span>
                                 </button>
                             </div>
-                            <div class="col-6 pl-1 pr-1">
-                                <button type="button" class="auction-instance-bomb-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
-                                    <span class="english lang d-none"><i class="fas fa-bomb"></i></span>
-                                    <span class="chinese lang d-none"><i class="fas fa-bomb"></i></span>
-                                    <span class="auction-instance-bomb-odds"></span>
-                                </button>
+                            <div class="col-6 pl-1 pr-1 bomb-button-col">
+                                <div class="row">
+                                    <div class="col-10 pr-0">
+                                        <button type="button" class="auction-instance-bomb-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
+                                            <span class="english lang d-none"><i class="fas fa-bomb"></i></span>
+                                            <span class="chinese lang d-none"><i class="fas fa-bomb"></i></span>
+                                            <span class="auction-instance-bomb-odds"></span>
+                                        </button>
+                                    </div>
+                                    <div class="col-2 pr-0" style="padding-left: 2px;">
+                                        <i class="far fa-question-circle question-circle auction-instance-harpoon-info font-16 text-muted" data-id="auction-instance-modal"></i>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="pt-1">
-                        <div class="text-center auction-instance-server-hash" style="font-size: 7pt;"></div>
-                    </div>
-                    <div class="col-12 pt-2 text-muted d-none english lang" style="font-size: 8pt;">
-                        If an auction ends because the bid counter goes to zero, the last bid recorded by our contract on the EOS blockchain is the winner.
-                        Please time your bids to take into account network delays.
-                    </div>
-                    <div class="col-12 pt-2 text-muted d-none chinese lang" style="font-size: 8pt;">
-                        如果竞价结束，因为竞价计数器变为零，我们在服务器上注册的最后一个竞价是赢家。 请为您的出价计算时间，以考虑网络延迟。
+                    <div style="min-height: 22px">
+                        <div class="auction-server-hash-container row d-none pt-1" style="font-size: 7pt; position: relative;">
+                            <div class="col-2 text-right mr-0 ml-0 pl-0 pr-0">
+                                <i class="far fa-question-circle question-circle auction-instance-server-hash-info font-16 text-muted" data-id="auction-instance-modal"></i>
+                            </div>
+                            <div class="col-10 pl-1 ml-0 text-left no-user-select" style="padding-top: 1px;">
+                                <span class="english lang">Server Hash: </span><span class="chinese lang">服务器哈希：</span><span class="text-center auction-instance-server-hash">&nbsp;</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -321,6 +349,10 @@
                                         <li>
                                             This auction will end when the timer expires or when <span class="auction-instance-modal-remaining-bids"></span> more bid(s) are received.
                                         </li>
+                                        <li>
+                                            If an auction ends because the bid counter goes to zero, the last bid recorded by our contract on the EOS blockchain is the winner.
+                                            Please time your bids to take into account network delays.
+                                        </li>
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             The bid price will increase by <span class="auction-instance-modal-bid-price-increase"></span> after each bid.
                                         </li>
@@ -363,6 +395,9 @@
                                         </li>
                                         <li>
                                             此计划将在计时器到期或何时结束 <span class="auction-instance-modal-remaining-bids"></span> 收到更多出价。
+                                        </li>
+                                        <li>
+                                            如果竞价结束，因为竞价计数器变为零，我们在服务器上注册的最后一个竞价是赢家。 请为您的出价计算时间，以考虑网络延迟。
                                         </li>
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             出價將增加 <span class="auction-instance-modal-bid-price-increase"></span> 每次競標後。
@@ -455,7 +490,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.6/lib/eos.min.js" integrity="sha512-IS9vyI+sMK7MYNJgHj9G8Li21QYs59sRW/Nyzi+dKUh6bF6OfpOnvzSCTiegWftY1ozOmmyacCH2QIJpZgbuKw==" crossorigin="anonymous"></script>
     <script src="assets/js/bootstrap-notify.min.js"></script>
-    <script src="assets/js/eostime-bundle.js?nonce=1546043193"></script>
+    <script src="assets/js/eostime-bundle.js?nonce=1546043194"></script>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>

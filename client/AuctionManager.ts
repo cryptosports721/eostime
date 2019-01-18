@@ -24,7 +24,7 @@ export class AuctionManager extends ViewStateObserver {
         "auctionTemplate": ".auction-instance-template",
         "auctionInstance": ".auction-instance",
         "auctionInstanceBidderOuter": ".auction-instance-bidder",
-        "auctionInstanceBidder": ".auction-instance-bidder > span",
+        "auctionInstanceBidder": ".auction-instance-bidder-account-name",
         "auctionInstanceNoBidder": ".auction-instance-bidder-no-bidders",
         "auctionInstancePrizePool": ".auction-instance-prize-pool span:nth-child(2)",
         "auctionInstanceRemainingBids": ".auction-instance-remaining-bids > span",
@@ -53,7 +53,7 @@ export class AuctionManager extends ViewStateObserver {
         "auctionWinnerInstanceDuration": ".auction-winner-duration",
         "auctionWinnerInstanceAmount": ".auction-winner-amount span:nth-child(2)",
         "ribbonContainer": ".ribbon-container",
-        "auctionClientSeed": ".auction-instance-seed",
+        "auctionClientSeed": ".auction-instance-client-seed",
         "auctionServerHash" : ".auction-instance-server-hash",
         "auctionBombButton" : ".auction-instance-bomb-button",
         "auctionBombOdds" : ".auction-instance-bomb-odds"
@@ -426,7 +426,7 @@ export class AuctionManager extends ViewStateObserver {
         });
 
         // Turn tool tips on for serverSeedHash
-        $clone.find(this.selectors.auctionServerHash).attr("data-toggle", "tooltip").attr("data-placement","top");
+        $clone.find(this.selectors.auctionServerHash).attr("data-toggle", "tooltip").attr("data-placement","bottom");
         (<any> $clone.find(this.selectors.auctionServerHash)).tooltip();
 
         if (!didInsert) {
@@ -463,7 +463,7 @@ export class AuctionManager extends ViewStateObserver {
             $(this.selectors.auctionInstancesContainer).append($clone);
 
             // Turn tool tips on for serverSeedHash
-            $clone.find(this.selectors.auctionServerHash).attr("data-toggle", "tooltip").attr("data-placement","top");
+            $clone.find(this.selectors.auctionServerHash).attr("data-toggle", "tooltip").attr("data-placement","bottom");
             (<any> $clone.find(this.selectors.auctionServerHash)).tooltip();
         }
         $(this.selectors.mainAuctionArea).removeClass("d-none");
@@ -478,15 +478,15 @@ export class AuctionManager extends ViewStateObserver {
     private updateAuctionElementButtonState($elem:JQuery<HTMLElement>, auction: any):void {
         if (this.accountInfo == null) {
             $elem.find(this.selectors.auctionInstanceLoginButton).removeClass("d-none");
-            $elem.find(this.selectors.auctionInstanceBidButton).addClass("d-none");
+            $elem.find(".bid-button-container").addClass("d-none");
             $elem.find(this.selectors.auctionInstanceEnded).addClass("d-none");
         }  else {
             $elem.find(this.selectors.auctionInstanceLoginButton).addClass("d-none");
             if (auction.status == "ended") {
-                $elem.find(this.selectors.auctionInstanceBidButton).addClass("d-none");
+                $elem.find(".bid-button-container").addClass("d-none");
                 $elem.find(this.selectors.auctionInstanceEnded).removeClass("d-none");
             } else {
-                $elem.find(this.selectors.auctionInstanceBidButton).removeClass("d-none");
+                $elem.find(".bid-button-container").removeClass("d-none");
                 $elem.find(this.selectors.auctionInstanceEnded).addClass("d-none");
             }
         }
@@ -551,11 +551,30 @@ export class AuctionManager extends ViewStateObserver {
         $elem.find(this.selectors.auctionInstanceRemainingBids).text(auction.remaining_bid_count);
         $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
 
-        $elem.find(this.selectors.auctionClientSeed).text(auction.clientSeed);
-        $elem.find(this.selectors.auctionServerHash).text(auction.serverSeedHash);
-        $elem.find(this.selectors.auctionServerHash).attr("title", auction.serverSeedHash);
-        $elem.find(this.selectors.auctionServerHash).attr("data-original-title", auction.serverSeedHash);
-        (<any> $elem.find(this.selectors.auctionServerHash)).tooltip('hide');
+        // Deal with harpoon functionality
+        //
+        if (auction.harpoon === 0) {
+            // Not a harpoonable auction
+            $elem.find(".bomb-button-col").addClass("d-none");
+            $elem.find(".bid-button-col").removeClass("col-6").addClass("col-12");
+            $elem.find(".bid-button-container").addClass("pl-5").addClass("pr-5");
+        } else {
+
+            // Client Seed Hash
+            if (auction.clientSeed) {
+                $elem.find(this.selectors.auctionClientSeed).removeClass("d-none").text(auction.clientSeed);
+            } else {
+                $elem.find(this.selectors.auctionClientSeed).addClass("d-none");
+            }
+            $elem.find(".auction-client-seed-container").removeClass("d-none");
+
+            // Server Seed
+            $elem.find(this.selectors.auctionServerHash).text(this.trimServerSeedHash(auction.serverSeedHash));
+            $elem.find(this.selectors.auctionServerHash).attr("title", auction.serverSeedHash);
+            $elem.find(this.selectors.auctionServerHash).attr("data-original-title", auction.serverSeedHash);
+            (<any> $elem.find(this.selectors.auctionServerHash)).tooltip('hide');
+            $elem.find(".auction-server-hash-container").removeClass("d-none");
+        }
 
         $elem.data("lastUpdateTime", Math.floor(new Date().getTime()/1000));
         this.updateAuctionElementButtonState($elem, auction);
@@ -598,20 +617,12 @@ export class AuctionManager extends ViewStateObserver {
 
             $body.find(".auction-instance-modal-bid-price").text(auction.bid_price);
 
-            if (auction.bid_multiplier_x100k != 100000) {
-                let val:number = auction.bid_multiplier_x100k/1000 - 100;
-                $body.find(".auction-instance-modal-bid-price-increase").text(val.toFixed(2) + "%");
-                $body.find(".auction-instance-modal-bid-price-increase-outer").removeClass("d-none");
-            } else {
-                $body.find(".auction-instance-modal-bid-price-increase-outer").addClass("d-none");
-            }
-
-            if (auction.clock_multiplier_x100k != 0.0) {
+            if ((auction.clock_multiplier_x100k != 0.0) && (auction.bid_multiplier_x100k != 100000)) {
                 let val:number = auction.clock_multiplier_x100k/1000;
                 $body.find(".auction-instance-modal-clock-accelerator").text(val.toFixed(2) + "%");
                 $body.find(".auction-instance-modal-clock-accelerator-outer").removeClass("d-none");
             } else {
-                $body.find(".auction-instance-modal-clock-accelerator-outer").removeClass("d-none");
+                $body.find(".auction-instance-modal-clock-accelerator-outer").addClass("d-none");
             }
 
             $body.find(".auction-instance-modal-remaining-bids").text(auction.remaining_bid_count);
@@ -655,8 +666,12 @@ export class AuctionManager extends ViewStateObserver {
         $elem.find(this.selectors.auctionInstanceBidAmount).text(auction.bid_price);
         this.updateAuctionElementButtonState($elem, auction);
 
-        $elem.find(this.selectors.auctionClientSeed).text(auction.clientSeed);
-        $elem.find(this.selectors.auctionServerHash).text(auction.serverSeedHash);
+        if (auction.clientSeed) {
+            $elem.find(this.selectors.auctionClientSeed).removeClass("d-none").text(auction.clientSeed);
+        } else {
+            $elem.find(this.selectors.auctionClientSeed).addClass("d-none");
+        }
+        $elem.find(this.selectors.auctionServerHash).text(this.trimServerSeedHash(auction.serverSeedHash));
         $elem.find(this.selectors.auctionServerHash).attr("title", auction.serverSeedHash);
         $elem.find(this.selectors.auctionServerHash).attr("data-original-title", auction.serverSeedHash);
         (<any> $elem.find(this.selectors.auctionServerHash)).tooltip('hide');
@@ -689,6 +704,18 @@ export class AuctionManager extends ViewStateObserver {
                 $elem.find(this.selectors.auctionInstanceInnerContainer).addClass("flash-border");
             }, 10);
         }
+    }
+
+    private trimServerSeedHash(val:string, len:number = 10):string {
+        let toRet:string = "";
+        for (let i:number = 0; i < len; i++) {
+            toRet += val.charAt(i);
+        }
+        toRet += "...";
+        for (let i:number = val.length - len; i < val.length; i++) {
+            toRet += val.charAt(i);
+        }
+        return toRet;
     }
 
     /**

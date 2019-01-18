@@ -162,8 +162,8 @@ module App {
                     this.harpoonManager = new HarpoonManager(this.dbMysql, serverKey);
                     this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.dbMysql, this.harpoonManager, serverKey, this.eosBlockchain, auctionSlackHook);
                     this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, dividendSlackHook, this.updateDividendCallback.bind(this));
-                    this.historyBuilder = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
-                    this.historyBuilder.start();
+                    // this.historyBuilder = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
+                    // this.historyBuilder.start();
 
 
                     let processDividends:string = process.env.PROCESS_DIVIDENDS;
@@ -177,7 +177,7 @@ module App {
                     // Use auction manager to poll the blockchain
                     let pollAuctions:string = process.env.POLL_AUCTIONS;
                     if ((typeof pollAuctions != "undefined") && (pollAuctions.toLowerCase() == "true")) {
-                        this.auctionManager.enablePolling(true);
+                        await this.auctionManager.enablePolling(true);
                     }
 
                     // Finally, attach event handlers

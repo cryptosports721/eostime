@@ -51,10 +51,19 @@ export class auctionType extends BaseEntity {
     nextTypeId:number | null;
         
 
-    @Column("blob",{ 
+    @Column("float",{ 
+        nullable:false,
+        default: () => "'0'",
+        precision:12,
+        name:"harpoon"
+        })
+    harpoon:number;
+        
+
+    @Column("mediumtext",{ 
         nullable:true,
         name:"blockchainParams"
         })
-    blockchainParams:Buffer | null;
+    blockchainParams:string | null;
         
 }

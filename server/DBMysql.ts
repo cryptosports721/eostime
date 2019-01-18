@@ -12,6 +12,7 @@ import {applicationSettings} from "./entities/applicationSettings";
 import {bid} from "./entities/bid";
 import moment = require("moment");
 import {auctions} from "./entities/auctions";
+import {auctionType} from "./entities/auctionType";
 const mysql = require('mysql');
 
 export class DBMysql {
@@ -250,6 +251,11 @@ export class DBMysql {
         });
     }
 
+    /**
+     * Assembles an array of auction bids for a given auction specified by auctionId
+     * @param {number} auctionId
+     * @returns {Promise<any[]>}
+     */
     public auctionBids(auctionId:number):Promise<any[]> {
         return new Promise<any[]>(async (resolve, reject) => {
             try {
