@@ -85,7 +85,6 @@ module CliApp {
                 return this.dbMysql.connect();
             }).then((mysqlConnected:boolean) => {
                 if (mysqlConnected) {
-
                     this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain});
                     this.clientConnection = new ClientConnection(null, this.dbManager, this.dbMysql, null, this.dividendManager, this.faucetManager, () => {return this.eosBlockchain});
 

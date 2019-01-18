@@ -1,5 +1,6 @@
-import { Api, JsonRpc, RpcError, GetInfoResult } from 'eosjs';
+import { Api, JsonRpc, RpcError } from 'eosjs';
 import {Config} from "./Config";
+import {GetInfoResult} from "eosjs/dist/eosjs-rpc-interfaces";
 const Ecc = require('eosjs-ecc');
 const fetch = require('node-fetch');
 const JsSignatureProvider = require('eosjs/dist/eosjs-jssig');
@@ -112,10 +113,6 @@ export class EosBlockchain {
      */
     public getInfo():Promise<GetInfoResult> {
         return this.eosRpc.get_info();
-    }
-
-    public getScope():Promise<any> {
-        return this.eosRpc
     }
 
     /**

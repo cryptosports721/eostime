@@ -1,72 +1,104 @@
 <!DOCTYPE html>
 <html lang="en" class="gr__eostime_io">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <meta name="description" content="">
-        <meta name="author" content="">
-        <title>EOSTime</title>
-        <link rel="icon" href="favicon.ico">
-        <link rel="stylesheet" href="assets/css/bootstrap_darkly.min.css"/>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
-        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
-        <link rel="stylesheet" href="assets/css/custom_css_1.css?nonce=2"/>
-        <link rel="stylesheet" href="assets/css/flag_icons.min.css"/>
-    </head>
-    <body data-gr-c-s-loaded="true">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>EOSTime</title>
+    <link rel="icon" href="favicon.ico">
+    <link rel="stylesheet" href="assets/css/bootstrap_darkly.min.css"/>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css"
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css"
+          integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
+    <link rel="stylesheet" href="assets/css/custom_css_1.css?nonce=2"/>
+    <link rel="stylesheet" href="assets/css/flag_icons.min.css"/>
+</head>
+<body data-gr-c-s-loaded="true">
 
-        <div id="site_menu" class="site-menu"></div>
+<div id="site_menu" class="site-menu"></div>
 
-        <main id="games_container" roll="main" class="container pt-3 pb-5">
+<main id="games_container" roll="main" class="container pt-3 pb-5">
+    <div id="recaptcha"></div>
+</main>
 
-        </main>
-
-        <!-- modal -->
-        <div class="modal fade" id="info_modal">
-          <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="card dark card-modal">
-                    <div class="card-body">
-                        <div class="card-title font-muted modal-title mb-3">Referral Link</div>
-                        <div class="info-row px-4 py-4 modal-body"></div>
-                    </div>
-                    <div class="abs-corner flex-center">
-                        <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
-                    </div>
+<!-- modal -->
+<div class="modal fade" id="info_modal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="card dark card-modal">
+                <div class="card-body">
+                    <div class="card-title font-muted modal-title mb-3">Referral Link</div>
+                    <div class="info-row px-4 py-4 modal-body"></div>
                 </div>
+                <div class="abs-corner flex-center">
+                    <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
                 </div>
-          </div>
+            </div>
         </div>
-        <!-- /end modal -->
+    </div>
+</div>
+<!-- /end modal -->
 
-        <!-- Modal content -->
-        <!-- End Modal Content -->
+<!-- Modal content -->
+<!-- End Modal Content -->
 
-        <div id="footer_container"></div>
+<div id="footer_container"></div>
 
-    </body>
+</body>
 
-    <!-- Scripting needed to support the eosroller app -->
-    <script src="https://www.google.com/recaptcha/api.js?render=6Ld7tokUAAAAAFycH1ZHemkgBtNtjGR8JVcwfzDk"></script>
-    <script src="https://code.jquery.com/jquery-3.2.1.min.js" crossorigin="anonymous"></script>
-    <script src="assets/js/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
-    <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-core.min.js"></script>
-    <script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.6/lib/eos.min.js" integrity="sha512-IS9vyI+sMK7MYNJgHj9G8Li21QYs59sRW/Nyzi+dKUh6bF6OfpOnvzSCTiegWftY1ozOmmyacCH2QIJpZgbuKw==" crossorigin="anonymous"></script>
-    <script src="assets/js/eostime-bundle.min.js?nonce=1546043191"></script>
-    <script src="assets/js/Greg.js"></script>
+<!-- Scripting needed to support the eosroller app -->
+<script src="https://code.jquery.com/jquery-3.2.1.min.js" crossorigin="anonymous"></script>
+<script src="assets/js/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js"
+        integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-core.min.js"></script>
+<script src="https://cdn.scattercdn.com/file/scatter-cdn/js/latest/scatterjs-plugin-eosjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.6/lib/eos.min.js"
+        integrity="sha512-IS9vyI+sMK7MYNJgHj9G8Li21QYs59sRW/Nyzi+dKUh6bF6OfpOnvzSCTiegWftY1ozOmmyacCH2QIJpZgbuKw=="
+        crossorigin="anonymous"></script>
+<script src="assets/js/eostime-bundle.min.js?nonce=1546043191"></script>
+<script src="assets/js/Greg.js"></script>
+<script>
+    function onCaptchaData(token) {
+        var element = document.getElementById("recaptcha");
+        while (element.firstChild) {
+            element.removeChild(element.firstChild);
+        }
+    }
 
+    function onCaptchaDataExpired() {
+        alert('onCaptchaDataExpired')
+    }
 
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
+    function onloadCaptcha() {
+        grecaptcha.render('recaptcha', {
+            'sitekey': '6LfmvYkUAAAAAHf3ciU0o_UgVC4tEiPxSWMVLTve',
+            'callback': onCaptchaData,
+            'expired-callback': onCaptchaDataExpired,
+        });
+    }
+</script>
+<script src="https://www.google.com/recaptcha/api.js?onload=onloadCaptcha&render=explicit" async defer></script>
 
-        gtag('config', 'UA-125965569-2');
-    </script>
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'UA-125965569-2');
+</script>
 </html>
