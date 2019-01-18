@@ -184,6 +184,7 @@ export class AuctionManager {
                         }, 250);
                     }).catch((err) => {
                         console.log("Error polling auction table - retry in 5 seconds");
+                        console.log(err);
                         this.pollingTimer = setTimeout(() => {
                             this.pollingTimer = null;
                             pollFunc();
@@ -246,6 +247,32 @@ export class AuctionManager {
         return signature;
     }
 
+    public getHarpoonSignature(accountName:string, auctionId:number):Promise<any> {
+        return new Promise<any>((resolve, reject) => {
+           try {
+
+               let auction:any = this.auctions.find((a:any):boolean => {
+                   return a.id == auctionId;
+               });
+
+               let toRet:any = {status: 'fail'};
+               if (auction) {
+                   let toSign: string = accountName + auction.remaining_bid_count.toString() + auctionId;
+
+                   toRet.status = 'success';
+                   toRet.accountName = accountName;
+                   toRet.auctionId = auctionId;
+                   toRet.signature = ecc.sign(toSign, this.serverKey);
+               }
+
+               resolve(toRet);
+
+           } catch (err) {
+               reject(err);
+           }
+        });
+    }
+
     /**
      * Polls the auction table from the blockchain
      * @returns {Promise<any>}
@@ -260,7 +287,7 @@ export class AuctionManager {
                     this.auctionTypes = {};
                     let auctionTypes: auctionType[] = await this.dbMySql.entityManager().find(auctionType, {});
                     for (let at of auctionTypes) {
-                        auctionTypes[at.typeId] = at;
+                        this.auctionTypes[at.typeId] = at;
                         this.auctionTypeCounter = 120;
                     }
                 } catch (err) {
@@ -323,6 +350,23 @@ export class AuctionManager {
                                     }
                                     try {
                                         await this.dbMySql.recordBid(data);
+
+                                        // Add this new bid to the auction's bidder field
+                                        // Attach current bidders
+                                        auction.bidders.unshift({
+                                            accountName: data.bidder,
+                                            amount: data.bid_price,
+                                            currency: "EOS"
+                                        });
+
+                                        // Attach the odds for each account playing in the auction
+                                        if (this.auctionTypes.hasOwnProperty(auction.type)) {
+                                            let at: auctionType = this.auctionTypes[auction.type];
+                                            auction.odds = this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
+                                        } else {
+                                            auction.odds = {};
+                                        }
+
                                     } catch (err) {
                                         console.log("Failed to create bid record in AuctionManager");
                                         console.log(err);
@@ -346,6 +390,8 @@ export class AuctionManager {
                                             }
                                             this.sio.sockets.emit(SocketMessage.STC_LEADER_CLIENT_SEED, JSON.stringify(payload));
                                         }
+
+                                        auction.clientSeed = dbUser.clientSeed;
                                     }
                                 }
 
@@ -1007,7 +1053,7 @@ export class AuctionManager {
                     }
 
                     if (this.auctionTypes.hasOwnProperty(auction.type)) {
-                        let at: any = this.auctionTypes[auction.type];
+                        let at: auctionType = this.auctionTypes[auction.type];
                         auction.harpoon = at.harpoon;
                         auction.html = "<div class=\"ribbon ribbon-" + at.color + " hot\"></div><div class=\"ribbon-contents\"><i class=\"" + at.icon + "\"></i><span>" + at.text + "</span></div>";
                     }

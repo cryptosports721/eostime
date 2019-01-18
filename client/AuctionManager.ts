@@ -3,6 +3,7 @@ import {ViewStateObserver} from "./ViewStateObserver";
 import {SocketMessage} from "../server/SocketMessage";
 import {Moment} from "moment";
 import {Config} from "./Config";
+import { Api, JsonRpc } from 'eosjs';
 
 var moment = require('moment');
 
@@ -201,6 +202,21 @@ export class AuctionManager extends ViewStateObserver {
             });
             if ($auctionElementToUpdate) {
                 this._eosBid($auctionElementToUpdate, payload.signature);
+            }
+        });
+
+        this.socketMessage.getSocket().on(SocketMessage.STC_HARPOON_SIGNATURE, (payload:any) => {
+            payload = JSON.parse(payload);
+            if (this.accountInfo) {
+                if (payload.status == 'success') {
+                    this.eosHarpoon_(payload.accountName, payload.signature, payload.auctionId).then((result) => {
+                        console.log("All OK: ");
+                        console.log(result);
+                    }, (reason) => {
+                        console.log("Oh well: ");
+                        console.log(reason);
+                    });
+                }
             }
         });
 
@@ -489,6 +505,27 @@ export class AuctionManager extends ViewStateObserver {
                 $elem.find(".bid-button-container").removeClass("d-none");
                 $elem.find(this.selectors.auctionInstanceEnded).addClass("d-none");
             }
+
+            let disableHarpoon = ($elem:JQuery<HTMLElement>) => {
+                $elem.find(this.selectors.auctionBombButton).addClass('btn-disabled').attr('disabled', 'disabled').prop('disabled', true);
+                $elem.find(this.selectors.auctionBombOdds).text("------");
+            }
+
+            let enableHarpoon = ($elem:JQuery<HTMLElement>) => {
+                $elem.find(this.selectors.auctionBombButton).removeClass('btn-disabled').removeAttr('disabled').prop('disabled', false);
+                let odds:string = (auction.odds[this.accountInfo.account_name].odds*100).toFixed(2);
+                $elem.find(this.selectors.auctionBombOdds).text(odds);
+            }
+
+            if (auction.hasOwnProperty("odds") && auction.odds.hasOwnProperty(this.accountInfo.account_name)) {
+                if (auction.odds[this.accountInfo.account_name].odds === 0) {
+                    disableHarpoon($elem);
+                } else {
+                   enableHarpoon($elem);
+                }
+            } else {
+                disableHarpoon($elem);
+            }
         }
     }
 
@@ -588,6 +625,17 @@ export class AuctionManager extends ViewStateObserver {
                 console.log(err);
             });
         });
+
+        $elem.find(this.selectors.auctionBombButton).on("click", (event) => {
+            let $currentTarget:JQuery<HTMLElement> = $(event.currentTarget);
+            let $auctionElement:JQuery<HTMLElement> = $currentTarget.closest(this.selectors.auctionInstance);
+            this.eosHarpoon($auctionElement).then((result) => {
+                $currentTarget.focusout();
+            }).catch((err) => {
+                console.log(err);
+            });
+        });
+
         $elem.find(".auction-instance-info").on("click", (event) => {
 
             // Hide other content
@@ -778,6 +826,52 @@ export class AuctionManager extends ViewStateObserver {
     // ========================================================================
     // BLOCKCHAIN API METHODS
     // ========================================================================
+
+    /**
+     * Requests the harpoon signature from the server.
+     *
+     * @param {JQuery<HTMLElement>} $auctionElement
+     * @returns {Promise<any>}
+     */
+    private eosHarpoon($auctionElement:JQuery<HTMLElement>):Promise<any> {
+        let auction:any = $auctionElement.data("auction");
+        this.socketMessage.ctsGetHarpoonSignature(auction.id);
+        return Promise.resolve();
+    }
+
+    /**
+     * Harpoons a specific auction.
+     * @param {string} accountName
+     * @param {string} signature
+     * @param {number} accountId
+     * @returns {Promise<any>}
+     */
+    public eosHarpoon_(accountName:string, signature:string, accountId:number):Promise<any> {
+        if (this.eos) {
+            return this.eos.transaction({ 
+                actions: [
+                    {
+                        account: 'eostimecontr',
+                        name: 'rzharpoon',
+                        authorization: [{
+                            actor: accountName,
+                            permission: 'active',
+                        }],
+                        data: {
+                            sender: accountName,
+                            signature_str: signature,
+                            redzone_id: accountId
+                        }
+                    }
+                ]
+            }, {
+                blocksBehind: 3,
+                expireSeconds: 30,
+            });
+        } else {
+            return Promise.reject("No eos object in eosHarpoon_");
+        }
+    }
 
     /**
      * Places a bid on an auction

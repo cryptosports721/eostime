@@ -94,6 +94,17 @@ export class SocketMessage {
     }
 
     /**
+     * Requests a harpoon signature
+     * @type {string}
+     */
+    public static CTS_GET_HARPOON_SIGNATURE:string = "CTS_GET_HARPOON_SIGNATURE";
+    public ctsGetHarpoonSignature(auctionId:number):void {
+        this.socket.emit(SocketMessage.CTS_GET_HARPOON_SIGNATURE, JSON.stringify({
+            "auctionId": auctionId
+        }));
+    }
+
+    /**
      * Asks the server to provide a fresh snapshot of all auctions it is
      * managing.
      * @param {string} referrer EOS account name of the referrer, or "" if none
@@ -175,6 +186,19 @@ export class SocketMessage {
     public stcSendBidSignature(sig:string, auctionType:number, bidAmount:number):void {
         let data:any = {...SocketMessage.standardServerDataObject(), ...{signature: sig, auctionType: auctionType, bidAmount: bidAmount}};
         this.socket.emit(SocketMessage.STC_BID_SIGNATURE, JSON.stringify(data));
+    }
+
+    /**
+     * Sends the STC_HARPOON_SIGNATURE message to the client with the
+     * bid signature required to harpoon the leader if the provably fair
+     * random event triggers.
+     *
+     * @type {string}
+     */
+    public static STC_HARPOON_SIGNATURE:string = "STC_HARPOON_SIGNATURE";
+    public stcSendHarpoonSignature(harpoonSignature:any):void {
+        let data:any = {...SocketMessage.standardServerDataObject(), ...harpoonSignature};
+        this.socket.emit(SocketMessage.STC_HARPOON_SIGNATURE, JSON.stringify(data));
     }
 
     /**

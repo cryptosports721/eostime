@@ -363,6 +363,12 @@ export class ClientConnection {
                 }
             }
         });
+
+        socket.on(SocketMessage.CTS_GET_HARPOON_SIGNATURE, async (payload:any) => {
+            payload = JSON.parse(payload);
+            let harpoonSignature:any = await this.auctionManager.getHarpoonSignature(this.accountInfo.account_name, payload.auctionId);
+            this.socketMessage.stcSendHarpoonSignature(harpoonSignature);
+        });
     }
 
     /**
