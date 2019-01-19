@@ -139,7 +139,7 @@ export class EosRpcMySqlHistoryBuilder {
 
                 let result: any = await this.getActions("eostimetoken", jobState.eostimetoken, EosRpcMySqlHistoryBuilder.ACTION_COUNT_PER_JOB);
                 let actions: any[] = result.actions;
-                console.log(actions.length + " eostimetoken actions");
+                // console.log(actions.length + " eostimetoken actions");
                 if (actions.length > 0) {
                     jobState.eostimetoken = actions[actions.length - 1]["account_action_seq"] + 1;
                     await this.saveActions("eostimetoken", actions);
@@ -147,7 +147,7 @@ export class EosRpcMySqlHistoryBuilder {
 
                 result = await this.getActions("eostimecontr", jobState.eostimecontr, EosRpcMySqlHistoryBuilder.ACTION_COUNT_PER_JOB);
                 actions = result.actions;
-                console.log(actions.length + " eostimecontr actions");
+                // console.log(actions.length + " eostimecontr actions");
                 if (actions.length > 0) {
                     jobState.eostimecontr = actions[actions.length - 1]["account_action_seq"] + 1;
                     await this.saveActions("eostimecontr", actions);
@@ -155,8 +155,8 @@ export class EosRpcMySqlHistoryBuilder {
 
                 result = await this.getActions("eostimehouse", jobState.eostimehouse, EosRpcMySqlHistoryBuilder.ACTION_COUNT_PER_JOB);
                 actions = result.actions;
-                console.log(actions.length + " eostimehouse actions");
-                console.log("------------------------------");
+                // console.log(actions.length + " eostimehouse actions");
+                // console.log("------------------------------");
                 if (actions.length > 0) {
                     jobState.eostimehouse = actions[actions.length - 1]["account_action_seq"] + 1;
                     await this.saveActions("eostimehouse", actions);

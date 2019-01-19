@@ -208,13 +208,58 @@ export class AuctionManager extends ViewStateObserver {
         this.socketMessage.getSocket().on(SocketMessage.STC_HARPOON_SIGNATURE, (payload:any) => {
             payload = JSON.parse(payload);
             if (this.accountInfo) {
-                if (payload.status == 'success') {
+                let messageObj:any = null;
+                if (payload.status == "success") {
                     this.eosHarpoon_(payload.accountName, payload.signature, payload.auctionId).then((result) => {
                         console.log("All OK: ");
                         console.log(result);
                     }, (reason) => {
                         console.log("Oh well: ");
                         console.log(reason);
+                    });
+                } else if (payload.status == "miss") {
+                    console.log("Missed harpoon");
+                    console.log(payload);
+                    messageObj = {english: "Harpoon missed. Your random number " + payload.randomNumber + " was > " + payload.below, chinese: "Didn't bother cause this is going away."};
+                } else if (payload.hasOwnProperty("message")) {
+                    messageObj = payload.message;
+                }
+                if (messageObj !== null) {
+
+                    let title:string;
+                    let message:string;
+                    switch(this.currentLanguage) {
+                        case 'english':
+                            title = "Harpoon Missed!";
+                            message = messageObj.english;
+                            break;
+                        case 'chinese':
+                            title = "鱼叉错过了！";
+                            message = messageObj.chinese;
+                            break;
+                    }
+                    (<any> $).notify({
+                        title: title,
+                        message: message
+                    },{
+                        type: "info",
+                        allow_dismiss: false,
+                        delay: 4000,
+                        placement: {
+                            from: "top",
+                            align: "center"
+                        },
+                        template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
+                        '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">×</button>' +
+                        '<span data-notify="icon"></span> ' +
+                        '<div data-notify="title"><i class="fas fa-gavel"></i>&nbsp;&nbsp;<strong>{1}</strong></div> ' +
+                        '<div><hr /></div>' +
+                        '<div data-notify="message" class="pb-1">{2}</div>' +
+                        '<div class="progress" data-notify="progressbar">' +
+                        '<div class="progress-bar progress-bar-{0}" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div>' +
+                        '</div>' +
+                        '<a href="{3}" target="{4}" data-notify="url"></a>' +
+                        '</div>'
                     });
                 }
             }
@@ -620,8 +665,9 @@ export class AuctionManager extends ViewStateObserver {
             let $currentTarget:JQuery<HTMLElement> = $(event.currentTarget);
             let $auctionElement:JQuery<HTMLElement> = $currentTarget.closest(this.selectors.auctionInstance);
             this.eosBid($auctionElement).then((result) => {
-                $currentTarget.focusout();
+                $currentTarget.blur();
             }).catch((err) => {
+                $currentTarget.blur();
                 console.log(err);
             });
         });
@@ -630,8 +676,9 @@ export class AuctionManager extends ViewStateObserver {
             let $currentTarget:JQuery<HTMLElement> = $(event.currentTarget);
             let $auctionElement:JQuery<HTMLElement> = $currentTarget.closest(this.selectors.auctionInstance);
             this.eosHarpoon($auctionElement).then((result) => {
-                $currentTarget.focusout();
+                $currentTarget.blur();
             }).catch((err) => {
+                $currentTarget.blur();
                 console.log(err);
             });
         });
@@ -755,13 +802,15 @@ export class AuctionManager extends ViewStateObserver {
     }
 
     private trimServerSeedHash(val:string, len:number = 10):string {
-        let toRet:string = "";
-        for (let i:number = 0; i < len; i++) {
-            toRet += val.charAt(i);
-        }
-        toRet += "...";
-        for (let i:number = val.length - len; i < val.length; i++) {
-            toRet += val.charAt(i);
+        let toRet: string = "";
+        if (val) {
+            for (let i: number = 0; i < len; i++) {
+                toRet += val.charAt(i);
+            }
+            toRet += "...";
+            for (let i: number = val.length - len; i < val.length; i++) {
+                toRet += val.charAt(i);
+            }
         }
         return toRet;
     }
@@ -834,9 +883,15 @@ export class AuctionManager extends ViewStateObserver {
      * @returns {Promise<any>}
      */
     private eosHarpoon($auctionElement:JQuery<HTMLElement>):Promise<any> {
-        let auction:any = $auctionElement.data("auction");
-        this.socketMessage.ctsGetHarpoonSignature(auction.id);
-        return Promise.resolve();
+        return new Promise<any>((resolve, reject) => {
+            try {
+                let auction:any = $auctionElement.data("auction");
+                this.socketMessage.ctsGetHarpoonSignature(auction.id);
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -848,7 +903,7 @@ export class AuctionManager extends ViewStateObserver {
      */
     public eosHarpoon_(accountName:string, signature:string, accountId:number):Promise<any> {
         if (this.eos) {
-            return this.eos.transaction({ 
+            return this.eos.transaction({
                 actions: [
                     {
                         account: 'eostimecontr',
@@ -879,10 +934,16 @@ export class AuctionManager extends ViewStateObserver {
      * @returns {Promise<any>}
      */
     private eosBid($auctionElement:JQuery<HTMLElement>):Promise<any> {
-        let auction:any = $auctionElement.data("auction");
-        let random:number = Math.floor(Math.random()*100000);
-        this.socketMessage.ctsGetBidSignature(auction.type, auction.bid_price, random);
-        return Promise.resolve();
+        return new Promise<any>((resolve, reject) => {
+            try {
+                let auction:any = $auctionElement.data("auction");
+                let random:number = Math.floor(Math.random()*100000);
+                this.socketMessage.ctsGetBidSignature(auction.type, auction.bid_price, random);
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -894,93 +955,126 @@ export class AuctionManager extends ViewStateObserver {
         return new Promise<any>(async (resolve, reject) => {
             let busy:boolean = !$auctionElement.find(this.selectors.auctionInstanceBusy).hasClass("d-none");
             if (this.eos && !busy) {
-
-                let auction:any = $auctionElement.data("auction");
-                const options = {authorization: [`${this.account.name}@${this.account.authority}`]};
-                let assetAndQuantity:string = auction.bid_price + " EOS";
-
-                let memo:string = null;
-                if (signature) {
-                    memo = "RZBID-" + signature + "-" + auction.id;
+                if (signature == "HARPOON") {
+                    $auctionElement.find(this.selectors.auctionInstanceBusy).addClass("d-none");
+                    let title: string;
+                    let message: string;
+                    if (this.currentLanguage == "chinese") {
+                        title = "出价被拒绝";
+                        message = "一旦您进行了拍卖，您就无法参与拍卖。";
+                    } else {
+                        title = "Bid Rejected";
+                        message = "You cannot bid in an auction once you have harpooned it.";
+                    }
+                    (<any> $).notify({
+                        title: title,
+                        message: message
+                    }, {
+                        type: "info",
+                        allow_dismiss: false,
+                        delay: 4000,
+                        placement: {
+                            from: "top",
+                            align: "center"
+                        },
+                        template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
+                        '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">×</button>' +
+                        '<span data-notify="icon"></span> ' +
+                        '<div data-notify="title"><i class="fas fa-gavel"></i>&nbsp;&nbsp;<strong>{1}</strong></div> ' +
+                        '<div><hr /></div>' +
+                        '<div data-notify="message" class="pb-1">{2}</div>' +
+                        '<div class="progress" data-notify="progressbar">' +
+                        '<div class="progress-bar progress-bar-{0}" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div>' +
+                        '</div>' +
+                        '<a href="{3}" target="{4}" data-notify="url"></a>' +
+                        '</div>'
+                    });
                 } else {
-                    memo = "RZBID-" + auction.id;
-                }
+                    let auction: any = $auctionElement.data("auction");
+                    const options = {authorization: [`${this.account.name}@${this.account.authority}`]};
+                    let assetAndQuantity: string = auction.bid_price + " EOS";
 
-                if (this.referrer) {
-                    memo += "-" + this.referrer;
-                }
+                    let memo: string = null;
+                    if (signature) {
+                        memo = "RZBID-" + signature + "-" + auction.id;
+                    } else {
+                        memo = "RZBID-" + auction.id;
+                    }
 
-                try {
-                    $auctionElement.find(this.selectors.auctionInstanceBusy).removeClass("d-none");
-                    this.eos.transfer(this.account.name, Config.eostimeContract, assetAndQuantity, memo, options).then((result) => {
-                        console.log(result);
-                    }).catch(err => {
-                        console.log(err);
-                        $auctionElement.find(this.selectors.auctionInstanceBusy).addClass("d-none");
-                        try {
-                            err = JSON.parse(err);
-                        } catch (err) {};
+                    if (this.referrer) {
+                        memo += "-" + this.referrer;
+                    }
 
+                    try {
+                        $auctionElement.find(this.selectors.auctionInstanceBusy).removeClass("d-none");
+                        this.eos.transfer(this.account.name, Config.eostimeContract, assetAndQuantity, memo, options).then((result) => {
+                            console.log(result);
+                        }).catch(err => {
+                            $auctionElement.find(this.selectors.auctionInstanceBusy).addClass("d-none");
+                            try {
+                                err = JSON.parse(err);
+                            } catch (err) { }
+                            console.log(err);
 
-                        // Notify user if he was outbid
-                        let errorDetails:any[] = Config.safeProperty(err, ["error.details"], null);
-                        if (errorDetails) {
-                            let userErrorMessage:string = null;
-                            for (let errorDetail of errorDetails) {
-                                let em:string = Config.safeProperty(errorDetail, ["message"], null);
-                                em = em.toLowerCase();
-                                if (em.indexOf("incorrect amount sent") >= 0) {
-                                    switch(this.currentLanguage) {
-                                        case 'english':
-                                            userErrorMessage = "Your bid came in after " + auction.last_bidder + ".";
-                                            break;
-                                        case 'chinese':
-                                            userErrorMessage = "你的出价在之后出现了 " + auction.last_bidder + ".";
-                                            break;
+                            // Notify user if he was outbid
+                            let errorDetails: any[] = Config.safeProperty(err, ["error.details"], null);
+                            if (errorDetails) {
+                                let userErrorMessage: string = null;
+                                for (let errorDetail of errorDetails) {
+                                    let em: string = Config.safeProperty(errorDetail, ["message"], null);
+                                    em = em.toLowerCase();
+                                    if (em.indexOf("incorrect amount sent") >= 0) {
+                                        switch (this.currentLanguage) {
+                                            case 'english':
+                                                userErrorMessage = "Your bid came in after " + auction.last_bidder + ".";
+                                                break;
+                                            case 'chinese':
+                                                userErrorMessage = "你的出价在之后出现了 " + auction.last_bidder + ".";
+                                                break;
+                                        }
+                                        break;
                                     }
-                                    break;
-                                }
-                                if ((em.indexOf("redzone doesn't exist") >= 0) || (em.indexOf("redzone has ended") >= 0)) {
-                                    switch(this.currentLanguage) {
-                                        case 'english':
-                                            userErrorMessage = "The auction ended before your bid was received.";
-                                            break;
-                                        case 'chinese':
-                                            userErrorMessage = "拍卖会在收到您的出价之前结束";
-                                            break;
+                                    if ((em.indexOf("redzone doesn't exist") >= 0) || (em.indexOf("redzone has ended") >= 0)) {
+                                        switch (this.currentLanguage) {
+                                            case 'english':
+                                                userErrorMessage = "The auction ended before your bid was received.";
+                                                break;
+                                            case 'chinese':
+                                                userErrorMessage = "拍卖会在收到您的出价之前结束";
+                                                break;
+                                        }
+                                        break;
                                     }
-                                    break;
-                                }
-                                if (em.indexOf("error expected key different than recovered key")) {
-                                    // User has been banned, but we don't really need to tell him that
-                                    switch(this.currentLanguage) {
-                                        case 'english':
-                                            userErrorMessage = "Your bid resulted in an unexpected error. Please try again later.";
-                                            break;
-                                        case 'chinese':
-                                            userErrorMessage = "您的出价导致意外错误。请稍后再试。";
-                                            break;
+                                    if (em.indexOf("error expected key different than recovered key")) {
+                                        // User has been banned, but we don't really need to tell him that
+                                        switch (this.currentLanguage) {
+                                            case 'english':
+                                                userErrorMessage = "Your bid resulted in an unexpected error. Please try again later.";
+                                                break;
+                                            case 'chinese':
+                                                userErrorMessage = "您的出价导致意外错误。请稍后再试。";
+                                                break;
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
-                            }
-                            if (userErrorMessage) {
-                                let title:string = "Bid Rejected";
-                                if (this.currentLanguage == "chinese") {
-                                    title = "出价被拒绝";
-                                }
-                                (<any> $).notify({
-                                    title: "Bid Rejected",
-                                    message: userErrorMessage
-                                },{
-                                    type: "info",
-                                    allow_dismiss: false,
-                                    delay: 4000,
-                                    placement: {
-                                        from: "top",
-                                        align: "center"
-                                    },
-                                    template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
+                                if (userErrorMessage) {
+                                    let title: string = "Bid Rejected";
+                                    if (this.currentLanguage == "chinese") {
+                                        title = "出价被拒绝";
+                                    }
+                                    (<any> $).notify({
+                                        title: title,
+                                        message: userErrorMessage
+                                    }, {
+                                        type: "info",
+                                        allow_dismiss: false,
+                                        delay: 4000,
+                                        placement: {
+                                            from: "top",
+                                            align: "center"
+                                        },
+                                        template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
                                         '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">×</button>' +
                                         '<span data-notify="icon"></span> ' +
                                         '<div data-notify="title"><i class="fas fa-gavel"></i>&nbsp;&nbsp;<strong>{1}</strong></div> ' +
@@ -991,21 +1085,21 @@ export class AuctionManager extends ViewStateObserver {
                                         '</div>' +
                                         '<a href="{3}" target="{4}" data-notify="url"></a>' +
                                         '</div>'
-                                });
+                                    });
+                                }
                             }
-                        }
 
+                            console.log(err);
+
+                            // Indicate failure to user with an animation on the bid button
+                            let $bidButton: JQuery<HTMLElement> = $auctionElement.find(".auction-instance-bid-button");
+                            (<any> $bidButton).animateCss('headShake');
+                            $bidButton.blur();
+                        });
+                    } catch (err) {
+                        console.log("Caught error");
                         console.log(err);
-
-                        // Indicate failure to user with an animation on the bid button
-                        let $bidButton:JQuery<HTMLElement> = $auctionElement.find(".auction-instance-bid-button");
-                        (<any> $bidButton).animateCss('headShake');
-                        $bidButton.blur();
-                    });
-                } catch (err) {
-                    alert("Bid Error");
-                    console.log("Caught error");
-                    console.log(err);
+                    }
                 }
 
             } else {

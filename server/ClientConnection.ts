@@ -356,8 +356,7 @@ export class ClientConnection {
                     bidder.clientSeed = clientSeed.toString();
                     bidder.save();
                 }
-
-                let signature: string = this.auctionManager.getBidSignature(accountName, payload.auctionType);
+                let signature: string = await this.auctionManager.getBidSignature(accountName, payload.auctionType);
                 if (signature) {
                     this.socketMessage.stcSendBidSignature(signature, payload.auctionType, payload.bidAmount);
                 }

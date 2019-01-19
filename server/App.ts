@@ -37,7 +37,6 @@ module App {
         private faucetManager:FaucetManager = null;
         private dividendManager:DividendManager = null;
         private historyBuilder:EosRpcMySqlHistoryBuilder = null;
-        private harpoonManager:HarpoonManager = null;
         private serverConfig:any = null;
         private slackHook:string = null;
 
@@ -159,11 +158,10 @@ module App {
                     this.serverConfig = JSON.parse(serverConfigString);
                     this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain;});
                     this.eosBlockchain = new EosBlockchain(eosEndpoint, this.serverConfig, contractPrivateKey, faucetPrivateKey, housePrivateKey);
-                    this.harpoonManager = new HarpoonManager(this.dbMysql, serverKey);
-                    this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.dbMysql, this.harpoonManager, serverKey, this.eosBlockchain, auctionSlackHook);
+                    this.auctionManager = new AuctionManager(this.serverConfig, this.sio, this.dbManager, this.dbMysql, serverKey, this.eosBlockchain, auctionSlackHook);
                     this.dividendManager = new DividendManager(this.dbManager, this.dbMysql, this.eosBlockchain, dividendSlackHook, this.updateDividendCallback.bind(this));
-                    // this.historyBuilder = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
-                    // this.historyBuilder.start();
+                    this.historyBuilder = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
+                    this.historyBuilder.start();
 
 
                     let processDividends:string = process.env.PROCESS_DIVIDENDS;

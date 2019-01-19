@@ -4,8 +4,9 @@ import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne
 @Entity("harpoon",{schema:"eostime"})
 @Index("id_UNIQUE",["id",],{unique:true})
 @Index("auctionId_idx",["auctionId",])
-@Index("creationDatetime",["creationDatetime",])
-@Index("accountName",["accountName",])
+@Index("creationDatetime_idx",["creationDatetime",])
+@Index("accountName_idx",["accountName",])
+@Index("status_idx",["status",])
 export class harpoon extends BaseEntity {
 
     @PrimaryGeneratedColumn({
@@ -20,6 +21,14 @@ export class harpoon extends BaseEntity {
         name:"creationDatetime"
         })
     creationDatetime:Date;
+        
+
+    @Column("varchar",{ 
+        nullable:false,
+        length:15,
+        name:"status"
+        })
+    status:string;
         
 
     @Column("int",{ 
@@ -60,19 +69,11 @@ export class harpoon extends BaseEntity {
     odds:number;
         
 
-    @Column("int",{ 
+    @Column("varchar",{ 
         nullable:false,
+        length:16,
         name:"result"
         })
-    result:number;
-        
-
-    @Column("tinyint",{ 
-        nullable:false,
-        width:1,
-        default: () => "'0'",
-        name:"harpoon"
-        })
-    harpoon:boolean;
+    result:string;
         
 }

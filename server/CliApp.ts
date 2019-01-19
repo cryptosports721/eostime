@@ -12,6 +12,7 @@ import {AuctionManager} from "./AuctionManager";
 import {HarpoonManager} from "./HarpoonManager";
 import {bid} from "./entities/bid";
 import {auctions} from "./entities/auctions";
+import {serverSeeds} from "./entities/serverSeeds";
 
 const readline = require('readline');
 const crypto = require('crypto');
@@ -105,7 +106,7 @@ module CliApp {
                     this.clientConnection = new ClientConnection(null, this.dbManager, this.dbMysql, null, this.dividendManager, this.faucetManager, () => {return this.eosBlockchain});
                     this.historyManager = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
                     let hm:HarpoonManager = new HarpoonManager(this.dbMysql, "");
-                    this.auctionManager = new AuctionManager(serverConfig, null, null, this.dbMysql, hm,null, this.eosBlockchain, null);
+                    this.auctionManager = new AuctionManager(serverConfig, null, null, this.dbMysql,null, this.eosBlockchain, null);
 
                     // Our outer menu listener
                     const menuListener = async function (data: string) {
@@ -141,6 +142,21 @@ module CliApp {
                                     // let hm:HarpoonManager = new HarpoonManager(this.dbMysql, "");
                                     // var sha512 = crypto.createHash('sha512').update('mystring').digest("hex");
                                     // console.log(bids);
+
+                                    let sha512:string = crypto.createHash('sha512').update("whatever").digest("hex");
+                                    let j:number = parseInt("ffffffff", 16);
+                                    let prng:number = parseInt(sha512.substr(0, 8), 16);
+
+                                    let ss:serverSeeds = new serverSeeds();
+                                    ss.serverSeed = "whatever";
+                                    ss.clientSeed = "10001";
+                                    for (let i:number = 0; i < 1000; i++) {
+                                        let val:number = 2*i;
+                                        ss.clientSeed = val.toString();
+                                        let num:number = hm.generate32BitRandomNumberFromSeeds(ss, 100000);
+                                        console.log(num);
+                                    }
+
                                     let bids:any[] = [
                                         {accountName: "A"},
                                         {accountName: "B"},

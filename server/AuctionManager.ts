@@ -13,9 +13,11 @@ import {HarpoonManager} from "./HarpoonManager";
 import {user} from "./entities/user";
 import {serverSeeds} from "./entities/serverSeeds";
 import {auctionType} from "./entities/auctionType";
+import {harpoon} from "./entities/harpoon";
 
 const request = require('request');
 const ecc = require('eosjs-ecc');
+const crypto = require('crypto');
 
 export class AuctionManager {
 
@@ -88,7 +90,7 @@ export class AuctionManager {
      * @param {EosBlockchain} eosBlockchain
      * @param {string} slackHook
      */
-    constructor(serverConfig:any, sio:any, dbManager:DBManager, dbMySql:DBMysql, harpoonManager:HarpoonManager, serverKey, eosBlockchain:EosBlockchain, slackHook:string) {
+    constructor(serverConfig:any, sio:any, dbManager:DBManager, dbMySql:DBMysql, serverKey, eosBlockchain:EosBlockchain, slackHook:string) {
         this.serverConfig = serverConfig;
         this.sio = sio;
         this.dbManager = dbManager;
@@ -96,7 +98,7 @@ export class AuctionManager {
         this.serverKey = serverKey;
         this.eosBlockchain = eosBlockchain;
         this.slackHook = slackHook;
-        this.harpoonManager = harpoonManager;
+        this.harpoonManager = new HarpoonManager(this.dbMySql, serverKey);;
 
         if (this.dbMySql) {
             this.dbMySql.loadRecentWinners(Config.WINNERS_LIST_LIMIT).then((recentWinners) => {
@@ -236,33 +238,89 @@ export class AuctionManager {
      * @param {number} auctionType
      * @returns {string}
      */
-    public getBidSignature(accountName:string, auctionType:number):string {
-        let signature:string = null;
-        for (let auction of this.auctions) {
-            if (auction.type == auctionType) {
-                let toSign:string = accountName + auction.remaining_bid_count + auction.id;
-                signature = ecc.sign(toSign, this.serverKey);
+    public getBidSignature(accountName:string, auctionType:number):Promise<string> {
+        return new Promise<string>(async (resolve, reject) => {
+            try {
+                let signature: string = null;
+                for (let auction of this.auctions) {
+                    if (auction.type == auctionType) {
+                        let bomb: harpoon = await this.dbMySql.entityManager().findOne(harpoon, {
+                            "auctionId": auction.id,
+                            "accountName": accountName
+                        });
+                        if (bomb) {
+                            resolve("HARPOON");
+                            return;
+                        } else {
+                            let toSign: string = accountName + auction.remaining_bid_count + auction.id;
+                            signature = ecc.sign(toSign, this.serverKey);
+                            resolve(signature);
+                            return;
+                        }
+                    }
+                }
+                reject(new Error("No auction of type " + auctionType + " was available."));
+            } catch (err) {
+                reject(err);
             }
-        }
-        return signature;
+        });
     }
 
     public getHarpoonSignature(accountName:string, auctionId:number):Promise<any> {
-        return new Promise<any>((resolve, reject) => {
+        return new Promise<any>(async (resolve, reject) => {
            try {
 
                let auction:any = this.auctions.find((a:any):boolean => {
                    return a.id == auctionId;
                });
 
-               let toRet:any = {status: 'fail'};
+               let toRet:any = {status: 'error'};
                if (auction) {
-                   let toSign: string = accountName + auction.remaining_bid_count.toString() + auctionId;
+                   let blockchainInfo:any = await this.eosBlockchain.getInfo();
+                   let headBlockTime:number = parseInt(moment( blockchainInfo.head_block_time + "+00:00").local().format("X"));
+                   console.log(auction);
+                   console.log("Head Block Time: " + headBlockTime + " Expire: " + auction.expires);
+                   if ((auction.remaining_bid_count > 0) && (auction.expires > headBlockTime)) {
+                       // (1) Is this user in the auction itself
+                       if (!auction.odds.hasOwnProperty(accountName)) {
+                           toRet.message = {english: accountName + " is not a participant in the specified auction.", chinese: accountName + "不是指定拍卖的参与者。"};
+                       } else {
+                           // (2) Has the user already harpooned this auction
+                           let bomb: harpoon = await this.dbMySql.entityManager().findOne(harpoon, {
+                               "auctionId": auctionId,
+                               "accountName": accountName
+                           });
+                           if (bomb) {
+                               toRet.message = {english: accountName + " has already harpooned this auction.", chinese: accountName + " 已经对这次拍卖进行了抨击。"};
+                               // (3) Is the bomber the high bidder
+                           } else if (accountName == auction.last_bidder) {
+                               toRet.message = {english: "An auction leader cannot harpoon himself.", chinese: "拍卖领导者不能用自己的方式。"};
+                           } else {
+                               let ss: serverSeeds = await this.dbMySql.entityManager().findOne(serverSeeds, {"auctionId": auctionId});
+                               if (!ss) {
+                                   toRet.message = {english: "Unexpectedly missing server and client seeds for this auction.", chinese: "出乎意料地错过了这次拍卖的服务器和客户种子。"};
+                               } else {
 
-                   toRet.status = 'success';
-                   toRet.accountName = accountName;
-                   toRet.auctionId = auctionId;
-                   toRet.signature = ecc.sign(toSign, this.serverKey);
+                                   // Good to go on the harpooning!
+                                   let harpoonResults: any = await this.harpoonManager.harpoonAuction(accountName, ss, auction.odds[accountName].odds);
+                                   if (harpoonResults.status == "success") {
+                                       // Return the correct signature enabling the client to bomb the auction
+                                       let toSign: string = accountName + auction.remaining_bid_count.toString() + auctionId;
+                                       toRet.signature = ecc.sign(toSign, this.serverKey);
+                                   }
+
+                                   toRet.accountName = accountName;
+                                   toRet.auctionId = auctionId;
+                                   toRet = {...toRet, ...harpoonResults};
+                               }
+
+                           }
+                       }
+                   } else {
+                       toRet.message = {english: "Cannot harpoon an auction that has ended.", chinese: "不能拍卖已结束的拍卖。"};
+                   }
+               } else {
+                   toRet.message = {english: "No such auction with id " + auctionId, chinese: "没有id的拍卖" + auctionId};
                }
 
                resolve(toRet);
