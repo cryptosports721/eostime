@@ -209,7 +209,7 @@ export class AuctionManager extends ViewStateObserver {
             payload = JSON.parse(payload);
             if (this.accountInfo) {
                 let messageObj:any = null;
-                if (payload.status == "success") {
+                if (payload.status == "pending") {
                     this.eosHarpoon_(payload.accountName, payload.signature, payload.auctionId).then((result) => {
                         console.log("All OK: ");
                         console.log(result);

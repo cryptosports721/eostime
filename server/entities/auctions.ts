@@ -1,4 +1,5 @@
 import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne,OneToMany,OneToOne,PrimaryColumn,PrimaryGeneratedColumn,RelationId} from "typeorm";
+import {harpoon} from "./harpoon";
 
 
 @Entity("auctions",{schema:"eostime"})
@@ -12,6 +13,7 @@ import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne
 @Index("auctionType_idx",["auctionType",])
 @Index("endingBidId_idx",["endingBidId",])
 @Index("bonuseTimeTokens_idx",["bonusTimeTokens",])
+@Index("fk_auctions_harpoon1_idx",["harpoon_",])
 export class auctions extends BaseEntity {
 
     @PrimaryGeneratedColumn({
@@ -90,6 +92,14 @@ export class auctions extends BaseEntity {
         
 
     @Column("int",{ 
+        nullable:false,
+        default: () => "'0'",
+        name:"flags"
+        })
+    flags:number;
+        
+
+    @Column("int",{ 
         nullable:true,
         name:"blockNumber"
         })
@@ -103,4 +113,10 @@ export class auctions extends BaseEntity {
         })
     transactionId:string | null;
         
+
+   
+    @ManyToOne(type=>harpoon, harpoon=>harpoon.auctionss,{ onDelete: 'NO ACTION',onUpdate: 'NO ACTION' })
+    @JoinColumn({ name:'harpoon_id'})
+    harpoon_:harpoon | null;
+
 }

@@ -286,11 +286,8 @@ export class AuctionManager {
                            toRet.message = {english: accountName + " is not a participant in the specified auction.", chinese: accountName + "不是指定拍卖的参与者。"};
                        } else {
                            // (2) Has the user already harpooned this auction
-                           let bomb: harpoon = await this.dbMySql.entityManager().findOne(harpoon, {
-                               "auctionId": auctionId,
-                               "accountName": accountName
-                           });
-                           if (bomb) {
+                           let hasHarpooned:boolean = await this.hasHarpooned(accountName, auctionId);
+                           if (hasHarpooned) {
                                toRet.message = {english: accountName + " has already harpooned this auction.", chinese: accountName + " 已经对这次拍卖进行了抨击。"};
                                // (3) Is the bomber the high bidder
                            } else if (accountName == auction.last_bidder) {
@@ -303,7 +300,7 @@ export class AuctionManager {
 
                                    // Good to go on the harpooning!
                                    let harpoonResults: any = await this.harpoonManager.harpoonAuction(accountName, ss, auction.odds[accountName].odds);
-                                   if (harpoonResults.status == "success") {
+                                   if (harpoonResults.status == "pending") {
                                        // Return the correct signature enabling the client to bomb the auction
                                        let toSign: string = accountName + auction.remaining_bid_count.toString() + auctionId;
                                        toRet.signature = ecc.sign(toSign, this.serverKey);
@@ -420,7 +417,7 @@ export class AuctionManager {
                                         // Attach the odds for each account playing in the auction
                                         if (this.auctionTypes.hasOwnProperty(auction.type)) {
                                             let at: auctionType = this.auctionTypes[auction.type];
-                                            auction.odds = this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
+                                            auction.odds = await this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
                                         } else {
                                             auction.odds = {};
                                         }
@@ -512,14 +509,11 @@ export class AuctionManager {
                                     this.notifySlack("[" + auctionToPayout.last_bidder + "] won " + auctionToPayout.prize_pool + " EOS in auction id " + auctionToPayout.id + " with " + totalBids + " total bids placed.");
 
                                     if (auctionToPayout.init_bid_count != auctionToPayout.remaining_bid_count) {
+
                                         this.lastPayoutTime = new Date().getTime();
 
                                         // Add the bidders list for this winning auction auction
                                         auctionToPayout.bidders = await this.dbMySql.auctionBids(auctionToPayout.id, auctionToPayout.auctionType);
-
-                                        if (this.sio) {
-                                            this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
-                                        }
 
                                         // Save our auction record to MySql db
                                         let auct:auctions = await this.completeAuctionData(auctionToPayout);
@@ -529,6 +523,10 @@ export class AuctionManager {
                                         this.recentWinners.unshift(auctionToPayout);
                                         if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
                                             this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
+                                        }
+
+                                        if (this.sio) {
+                                            this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
                                         }
 
                                         // Tell the winner to update his balances 10 seconds from now
@@ -631,98 +629,134 @@ export class AuctionManager {
      * @param {number} totalOdds_
      * @returns {any}
      */
-    public oddsFromBids(auctionId:number, bids:any[], totalOdds_:number):any {
+    public oddsFromBids(auctionId:number, bids:any[], totalOdds_:number):Promise<any> {
 
-        let lastCheckCount:number = 0;
-        let lastCheckIdx:number = 0;
-        let uniqueCheckedAccounts:any = {};
+        return new Promise<any>(async (resolve, reject) => {
+           try {
+               let lastCheckCount:number = 0;
+               let lastCheckIdx:number = 0;
+               let uniqueCheckedAccounts:any = {};
 
-        // This function returns the # of unique accounts that are ahead
-        // of a specified index into the bids array. It starts at the specified
-        // index, and works its way backwards to the "lastCheckIdx", looking
-        // for unique account names and incrimenting the "lastCheckCount"
-        // var each time it finds one. Finally, it sets the lastCheckIdx
-        // to where it started from (which will be the ending point of
-        // the next call).
-        let aheadOf = (idx:number):number => {
-            for (let i:number = idx - 1; i >= lastCheckIdx; i--) {
-                let bid:any = bids[i];
-                if (!uniqueCheckedAccounts.hasOwnProperty(bid.accountName) && !this.hasHarpooned(auctionId, bid.accountName)) {
-                    uniqueCheckedAccounts[bid.accountName] = true;
-                    lastCheckCount++;
-                }
-            }
-            lastCheckIdx = idx;
-            return lastCheckCount;
-        };
+               // This function returns the # of unique accounts that are ahead
+               // of a specified index into the bids array. It starts at the specified
+               // index, and works its way backwards to the "lastCheckIdx", looking
+               // for unique account names and incrimenting the "lastCheckCount"
+               // var each time it finds one. Finally, it sets the lastCheckIdx
+               // to where it started from (which will be the ending point of
+               // the next call).
+               let aheadOf = async (idx:number):Promise<number> => {
+                   return new Promise<number>(async (resolve, reject) => {
+                      try {
+                          for (let i:number = idx - 1; i >= lastCheckIdx; i--) {
+                              let bid:any = bids[i];
+                              bid.hasHarpooned = await this.hasHarpooned(bid.accountName, auctionId);
+                              if (!uniqueCheckedAccounts.hasOwnProperty(bid.accountName) && !bid.hasHarpooned) {
+                                  uniqueCheckedAccounts[bid.accountName] = true;
+                                  lastCheckCount++;
+                              }
+                          }
+                          lastCheckIdx = idx;
+                          resolve(lastCheckCount);
+                      } catch (err) {
+                          reject(err);
+                      }
+                   });
+               };
 
-        // Loop through all bids, extracting and counting unique accounts.
-        let toRet:any = {};
-        for (let i:number = 0; i < bids.length; i++) {
-            let bid:any = bids[i];
-            if (!toRet.hasOwnProperty(bid.accountName) && !this.hasHarpooned(auctionId, bid.accountName)) {
-                let aheadOfMe:number = aheadOf(i);
-                toRet[bid.accountName] = {aheadOf: aheadOfMe, odds: 0};
-            }
-        }
+               // Loop through all bids, extracting and counting unique accounts.
+               let toRet:any = {};
+               for (let i:number = 0; i < bids.length; i++) {
+                   let bid:any = bids[i];
+                   if (!toRet.hasOwnProperty(bid.accountName)) {
+                       let aheadOfMe:number = await aheadOf(i);
+                       if (!bid.hasHarpooned) {
+                           toRet[bid.accountName] = {aheadOf: aheadOfMe, odds: 0};
+                       }
+                   }
+               }
 
-        // At this point, lastCheckCount == total number of accounts
-        // that will get the harpoon button.
-        //
-        let harpoonButtonCount:number = lastCheckCount;
-        if (lastCheckCount > 0) {
+               // At this point, lastCheckCount == total number of accounts
+               // that will get the harpoon button.
+               //
+               let harpoonButtonCount:number = lastCheckCount;
+               if (lastCheckCount > 0) {
 
-            if (harpoonButtonCount == 1) {
-                for (let key in toRet) {
-                    let o: any = toRet[key];
-                    if (o.aheadOf == 1) {
-                        o.odds = totalOdds_;
-                    }
-                }
-            } else {
-                // We have multiple harpoon buttons to distribute
-                // the odds to (at least 2)
-                //
-                // We scale the odds according to the formula (example for 5 harpoon buttons - n=5)
-                //
-                // 1*nthRootTotalOdds * g*nthRootTotalOdds * g^2*nthRootTotalOdds * g^3*nthRootTotalOdds * g^4*nthRootTotalOdds
-                // ------------------------------------------------------------------------------------------------------------
-                //                                               g^10
-                //
-                // We then take the nth root of the denominator and apply it individually
-                //
-                // 1*nthRootTotalOdds * g*nthRootTotalOdds * g^2*nthRootTotalOdds * g^3*nthRootTotalOdds * g^4*nthRootTotalOdds
-                // ------------------   ------------------   --------------------   --------------------   --------------------
-                //   nthRootOfDenom       nthRootOfDenom         nthRootOfDenom         nthRootOfDenom         nthRootOfDenom
-                //
-                // We don't want the last term to go above 1, so calculate g by setting a fantom sixth factor = 1, making
-                // the real fifth factor just slightly less than 1.
-                //
-                // g^15 * nthRootTotalOdds
-                // ----------------------- = 1  therefore g =  nthRootOf(1/nthRootTotalOdds)(
-                //          g^10
-                //
-                let nthRootTotalOdds:number = Math.pow((1 - totalOdds_), 1/harpoonButtonCount);
-                let g:number = Math.pow(1/nthRootTotalOdds, 1/harpoonButtonCount);
-                let denominator:number = Math.pow(g, harpoonButtonCount*((harpoonButtonCount - 1) / 2));
-                let nthRootOfDenominator:number = Math.pow(denominator, 1/harpoonButtonCount);
-                for (let key in toRet) {
-                    let o: any = toRet[key];
-                    if (o.aheadOf > 0) {
-                        let factor:number = Math.pow(g, o.aheadOf - 1);
-                        let odds:number = (factor * nthRootTotalOdds)/nthRootOfDenominator;
-                        o.odds = (1 - odds);
-                    }
-                }
-            }
-        }
+                   if (harpoonButtonCount == 1) {
+                       for (let key in toRet) {
+                           let o: any = toRet[key];
+                           if (o.aheadOf == 1) {
+                               o.odds = totalOdds_;
+                           }
+                       }
+                   } else {
+                       // We have multiple harpoon buttons to distribute
+                       // the odds to (at least 2)
+                       //
+                       // We scale the odds according to the formula (example for 5 harpoon buttons - n=5)
+                       //
+                       // 1*nthRootTotalOdds * g*nthRootTotalOdds * g^2*nthRootTotalOdds * g^3*nthRootTotalOdds * g^4*nthRootTotalOdds
+                       // ------------------------------------------------------------------------------------------------------------
+                       //                                               g^10
+                       //
+                       // We then take the nth root of the denominator and apply it individually
+                       //
+                       // 1*nthRootTotalOdds * g*nthRootTotalOdds * g^2*nthRootTotalOdds * g^3*nthRootTotalOdds * g^4*nthRootTotalOdds
+                       // ------------------   ------------------   --------------------   --------------------   --------------------
+                       //   nthRootOfDenom       nthRootOfDenom         nthRootOfDenom         nthRootOfDenom         nthRootOfDenom
+                       //
+                       // We don't want the last term to go above 1, so calculate g by setting a fantom sixth factor = 1, making
+                       // the real fifth factor just slightly less than 1.
+                       //
+                       // g^15 * nthRootTotalOdds
+                       // ----------------------- = 1  therefore g =  nthRootOf(1/nthRootTotalOdds)(
+                       //          g^10
+                       //
+                       let nthRootTotalOdds:number = Math.pow((1 - totalOdds_), 1/harpoonButtonCount);
+                       let g:number = Math.pow(1/nthRootTotalOdds, 1/harpoonButtonCount);
+                       let denominator:number = Math.pow(g, harpoonButtonCount*((harpoonButtonCount - 1) / 2));
+                       let nthRootOfDenominator:number = Math.pow(denominator, 1/harpoonButtonCount);
+                       for (let key in toRet) {
+                           let o: any = toRet[key];
+                           if (o.aheadOf > 0) {
+                               let factor:number = Math.pow(g, o.aheadOf - 1);
+                               let odds:number = (factor * nthRootTotalOdds)/nthRootOfDenominator;
+                               o.odds = (1 - odds);
+                           }
+                       }
+                   }
+               }
 
-        return toRet;
+               resolve(toRet);
+
+           } catch (err) {
+               reject(err);
+           }
+        });
     }
 
-    private hasHarpooned(auctionId:number, accountName:string):boolean {
-        // TBD - check to see if the account has harpooned
-        return false;
+    /**
+     * Resolves to true if the account has harpooned the specified auction, false otherwise.
+     * @param {string} accountName
+     * @param {number} auctionId
+     * @returns {Promise<boolean>}
+     */
+    private hasHarpooned(accountName:string, auctionId:number):Promise<boolean> {
+        return new Promise<boolean>(async (resolve, reject) => {
+            try {
+                let bomb: harpoon = await this.dbMySql.entityManager().findOne(harpoon, {
+                    "auctionId": auctionId,
+                    "accountName": accountName,
+                    "status": "miss"
+                });
+                if (bomb) {
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
+            } catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -771,9 +805,18 @@ export class AuctionManager {
                     auction.endingBidId = data.last_bid_id;
                     auction.blockNumber = data.blockNumber;
                     auction.transactionId = data.transactionId;
+                    auction.flags = data.flags;
                     let winningBid: bid = await transactionalEntityManager.findOne(bid, {bidId: data.last_bid_id});
                     if (winningBid) {
                         auction.endingBidPrice = winningBid.amount;
+                    }
+                    if ((auction.flags & 0x08) == 0x08) {
+                        let h:harpoon = await transactionalEntityManager.findOne(harpoon, {auctionId: data.id, accountName: data.last_bidder, status: "pending"});
+                        if (h) {
+                            h.status = "success";
+                            await h.save();
+                            auction.harpoon_ = h;
+                        }
                     }
                     await auction.save();
                 });
@@ -1096,7 +1139,7 @@ export class AuctionManager {
                     // Attach the odds for each account playing in the auction
                     if (this.auctionTypes.hasOwnProperty(auction.type)) {
                         let at: auctionType = this.auctionTypes[auction.type];
-                        auction.odds = this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
+                        auction.odds = await this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
                     } else {
                         auction.odds = {};
                     }

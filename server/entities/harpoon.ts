@@ -1,4 +1,5 @@
 import {BaseEntity,Column,Entity,Index,JoinColumn,JoinTable,ManyToMany,ManyToOne,OneToMany,OneToOne,PrimaryColumn,PrimaryGeneratedColumn,RelationId} from "typeorm";
+import {auctions} from "./auctions";
 
 
 @Entity("harpoon",{schema:"eostime"})
@@ -76,4 +77,9 @@ export class harpoon extends BaseEntity {
         })
     result:string;
         
+
+   
+    @OneToMany(type=>auctions, auctions=>auctions.harpoon_,{ onDelete: 'NO ACTION' ,onUpdate: 'NO ACTION' })
+    auctionss:auctions[];
+    
 }

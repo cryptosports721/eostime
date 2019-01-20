@@ -67,7 +67,7 @@ export class HarpoonManager {
                 toRet.below = Math.round(odds * 4294967295);
                 if (toRet.randomNumber <= toRet.below) {
                     // Successfully harpooned!
-                    toRet.status = "success";
+                    toRet.status = "pending";
                 }
                 let h: harpoon = new harpoon();
                 h.creationDatetime = new Date();

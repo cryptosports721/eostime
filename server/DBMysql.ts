@@ -241,7 +241,8 @@ export class DBMysql {
                     creation_time: Math.floor(auction.creationDatetime.getTime()/1000),
                     expires: Math.floor(auction.endedDatetime.getTime()/1000),
                     blockNumber: auction.blockNumber,
-                    transactionId: auction.transactionId
+                    transactionId: auction.transactionId,
+                    flags: auction.flags
                 };
                 winningAuction["bids"] = await this.auctionBids(auction.auctionId);
                 resolve(winningAuction);

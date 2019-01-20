@@ -143,20 +143,6 @@ module CliApp {
                                     // var sha512 = crypto.createHash('sha512').update('mystring').digest("hex");
                                     // console.log(bids);
 
-                                    let sha512:string = crypto.createHash('sha512').update("whatever").digest("hex");
-                                    let j:number = parseInt("ffffffff", 16);
-                                    let prng:number = parseInt(sha512.substr(0, 8), 16);
-
-                                    let ss:serverSeeds = new serverSeeds();
-                                    ss.serverSeed = "whatever";
-                                    ss.clientSeed = "10001";
-                                    for (let i:number = 0; i < 1000; i++) {
-                                        let val:number = 2*i;
-                                        ss.clientSeed = val.toString();
-                                        let num:number = hm.generate32BitRandomNumberFromSeeds(ss, 100000);
-                                        console.log(num);
-                                    }
-
                                     let bids:any[] = [
                                         {accountName: "A"},
                                         {accountName: "B"},
@@ -172,7 +158,7 @@ module CliApp {
                                         {accountName: "B"},
                                         {accountName: "C"}
                                     ];
-                                    let c:any[] = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    let c:any[] = await this.auctionManager.oddsFromBids(0, bids, 0.2);
                                     let s:number = 0;
                                     let o:number = 1;
                                     for (let key in c) {
@@ -188,7 +174,7 @@ module CliApp {
                                         {accountName: "B"},
                                         {accountName: "C"}
                                     ];
-                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    c = await this.auctionManager.oddsFromBids(0, bids, 0.2);
                                     o = 1;
                                     for (let key in c) {
                                         let a:any = c[key];
@@ -201,7 +187,7 @@ module CliApp {
                                     bids = [
                                         {accountName: "A"}
                                     ];
-                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    c = await this.auctionManager.oddsFromBids(0, bids, 0.2);
                                     o = 1;
                                     for (let key in c) {
                                         let a:any = c[key];
@@ -215,7 +201,7 @@ module CliApp {
                                         {accountName: "A"},
                                         {accountName: "B"}
                                     ];
-                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    c = await this.auctionManager.oddsFromBids(0, bids, 0.2);
                                     o = 1;
                                     for (let key in c) {
                                         let a:any = c[key];
