@@ -14,6 +14,7 @@ import {user} from "./entities/user";
 import {serverSeeds} from "./entities/serverSeeds";
 import {auctionType} from "./entities/auctionType";
 import {harpoon} from "./entities/harpoon";
+import {recaptcha} from "./entities/recaptcha";
 
 const request = require('request');
 const ecc = require('eosjs-ecc');
@@ -98,7 +99,7 @@ export class AuctionManager {
         this.serverKey = serverKey;
         this.eosBlockchain = eosBlockchain;
         this.slackHook = slackHook;
-        this.harpoonManager = new HarpoonManager(this.dbMySql, serverKey);;
+        this.harpoonManager = new HarpoonManager(sio, this.dbMySql, serverKey);;
 
         if (this.dbMySql) {
             this.dbMySql.loadRecentWinners(Config.WINNERS_LIST_LIMIT).then((recentWinners) => {
@@ -244,18 +245,47 @@ export class AuctionManager {
                 let signature: string = null;
                 for (let auction of this.auctions) {
                     if (auction.type == auctionType) {
-                        let bomb: harpoon = await this.dbMySql.entityManager().findOne(harpoon, {
-                            "auctionId": auction.id,
-                            "accountName": accountName
-                        });
-                        if (bomb) {
-                            resolve("HARPOON");
-                            return;
+
+                        // This record would have been created in ClientConnection on receipt of client
+                        // messages CTS_CAPTCHA_RESPONSE and CTS_CAPTCHA_SUBMIT
+                        //
+                        let requiresCaptcha:boolean = await this.requiresCaptcha(accountName);
+                        if (requiresCaptcha) {
+                            // If the record isn't there, then we reCAPTCHA the dude!
+                            let captcha: recaptcha = await this.dbMySql.entityManager().findOne(recaptcha, {
+                                accountName: accountName,
+                                auctionId: auction.id
+                            });
+                            requiresCaptcha = !captcha;
+
+                            // Do not captcha someone if they are already in the auction
+                            if (requiresCaptcha) {
+                                let haveBid: bid = await this.dbMySql.entityManager().findOne(bid, {
+                                    auctionId: auction.id,
+                                    accountName: accountName
+                                });
+                                if (haveBid) {
+                                    requiresCaptcha = false;
+                                }
+                            }
+                        }
+
+                        if (requiresCaptcha) {
+                            resolve("CAPTCHA-REQUIRED");
                         } else {
-                            let toSign: string = accountName + auction.remaining_bid_count + auction.id;
-                            signature = ecc.sign(toSign, this.serverKey);
-                            resolve(signature);
-                            return;
+                            let bomb: harpoon = await this.dbMySql.entityManager().findOne(harpoon, {
+                                "auctionId": auction.id,
+                                "accountName": accountName
+                            });
+                            if (bomb) {
+                                resolve("HARPOON");
+                                return;
+                            } else {
+                                let toSign: string = accountName + auction.remaining_bid_count + auction.id;
+                                signature = ecc.sign(toSign, this.serverKey);
+                                resolve(signature);
+                                return;
+                            }
                         }
                     }
                 }
@@ -278,8 +308,6 @@ export class AuctionManager {
                if (auction) {
                    let blockchainInfo:any = await this.eosBlockchain.getInfo();
                    let headBlockTime:number = parseInt(moment( blockchainInfo.head_block_time + "+00:00").local().format("X"));
-                   console.log(auction);
-                   console.log("Head Block Time: " + headBlockTime + " Expire: " + auction.expires);
                    if ((auction.remaining_bid_count > 0) && (auction.expires > headBlockTime)) {
                        // (1) Is this user in the auction itself
                        if (!auction.odds.hasOwnProperty(accountName)) {
@@ -292,6 +320,8 @@ export class AuctionManager {
                                // (3) Is the bomber the high bidder
                            } else if (accountName == auction.last_bidder) {
                                toRet.message = {english: "An auction leader cannot harpoon himself.", chinese: "拍卖领导者不能用自己的方式。"};
+                           } else if (auction.harpoonMinBids > 0 && (auction.bidders.length < auction.harpoonMinBids)) {
+                               toRet.message = {english: "You cannot harpoon an auction with less than " + auction.harpoonMinBids.toString() + " bids.", chinese: "你不能用低于的价格拍卖 " + auction.harpoonMinBids.toString() + "投标。"};
                            } else {
                                let ss: serverSeeds = await this.dbMySql.entityManager().findOne(serverSeeds, {"auctionId": auctionId});
                                if (!ss) {
@@ -452,6 +482,23 @@ export class AuctionManager {
 
                                 await this.addProvablyFairSeedsToAuctions();
 
+
+                                // If we are a paused auction, and our bid count now meets the minimum requirement,
+                                // unpause this auction.
+                                if ((auction.flags & 0x10) == 0x10) {
+                                    let moreBids:number = auction.minBids  - (auction.init_bid_count - auction.remaining_bid_count);
+                                    if (moreBids <= 0) {
+                                        try {
+                                            await this.eosBlockchain.unpauseAuction(auction.id);
+                                            auction.flags -= 0x10;
+                                            auction.expires = auction.block_time + auction.init_duration_secs;
+                                        } catch (err) {
+                                            console.log("Failed to unpause auction ID: " + auction.id);
+                                            console.log(err);
+                                        }
+                                    }
+                                }
+
                                 // Notify clients of auction change
                                 if (this.sio) {
                                     this.sio.sockets.emit(SocketMessage.STC_CHANGE_AUCTION, JSON.stringify(auction));
@@ -520,13 +567,13 @@ export class AuctionManager {
 
                                         // Store this winner auction in our list of recent winners cache
                                         let recentWinnerObject:any = await this.dbMySql.winningAuctionObjectFromInstance(auct);
-                                        this.recentWinners.unshift(auctionToPayout);
+                                        this.recentWinners.unshift(recentWinnerObject);
                                         if (this.recentWinners.length > Config.WINNERS_LIST_LIMIT) {
                                             this.recentWinners.splice(Config.WINNERS_LIST_LIMIT, this.recentWinners.length - Config.WINNERS_LIST_LIMIT);
                                         }
 
                                         if (this.sio) {
-                                            this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(auctionToPayout));
+                                            this.sio.sockets.emit(SocketMessage.STC_WINNER_AUCTION, JSON.stringify(recentWinnerObject));
                                         }
 
                                         // Tell the winner to update his balances 10 seconds from now
@@ -731,6 +778,39 @@ export class AuctionManager {
            } catch (err) {
                reject(err);
            }
+        });
+    }
+
+    /**
+     * Determines whether or not a particular account requires a captcha when bidding in auctions.
+     *
+     * @param {string} accountName
+     * @returns {Promise<boolean>}
+     */
+    private requiresCaptcha(accountName:string):Promise<boolean> {
+        return new Promise<boolean>(async (resolve, reject) => {
+            try {
+                let toRet: boolean = false;
+                let captchaParamsString: string = await this.dbMySql.getConfig("captchaParams");
+                let captchaParams: any = JSON.parse(captchaParamsString);
+                let w:Moment = moment.unix(Math.floor(new Date().getTime()/1000 - captchaParams.window));
+                let windowTime:string = w.utc().format("YYYY-MM-DD HH:mm:ss");
+                let whereClause:string = "auctions.lastBidderAccount = '" + accountName + "' AND auctions.endedDatetime > '" + windowTime + "'";
+                let accountAuctions: auctions[] = await this.dbMySql.qb(auctions, "auctions").where(whereClause).orderBy("auctions.id", "DESC").getMany();
+                let leachCount:number = 0;
+                if (accountAuctions.length >= captchaParams.maxLeachCount) {
+                    for (let auction of accountAuctions) {
+                        let bidCount:number = await this.dbMySql.entityManager().count(bid, {auctionId: auction.auctionId});
+                        if (bidCount <= captchaParams.leachBidCount) {
+                            leachCount++;
+                        }
+                    }
+                }
+                toRet = leachCount >= captchaParams.maxLeachCount;
+                resolve(toRet);
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 
@@ -974,8 +1054,8 @@ export class AuctionManager {
     private linkToAuctions(auctionToCheck:any):Promise<any> {
         return new Promise<any>((resolve, reject) => {
             let auctionType:any = this.auctionTypes.hasOwnProperty(auctionToCheck.type) ? this.auctionTypes[auctionToCheck.type] : null;
-            if (auctionType && auctionType.nextType && (auctionType.nextType != auctionType.typeId)) {
-                let nextAuctionType:any = this.auctionTypes.hasOwnProperty(auctionType.nextType) ? this.auctionTypes[auctionType.nextType] : null;
+            if (auctionType && auctionType.nextTypeId && (auctionType.nextTypeId != auctionType.typeId)) {
+                let nextAuctionType:any = this.auctionTypes.hasOwnProperty(auctionType.nextTypeId) ? this.auctionTypes[auctionType.nextTypeId] : null;
                 if (nextAuctionType) {
                     let params:any = JSON.parse(nextAuctionType.blockchainParams);
                     resolve(params);
@@ -1136,13 +1216,8 @@ export class AuctionManager {
                     // Attach current bidders
                     auction.bidders = await this.dbMySql.auctionBids(auction.id);
 
-                    // Attach the odds for each account playing in the auction
-                    if (this.auctionTypes.hasOwnProperty(auction.type)) {
-                        let at: auctionType = this.auctionTypes[auction.type];
-                        auction.odds = await this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
-                    } else {
-                        auction.odds = {};
-                    }
+                    // Attach current harpooners
+                    auction.harpoons = await this.dbMySql.auctionHarpoons(auction.id);
 
                     // If the auction has not ended, present the prize pool as what the player
                     // will in-fact win if they place the bid (by adding the to-pool portion of
@@ -1153,10 +1228,17 @@ export class AuctionManager {
                         auction.prize_pool = pool.toFixed(4);
                     }
 
+                    // Attach stuff from auction type record
                     if (this.auctionTypes.hasOwnProperty(auction.type)) {
                         let at: auctionType = this.auctionTypes[auction.type];
+                        auction.odds = await this.oddsFromBids(auction.id, auction.bidders, at.harpoon);
                         auction.harpoon = at.harpoon;
+                        auction.harpoonMinBids = at.harpoonMinBids;
+                        auction.minBids = at.minBids;
                         auction.html = "<div class=\"ribbon ribbon-" + at.color + " hot\"></div><div class=\"ribbon-contents\"><i class=\"" + at.icon + "\"></i><span>" + at.text + "</span></div>";
+                    } else {
+                        auction.odds = {};
+                        auction.minBids = 0;
                     }
                 }
 

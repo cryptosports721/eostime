@@ -60,6 +60,22 @@ export class auctionType extends BaseEntity {
     harpoon:number;
         
 
+    @Column("int",{ 
+        nullable:false,
+        default: () => "'0'",
+        name:"harpoonMinBids"
+        })
+    harpoonMinBids:number;
+        
+
+    @Column("int",{ 
+        nullable:false,
+        default: () => "'0'",
+        name:"minBids"
+        })
+    minBids:number;
+        
+
     @Column("mediumtext",{ 
         nullable:true,
         name:"blockchainParams"

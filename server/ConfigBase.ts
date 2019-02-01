@@ -12,6 +12,16 @@ export class ConfigBase {
     public static eostimeTokenContract:string = "eostimetoken";
     public static eostimeTokenCorpo:string = "eostimecorpo";
 
+
+    /**
+     * Supported localization
+     * @type {{english: string; chinese: string}}
+     */
+    public static SUPPORTED_LANGUAGES:any = {
+        "english": "en",
+        "chinese": "zh"
+    }
+
     /**
      * Returns the first public key from the accountInfo structure that has the permission "active"
      * @returns {string}

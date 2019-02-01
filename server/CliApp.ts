@@ -105,7 +105,7 @@ module CliApp {
                     this.faucetManager = new FaucetManager(this.dbManager, this.dbMysql,() => {return this.eosBlockchain});
                     this.clientConnection = new ClientConnection(null, this.dbManager, this.dbMysql, null, this.dividendManager, this.faucetManager, () => {return this.eosBlockchain});
                     this.historyManager = new EosRpcMySqlHistoryBuilder(historyEndpoint, this.dbMysql);
-                    let hm:HarpoonManager = new HarpoonManager(this.dbMysql, "");
+                    let hm:HarpoonManager = new HarpoonManager(null, this.dbMysql, "");
                     this.auctionManager = new AuctionManager(serverConfig, null, null, this.dbMysql,null, this.eosBlockchain, null);
 
                     // Our outer menu listener
@@ -135,6 +135,9 @@ module CliApp {
                                     console.log("\n=======\n");
                                     break;
                                 case "g":
+
+                                    let has:string = crypto.createHash('sha256').update("072b1fc2-d121-d9cb-2fd4-3fa902a12677").digest("hex");
+                                    let rnd:string = crypto.createHash('sha512').update("79561072b1fc2-d121-d9cb-2fd4-3fa902a12677").digest("hex");
                                     // let account:user = await this.clientConnection.registerClientAccount({account_name: "rockthecasba", core_liquid_balance: "0.7902 EOS", timeBalance: "5.2207 TIME"}, "chassettny11");
                                     // let faucetInfo:any = await this.faucetManager.getFaucetInfo("chassettny11", "127.0.0.1");
                                     // let award:any = await this.faucetManager.faucetDraw("chassettny11", "127.0.0.1");
@@ -233,7 +236,7 @@ module CliApp {
                                         {accountName: "S"},
                                         {accountName: "T"}
                                     ];
-                                    c = this.auctionManager.oddsFromBids(0, bids, 0.2);
+                                    c = await this.auctionManager.oddsFromBids(0, bids, 0.2);
                                     o = 1;
                                     for (let key in c) {
                                         let a:any = c[key];

@@ -11,6 +11,11 @@ import {DividendManager} from "./DividendManager";
 import ScatterJS from "scatterjs-core";
 import ScatterEOS from "scatterjs-plugin-eosjs";
 
+var i18next = require('i18next');
+var i18NextXhrBackend = require('i18next-xhr-backend');
+var i18nextBrowserLanguageDetector = require('i18next-browser-languagedetector');
+var jqueryI18next = require('jquery-i18next');
+
 module EOSTime {
 
     // Defined in the scatterjs-core js file, which is required
@@ -25,7 +30,6 @@ module EOSTime {
     export class Main {
 
         private eos:any = null;
-        private identity:any = null;
         private account:any = null;
         private accountInfo:any = null;
         private hasScatter:boolean = false;
@@ -35,6 +39,7 @@ module EOSTime {
         private auctionManager:AuctionManager = null;
         private faucetManager:FaucetManager = null;
         private dividendManager:DividendManager = null;
+        private loginOnLoad:boolean = false;
 
         private scatter:any = null;
         private eosNetwork:string = "mainnet"; // "mainnet" or "jungle";
@@ -52,6 +57,44 @@ module EOSTime {
             console.log('================================');
 
             window.addEventListener('load', (event) => {
+
+                let pageNamespace:string = "index";
+                if (window.location.pathname.indexOf(".") >= 0) {
+                    pageNamespace = window.location.pathname.substr(0, window.location.pathname.indexOf("."));
+                    pageNamespace = pageNamespace.substr(pageNamespace.lastIndexOf("/") + 1);
+                }
+
+                // Load our localization
+                i18next.use(i18NextXhrBackend).use(i18nextBrowserLanguageDetector).init({
+                    fallbackLng: 'en',
+                    debug: true,
+                    ns: ['common', pageNamespace],
+                    defaultNS: pageNamespace,
+                    backend: {
+                        // load from i18next-gitbook repo
+                        loadPath: 'locales/{{lng}}/{{ns}}.json'
+                    }
+                }).then((t) => {
+
+                    jqueryI18next.init(i18next, $, {
+                        tName: 't', // --> appends $.t = i18next.t
+                        i18nName: 'i18n', // --> appends $.i18n = i18next
+                        handleName: 'localize', // --> appends $(selector).localize(opts);
+                        selectorAttr: 'data-i18n', // selector for translating elements
+                        targetAttr: 'i18n-target', // data-() attribute to grab target element to translate (if different than itself)
+                        optionsAttr: 'i18n-options', // data-() attribute that contains options, will load/set if useOptionsAttr = true
+                        useOptionsAttr: false, // see optionsAttr
+                        parseDefaultValueFromContent: true // parses default values from content ele.val or ele.text
+                    });
+
+                    // Kick off !
+                    let evt: CustomEvent = new CustomEvent("localizationLoaded", {"detail": true});
+                    document.dispatchEvent(evt);
+                });
+
+            });
+
+            $(document).on("localizationLoaded", (event) => {
 
                 // Kill console logging if so desired.
                 // console.log = (message?:any, ...optionalParams: any[]) => {};
@@ -106,7 +149,7 @@ module EOSTime {
                         let retryCount:number = 16;
                         let tryLogin = function() {
                             // Try to login
-                            if (this.scatter.identity) {
+                            if (this.scatter) {
                                 this.login().then((result) => {
                                     if (this.account == null) {
                                         retryCount--;
@@ -117,20 +160,34 @@ module EOSTime {
                                         }
                                     }
                                 });
+                            } else {
+                                retryCount--;
+                                if (retryCount > 0) {
+                                    setTimeout(() => {
+                                        tryLogin();
+                                    }, 250);
+                                }
                             }
 
                         }.bind(this);
+
+                        let loginOnLoad:string = localStorage.getItem("loginOnLoad");
+                        if (loginOnLoad && loginOnLoad == "true") {
+                            this.loginOnLoad = true;
+                        }
 
                         if (!this.scatter) {
                             // First time through, need to connect with scatter
                             ScatterJS.plugins( new ScatterEOS() );
                             ScatterJS.scatter.connect("eostime.io", {initTimeout: 10000}).then((connected) => {
+                                if (Config.LIMITED_MOBILE_UI) {this.socketMessage.ctsLogMessage("LINE 140");}
 
                                 this.scatter = ScatterJS.scatter;
                                 (<any> window).ScatterJS = null;
 
                                 this.hasScatter = connected;
                                 if (!connected) {
+                                    if (Config.LIMITED_MOBILE_UI) {this.socketMessage.ctsLogMessage("LINE 147");}
                                     (<any> $).notify({
                                         title: "<strong>Please Install Scatter</strong><br>",
                                         message: "eostime.io requires the installation of an EOS wallet called <strong>scatter</strong>. Click on this notification for installation instructions.",
@@ -141,18 +198,20 @@ module EOSTime {
                                         delay: 0,
                                     });
                                 } else {
-                                    tryLogin();
+                                    if (this.loginOnLoad) {
+                                        if (Config.LIMITED_MOBILE_UI) {this.socketMessage.ctsLogMessage("LINE 158");}
+                                        tryLogin();
+                                    }
                                 }
                             }).catch((err) => {
                                 console.log("Error connecting with scatter!")
                             });
                         } else {
                             // Happens if the socket is lost for any reason
-                            if (this.hasScatter) {
+                            if (this.hasScatter && this.loginOnLoad) {
                                 tryLogin();
                             }
                         }
-
 
                     });
 
@@ -256,6 +315,19 @@ module EOSTime {
 
                     return this;
                 },
+
+                inputFilter: function(inputFilter) {
+                    return this.on("input keydown keyup mousedown mouseup select contextmenu drop", function() {
+                        if (inputFilter(this.value)) {
+                            this.oldValue = this.value;
+                            this.oldSelectionStart = this.selectionStart;
+                            this.oldSelectionEnd = this.selectionEnd;
+                        } else if (this.hasOwnProperty("oldValue")) {
+                            this.value = this.oldValue;
+                            this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+                        }
+                    });
+                }
             });
         }
 
@@ -295,7 +367,6 @@ module EOSTime {
          * Clears everything that needs to be when we log out
          */
         private clearScatterReferences():void {
-            this.identity = null;
             this.account = null;
             this.accountInfo = null;
             this.eos = null;
@@ -309,53 +380,59 @@ module EOSTime {
          * @param {() => {}} onLoggedIn
          */
         private login(onLoggedIn:() => {} = null):Promise<any> {
+            return new Promise<any>(async (resolve, reject) => {
 
-            if (this.hasScatter && !this.loginInProgress && (this.account == null)) {
-
-                this.loginInProgress = true;
-
-                if (this.eos == null) {
-                    // Save a proxy instance of Eos library that integrates with scatter for signatures and transactions.
-                    this.eos = this.scatter.eos(Config.SCATTER_NETWORK[this.eosNetwork], Eos, { expireInSeconds:60 }, 'https');
-                    let evt:CustomEvent = new CustomEvent("updateEos", {"detail": this.eos});
-                    document.dispatchEvent(evt);
-                }
-
-                if (!this.identity) {
-
-                    const requiredFields:any = {accounts: [Config.SCATTER_NETWORK[this.eosNetwork]]};
-                    return this.scatter.getIdentity(requiredFields).then(() => {
-                        this.loginInProgress = false;
-                        this.identity = this.scatter.identity;
-                        this.account = this.identity.accounts.find(x => x.blockchain === 'eos');
-
-                        // Notify the server of the login
-                        const urlParams:any = new URLSearchParams(window.location.search);
-                        const referrer:string = urlParams.get('ref');  // Comes back null if none - which is OK!
-                        this.guiManager.updateReferralLink(this.account.name);
-                        this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, navigator.userAgent, location.host, this.identity.publicKey, "");
-                        Promise.resolve(this.account);
-                    }).catch((err) => {
-                        // The user rejected this request, or doesn't have the appropriate requirements.
-                        this.loginInProgress = false;
-                        (<any> $).notify({
-                            title: "<strong>Identity Request Failed</strong><br>",
-                            message: err && err.message ? err.message : "You must provide an identity in order to use EOSTime",
-                            url: 'https://get-scatter.com/',
-                            target: '_blank'
-                        },{
-                            type: "warning",
-                            delay: 0,
-                        });
-                    });
-                } else {
+                let completePromise = () => {
                     this.loginInProgress = false;
-                    return Promise.resolve(this.account);
+                    if (this.scatter.identity) {
+                        this.account = this.scatter.identity.accounts.find(x => x.blockchain === 'eos');
+                    }
+                    if (this.account) {
+                        const urlParams: any = new URLSearchParams(window.location.search);
+                        const referrer: string = urlParams.get('ref');  // Comes back null if none - which is OK!
+                        this.guiManager.updateReferralLink(this.account.name);
+                        this.socketMessage.ctsEOSAccount(this.account, referrer, this.eosNetwork, navigator.userAgent, location.host, this.scatter.identity.publicKey, "");
+                        localStorage.setItem("loginOnLoad", "true");
+                    }
+                    resolve(this.account);
+                };
+
+                try {
+                    if (this.hasScatter && !this.loginInProgress && (this.account == null)) {
+                        this.loginInProgress = true;
+                        if (this.eos == null) {
+                            // Save a proxy instance of Eos library that integrates with scatter for signatures and transactions.
+                            this.eos = this.scatter.eos(Config.SCATTER_NETWORK[this.eosNetwork], Eos, {expireInSeconds: 60}, 'https');
+                            let evt: CustomEvent = new CustomEvent("updateEos", {"detail": this.eos});
+                            document.dispatchEvent(evt);
+                        }
+                        if (!this.scatter.identity) {
+                            const requiredFields: any = {accounts: [Config.SCATTER_NETWORK[this.eosNetwork]]};
+                            try {
+                                await this.scatter.getIdentity(requiredFields);
+                                completePromise();
+                            } catch (err) {
+                                (<any> $).notify({
+                                    title: "<strong>Identity Request Failed</strong><br>",
+                                    message: err && err.message ? err.message : "You must provide an identity in order to use EOSTime",
+                                    url: 'https://get-scatter.com/',
+                                    target: '_blank'
+                                }, {
+                                    type: "warning",
+                                    delay: 0,
+                                });
+                                completePromise();
+                            }
+                        } else {
+                            completePromise();
+                        }
+                    } else {
+                        completePromise();
+                    }
+                } catch (err) {
+                    reject(err);
                 }
-            } else {
-                this.loginInProgress = false;
-                return Promise.resolve(this.account);
-            }
+            });
         }
 
         /**
@@ -367,6 +444,7 @@ module EOSTime {
             this.guiManager.updateEOSBalance("0");
             this.guiManager.updateCoinBalance("0");
             this.clearScatterReferences();
+            localStorage.setItem("loginOnLoad", "false");
             if (this.scatter.identity) {
                 return this.scatter.forgetIdentity();
             } else {
@@ -562,6 +640,10 @@ module EOSTime {
          */
         private attachGUIListeners():void  {
 
+            $(document).on("acceptedTerms", (event) => {
+                this.socketMessage.ctsAcceptedTerms();
+            });
+
             $(document).on("updateCoinBalances", (event) => {
                 this.updateCoinBalances();
             });
@@ -570,9 +652,8 @@ module EOSTime {
 
                 // Switch networks
                 if (this.eosNetwork != event.detail.toString()) {
-                    this.logout().then(() => {
+                    this.logout().then(async () => {
                         this.eosNetwork = event.detail.toString();
-                        this.login();
                         if (this.supportsLocalStorage()) {
                             localStorage.setItem(Config.LOCAL_STORAGE_KEY_EOS_NETWORK, this.eosNetwork);
                         }

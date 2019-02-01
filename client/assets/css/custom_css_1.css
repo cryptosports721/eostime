@@ -183,10 +183,63 @@ body {
     50% { border-color: #5AA4CC; }
     100% { border-color: white; }
 }
+.auction-instance-harpoon-overlay {
+    position: absolute;
+    top:0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 5000;
+    background-color: rgba(0, 0, 0, 0.65);
+}
+.auction-instance-harpoon-overlay .number-animation {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+}
+.harpoon-info-title {
+    font-size: 8pt;
+    line-height: 1;
+    padding-top: 8px;
+}
+.harpoon-info-value {
+    font-size: 10pt;
+}
+.harpoon-miss {
+    position:relative;
+    width: 100%;
+    height: 100%;
+}
+.harpoon-miss .close-icon {
+    position: absolute;
+    font-size: 12pt;
+    top: 5px;
+    right: 5px;
+    z-index: 10000;
+    cursor: pointer;
+}
+.harpoon-miss .close-icon:hover,
+.harpoon-miss .close-icon:active,
+.harpoon-miss .close-icon:focus {
+    color:white !important;;
+    text-shadow:0 0 5px white;
+    cursor:pointer;
+    -webkit-appearance: unset;
+    transition:all ease 0.2s;
+}
+.harpoon-miss-inner {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+}
 .auction-instance-busy {
     position: absolute;
     top: 5px;
-    left: 5px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
     z-index: 5000;
     border-radius: .3rem;
 }

@@ -141,9 +141,56 @@ export class SocketMessage {
         this.socket.emit(SocketMessage.CTS_FAUCET_DRAW, JSON.stringify({}));
     }
 
+    /**
+     * Submit a CAPTCHA response
+     * @type {string}
+     */
+    public static CTS_CAPTCHA_RESPONSE:string = "CTS_CAPTCHA_RESPONSE";
+    public ctsCaptchaResponse(token:string, auctionId:number):void {
+        this.socket.emit(SocketMessage.CTS_CAPTCHA_RESPONSE, JSON.stringify({token: token, auctionId: auctionId}));
+    }
+
+    /**
+     * Submit a CAPTCHA response
+     * @type {string}
+     */
+    public static CTS_CAPTCHA_SUBMIT:string = "CTS_CAPTCHA_SUBMIT";
+    public ctsCaptchaSubmit(token:string, auctionId:number):void {
+        this.socket.emit(SocketMessage.CTS_CAPTCHA_SUBMIT, JSON.stringify({token: token, auctionId: auctionId}));
+    }
+
+    /**
+     * Log a message at the server
+     * @type {string}
+     */
+    public static CTS_LOG_MESSAGE:string = "CTS_LOG_MESSAGE";
+    public ctsLogMessage(message:string):void {
+        this.socket.emit(SocketMessage.CTS_LOG_MESSAGE, JSON.stringify({message:message}));
+    }
+
+    /**
+     * Sent to server to acknowledge acceptence of our terms and conditions
+     * @type {string}
+     */
+    public static CTS_ACCEPTED_TERMS:string = "CTS_ACCEPTED_TERMS";
+    public ctsAcceptedTerms():void {
+        this.socket.emit(SocketMessage.CTS_ACCEPTED_TERMS, JSON.stringify({}));
+    }
+
     // ========================================================================
     // SERVER TO CLIENT MESSAGES
     // ========================================================================
+
+
+    /**
+     * Sends the STC_CLIENT_CONNECTED message to the client so it knows that
+     * the server has recognized the connection
+     */
+    public static STC_CAPTCHA_RESPONSE:string = "STC_CAPTCHA_RESPONSE";
+    public stcCaptchaResponse(response:any):void {
+        let data:any = {...SocketMessage.standardServerDataObject(), ...response};
+        this.socket.emit(SocketMessage.STC_CAPTCHA_RESPONSE, JSON.stringify(data));
+    }
 
     /**
      * Sends the STC_CLIENT_CONNECTED message to the client so it knows that
@@ -186,6 +233,18 @@ export class SocketMessage {
     public stcSendBidSignature(sig:string, auctionType:number, bidAmount:number):void {
         let data:any = {...SocketMessage.standardServerDataObject(), ...{signature: sig, auctionType: auctionType, bidAmount: bidAmount}};
         this.socket.emit(SocketMessage.STC_BID_SIGNATURE, JSON.stringify(data));
+    }
+
+    /**
+     * Sends the STC_HARPOON_ATTEMPT message to the client indicating a harpoon attempt.
+     * @param {string} accountName
+     * @param {number} odds
+     * @param {string} status
+     */
+    public static STC_HARPOON_ATTEMPT:string = "STC_HARPOON_ATTEMPT";
+    public stcSendHarpoonAttempt(accountName:string, odds:number, status:string):void {
+        let data:any = {...SocketMessage.standardServerDataObject(), ...{accountName: accountName, odds: odds, status: status}};
+        this.socket.emit(SocketMessage.STC_HARPOON_ATTEMPT, JSON.stringify(data));
     }
 
     /**
@@ -262,14 +321,14 @@ export class SocketMessage {
     }
 
     /**
-     * Sends the next server seed hash to the client,
-     * @param {string} serverHash
-     * @param {string} sig Signature of the betting parameters
+     * Sends an updated server hash to all clients
+     * @param auctionId
+     * @param serverSeedHash
      */
-    public static STC_SERVER_HASH:string = "STC_SERVER_HASH";
-    public stcServerHash(serverHash:string, sig:string):void {
-        let data:any = {...{"serverHash": serverHash}, ...SocketMessage.standardServerDataObject()};
-        this.socket.emit(SocketMessage.STC_SERVER_HASH, JSON.stringify(data));
+    public static STC_UPDATE_SERVER_HASH:string = "STC_UPDATE_SERVER_HASH";
+    public stcUpdateServerHash(auctionId, serverSeedHash):void {
+        let data:any = {...{auctionId: auctionId, serverSeedHash: serverSeedHash}, ...SocketMessage.standardServerDataObject()};
+        this.socket.emit(SocketMessage.STC_UPDATE_SERVER_HASH, JSON.stringify(data));
     }
 
     /**

@@ -1,9 +1,10 @@
 <!-- footer -->
 <footer class="footer mt-5">
     <div class="container flex-center-row flex-space-between">
-        <a href="#">
-            <img src="assets/images/eostime_text_logo.svg" height="20" alt="EOSTime">
-        </a>
+        <div>
+            <div style="line-height: 3.0;"><img src="assets/images/eostime_text_logo.svg" height="20" alt="EOSTime"></div>
+            <div style="line-height: 1.0;"><a class="terms-and-conditions-link localize" data-i18n="common:terms_and_conditions" href="#">terms and conditions</a></div>
+        </div>
         <div class="social flex-center-row flex-space-between pt-1 d-md-none">
             <div>
                 <a href="https://twitter.com/eos_time" target="_blank" class="flex-center"><i class="fab fa-twitter"></i></a>
@@ -27,6 +28,57 @@
     </div>
 </footer>
 <!-- /end footer -->
+
+<style type="text/css">
+
+    .terms-and-conditions {
+        max-height: 500px;
+        overflow-y: scroll;
+    }
+
+    .terms-and-conditions p {
+        font-size: 10pt;
+    }
+
+    .terms-and-conditions h2 {
+        font-size: 14pt;
+        font-weight: bold;
+        color: #48dbfb;
+    }
+
+    .terms-and-conditions h3 {
+        font-size: 12pt;
+        font-weight: bold;
+        color: #48dbfb;
+    }
+
+</style>
+
+<!-- -------------------------- -->
+<!-- terms and conditions modal -->
+<!-- -------------------------- -->
+<div class="modal fade" id="terms_and_conditions_modal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="card dark card-modal">
+                <div class="card-body">
+                    <div class="card-title font-muted modal-title mb-3">
+                        <span class="localize" data-i18n="common:terms_and_conditions"></span>
+                    </div>
+                    <div class="info-row px-4 py-4 modal-body" style="font-size: 10pt;">
+                        <div class="terms-and-conditions-content" style="max-height: 500px; overflow-y: scroll;"></div>
+                        <div class="terms-and-conditions-agree-button-container text-center pt-3">
+                            <button class="terms-and-conditions-agree-button btn btn-primary btn-sx localize" data-i18n="common:i_agree_to_terms" type="button"></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="abs-corner flex-center">
+                    <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Dev Mode Footer -->
 <footer class="fixed-bottom developer-mode d-none">

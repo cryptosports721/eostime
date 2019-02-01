@@ -257,6 +257,35 @@ export class EosBlockchain {
     }
 
     /**
+     * Unpauses the specified auction
+     * @param {number} auctionId
+     * @returns {Promise<any>}
+     */
+    public unpauseAuction(auctionId:number):Promise<any> {
+        const rpc = this.eosRpc;
+        const signatureProvider = new JsSignatureProvider.default([this.contractPrivateKey]);
+        const api:Api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
+        return api.transact({
+            actions: [
+                {
+                    account: this.serverConfig.eostimeContract,
+                    name: 'rzunpause',
+                    authorization: [{
+                        actor: this.serverConfig.eostimeContract,
+                        permission: 'active',
+                    }],
+                    data: {
+                        "redzone_id": auctionId
+                    }
+                }
+            ]
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+    }
+
+    /**
      * Pays out the specific auctionId, and then replace it with another defined
      * by the replacementParameters object.
      *

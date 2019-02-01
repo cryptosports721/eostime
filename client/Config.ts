@@ -10,12 +10,21 @@ export enum ViewState {
 export class Config extends ConfigBase {
 
     public static LOCAL_STORAGE_KEY_EOS_NETWORK:string = "LOCAL_STORAGE_EOS_NETWORK";
+    public static LOCAL_STORAGE_KEY_CLIENT_SEED:string = "LOCAL_STORAGE_KEY_CLIENT_SEED";
+    public static LOCAL_STORAGE_KEY_AUTO_RANDOMIZE:string = "LOCAL_STORAGE_KEY_AUTO_RANDOMIZE";
 
     public static SCATTER_NETWORK:any = {
+        // "mainnet" : {
+        //     blockchain: 'eos',
+        //     protocol: 'https',
+        //     host: 'nodes.get-scatter.com',
+        //     port: 443,
+        //     chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906'
+        // },
         "mainnet" : {
             blockchain: 'eos',
             protocol: 'https',
-            host: 'nodes.get-scatter.com',
+            host: 'mainnet.eoscanada.com',
             port: 443,
             chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906'
         },
@@ -59,7 +68,14 @@ export class Config extends ConfigBase {
         "mainnet": "https://bloks.io/transaction/"
     };
 
-    public static LIMITED_MOBILE_UI:boolean = navigator.userAgent.indexOf("TokenPocket") >= 0;
+    public static ACCOUNT_INFO_LINK_PREFIX:any = {
+        "jungle": "https://jungle.bloks.io/account/",
+        "mainnet": "https://bloks.io/account/"
+    }
+
+    // Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) TokenPocket_iOS
+    // Mozilla/5.0 (Linux; Android 7.0; Redmi Note 4 Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/68.0.3440.91 Mobile Safari/537.36 TokenPocket_Android
+    public static LIMITED_MOBILE_UI:boolean = navigator.userAgent.indexOf("TokenPocket_Android") >= 0;
 
     // public static DEFAULT_GUAGE_OPTIONS:any = {
     //     min: 0,

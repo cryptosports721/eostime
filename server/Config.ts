@@ -26,6 +26,8 @@ export class Config extends ConfigBase {
     public static HOUSE_PROFIT:number = 0.20;
     public static STAKERS_PROFIT:number = 0.05;
 
+    public static GOOGLE_RECAPTCHA:string = "6LfmvYkUAAAAAHG_nArhWDLM3vZMq3Zjo_-zUPd6";
+
     /**
      * Sets the schedule for dividend payouts (EPOCH TIME ZONE)
      * {

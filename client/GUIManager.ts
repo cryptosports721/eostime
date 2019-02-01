@@ -1,6 +1,7 @@
 ///<reference path="../node_modules/@types/jquery/index.d.ts" />
 import {Config, ViewState} from "./Config";
 import {ViewStateObserver} from "./ViewStateObserver";
+var i18next = require('i18next');
 
 export enum EOS_NETWORK {
     MAINNET = 0,
@@ -13,6 +14,8 @@ export enum LANGUAGE {
 }
 
 export class GUIManager extends ViewStateObserver {
+
+    public static I18N:any[] = new Array<any>();
 
     private eos:any = null;
     private cpuGuage:Guage = null;
@@ -43,7 +46,12 @@ export class GUIManager extends ViewStateObserver {
         "languageSelector": ".select-lang",
         "languageElement": ".lang",
         "languageChinese": ".chinese",
-        "languageEnglish": ".english"
+        "languageEnglish": ".english",
+        "termsAndConditionsLink": ".terms-and-conditions-link",
+        "termsAndConditionsModal": "#terms_and_conditions_modal",
+        "termsAndConditionsContent": ".terms-and-conditions-content",
+        "termsAndConditionsButtonContainer": ".terms-and-conditions-agree-button-container",
+        "termsAndConditionsButton": ".terms-and-conditions-agree-button"
     };
 
     private currentLanguage:string = LANGUAGE.ENGLISH;
@@ -103,9 +111,9 @@ export class GUIManager extends ViewStateObserver {
         this.eosNetwork = val;
         $(".network-selector").addClass("d-none");
         if (val == EOS_NETWORK.MAINNET) {
-            $(".network-selector.mainnet." + this.currentLanguage).removeClass("d-none");
+            $(".network-selector.mainnet").removeClass("d-none");
         } else {
-            $(".network-selector.jungle." + this.currentLanguage).removeClass("d-none");
+            $(".network-selector.jungle").removeClass("d-none");
         }
     }
 
@@ -156,7 +164,8 @@ export class GUIManager extends ViewStateObserver {
     public updateEOSStakedResources(showCpuToolTip:boolean = false, showNetToolTip:boolean = false):void {
         if (this.accountInfo && this.cpuGuage && this.netGuage) {
             this.eos.getAccount(this.accountInfo.account_name).then((result) => {
-                this.accountInfo = result;
+                this.accountInfo.cpu_limit = result.cpu_limit;
+                this.accountInfo.net_limit = result.net_limit;
                 let cpu:number = Math.floor(this.accountInfo.cpu_limit.used*100/this.accountInfo.cpu_limit.max);
                 let net:number = Math.floor(this.accountInfo.net_limit.used*100/this.accountInfo.net_limit.max);
                 let $cpuTooltip:any = <any> $(this.selectors.cpuGuage);
@@ -221,7 +230,8 @@ export class GUIManager extends ViewStateObserver {
 
         $(this.selectors.loginButton).addClass("d-none");
         $(this.selectors.logoutButton).addClass("d-none");
-        $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
+        $(this.selectors.logoutButton).removeClass('d-none');
+        (<any> $('[data-toggle="tooltip"]')).tooltip();
     }
 
     protected setLoggedOutView():void {
@@ -236,7 +246,7 @@ export class GUIManager extends ViewStateObserver {
 
         $(this.selectors.loginButton).addClass("d-none");
         $(this.selectors.logoutButton).addClass("d-none");
-        $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
+        $(this.selectors.loginButton).removeClass('d-none');
         (<any> $('[data-toggle="tooltip"]')).tooltip();
     }
 
@@ -246,8 +256,56 @@ export class GUIManager extends ViewStateObserver {
 
     private attachEventHandlers():void {
 
+        $(document).on("termsAndConditions", () => {
+            event.stopPropagation();
+            (<any> $(this.selectors.termsAndConditionsModal)).modal("show");
+        });
+
+        $(this.selectors.termsAndConditionsLink).on("click", (event) => {
+            event.stopPropagation();
+            (<any> $(this.selectors.termsAndConditionsModal)).modal("show");
+        });
+
+        $(this.selectors.termsAndConditionsModal).on("show.bs.modal", async () => {
+
+            try {
+                await new Promise((resolve, reject) => {
+                    let locale: string = Config.SUPPORTED_LANGUAGES[this.currentLanguage];
+                    $(this.selectors.termsAndConditionsContent).empty().load('terms/' + locale + "/terms-and-conditions.html", (response, status, xhr) => {
+                        if (status == "error") {
+                            var msg = "Error loading the terms and conditions component: " + xhr.status + " " + xhr.statusText;
+                            $(this.selectors.termsAndConditionsButtonContainer).addClass("d-none");
+                            reject(new Error(msg));
+                        } else {
+                            if (!this.accountInfo) {
+                                $(this.selectors.termsAndConditionsButtonContainer).addClass("d-none");
+                            } else {
+                                if (this.accountInfo.acceptedTerms) {
+                                    $(this.selectors.termsAndConditionsButtonContainer).addClass("d-none");
+                                } else {
+                                    $(this.selectors.termsAndConditionsButtonContainer).removeClass("d-none");
+                                }
+                            }
+                            resolve();
+                        }
+                    });
+                });
+            } catch (err) {
+                console.log(err);
+                let msg:string = "<div>" + (<any> $).t("common:missing_terms") + "</div>";
+                msg += "<div style='padding-top: 10px'>" + err.message + "</div>";
+                $(this.selectors.termsAndConditionsContent).html(msg);
+            }
+        });
+
+        $(this.selectors.termsAndConditionsButton).on("click", (event) => {
+            let evt:CustomEvent = new CustomEvent("acceptedTerms", {"detail": null});
+            document.dispatchEvent(evt);
+            (<any> $(this.selectors.termsAndConditionsModal)).modal("hide");
+        });
+
         $(this.selectors.mainNetSelected).on("click", (event) => {
-            $(this.selectors.networkMenuDropdown).text("MainNet");
+            // $(this.selectors.networkMenuDropdown).text("MainNet");
             let evt:CustomEvent = new CustomEvent("selectNetwork", {"detail": "mainnet"});
             document.dispatchEvent(evt);
         });
@@ -260,7 +318,7 @@ export class GUIManager extends ViewStateObserver {
         });
 
         $(this.selectors.jungleSelected).on("click", (event) => {
-            $(this.selectors.networkMenuDropdown).text("Jungle");
+            // $(this.selectors.networkMenuDropdown).text("Jungle");
             let evt:CustomEvent = new CustomEvent("selectNetwork", {"detail": "jungle"});
             document.dispatchEvent(evt);
         });
@@ -359,10 +417,25 @@ export class GUIManager extends ViewStateObserver {
         $(this.selectors.loginButton).addClass("d-none");
         $(this.selectors.logoutButton).addClass("d-none");
         if (this.accountInfo) {
-            $(this.selectors.logoutButton + "." + this.currentLanguage).removeClass('d-none');
+            $(this.selectors.logoutButton).removeClass('d-none');
+            (<any> $('[data-toggle="tooltip"]')).tooltip();
         } else {
-            $(this.selectors.loginButton + "." + this.currentLanguage).removeClass('d-none');
+            $(this.selectors.loginButton).removeClass('d-none');
         }
+
+        i18next.changeLanguage(Config.SUPPORTED_LANGUAGES[this.currentLanguage]).then(() => {
+            this.updateLocalizedContent();
+
+            // Update programatically set text
+            for (let key in GUIManager.I18N) {
+                GUIManager.I18N[key]["elem"].html((<any> $).t(key, GUIManager.I18N[key]["params"]));
+            }
+        });
+    }
+
+    private updateLocalizedContent():void {
+        let $elements:any = <any> $(".localize");
+        $elements.localize();
     }
 }
 

@@ -12,8 +12,11 @@ import {DBMysql} from "./DBMysql";
 import {user} from "./entities/user";
 import {QueryRunner, EntityManager, SelectQueryBuilder} from "typeorm";
 import {ipAddress} from "./entities/ipAddress";
+import {recaptcha} from "./entities/recaptcha";
 
 const moment = require('moment');
+const request = require('request');
+const md5 = require('md5');
 
 export class ClientConnection {
 
@@ -343,32 +346,134 @@ export class ClientConnection {
             }
         });
 
+        /**
+         * Sent by the client to log a message. Commented out unless we are debugging
+         * because we don't want to give client the ability to write to our log file at-will
+         * (they could eat up all of our disk space).
+         */
+        socket.on(SocketMessage.CTS_LOG_MESSAGE, (payload:any) => {
+            // payload = JSON.parse(payload);
+            // console.log(payload.message);
+        });
+
+        /**
+         * Received when user has accepted our terms and conditions
+         */
+        socket.on(SocketMessage.CTS_ACCEPTED_TERMS, async (payload:any) => {
+            try {
+                let account: user = await this.dbMySql.qb(user, "user").where({accountName: this.accountInfo.account_name}).getOne();
+                account.acceptedTerms = "true";
+                await account.save();
+                this.accountInfo.acceptedTerms = true;
+            } catch (err) {
+                console.log("CTS_ACCEPTED_TERMS failed");
+                console.log(err);
+            }
+        });
+
         socket.on(SocketMessage.CTS_GET_BID_SIGNATURE, async (payload:any) => {
             payload = JSON.parse(payload);
-            if (this.accountInfo && payload && payload.hasOwnProperty("auctionType") && payload.hasOwnProperty("bidAmount")) {
-                let accountName:string = (this.bannedUsers.isBanned(this.accountInfo.account_name, this.ipAddress)) ? "invalid-account-name" : this.accountInfo.account_name;
 
-                // Store the user's clientSeed when he asks for the bid sig
-                // and when he becomes
-                let clientSeed:any = Config.safeProperty(payload, ["clientSeed"], null);
-                if (clientSeed && typeof clientSeed == "number" && !isNaN(clientSeed)) {
-                    let bidder:user = await this.dbMySql.entityManager().findOne(user, {accountName: this.accountInfo.account_name});
-                    bidder.clientSeed = clientSeed.toString();
-                    bidder.save();
-                }
-                let signature: string = await this.auctionManager.getBidSignature(accountName, payload.auctionType);
-                if (signature) {
-                    this.socketMessage.stcSendBidSignature(signature, payload.auctionType, payload.bidAmount);
+            if (!this.accountInfo.acceptedTerms) {
+                this.socketMessage.stcSendBidSignature("TERMS", payload.auctionType, payload.bidAmount);
+            } else {
+                if (this.accountInfo && payload && payload.hasOwnProperty("auctionType") && payload.hasOwnProperty("bidAmount")) {
+                    let accountName: string = (this.bannedUsers.isBanned(this.accountInfo.account_name, this.ipAddress)) ? "invalid-account-name" : this.accountInfo.account_name;
+
+                    // Store the user's clientSeed when he asks for the bid sig
+                    // and when he becomes
+                    let clientSeed: any = Config.safeProperty(payload, ["clientSeed"], null);
+                    if (clientSeed && typeof clientSeed == "number" && !isNaN(clientSeed)) {
+                        let bidder: user = await this.dbMySql.entityManager().findOne(user, {accountName: this.accountInfo.account_name});
+                        bidder.clientSeed = clientSeed.toString();
+                        bidder.save();
+                    }
+
+                    let signature: string = await this.auctionManager.getBidSignature(accountName, payload.auctionType);
+                    if (signature) {
+                        this.socketMessage.stcSendBidSignature(signature, payload.auctionType, payload.bidAmount);
+                    }
                 }
             }
         });
 
         socket.on(SocketMessage.CTS_GET_HARPOON_SIGNATURE, async (payload:any) => {
             payload = JSON.parse(payload);
-            let harpoonSignature:any = await this.auctionManager.getHarpoonSignature(this.accountInfo.account_name, payload.auctionId);
-            this.socketMessage.stcSendHarpoonSignature(harpoonSignature);
+            if (!this.accountInfo.acceptedTerms) {
+                this.socketMessage.stcSendHarpoonSignature({status: 'TERMS'});
+            } else {
+                let harpoonSignature: any = await this.auctionManager.getHarpoonSignature(this.accountInfo.account_name, payload.auctionId);
+                this.socketMessage.stcSendHarpoonSignature(harpoonSignature);
+            }
+        });
+
+        socket.on(SocketMessage.CTS_CAPTCHA_RESPONSE, async (payload:any) => {
+            payload = JSON.parse(payload);
+            try {
+                let captchaResult:any = await this.getCaptchaResult(payload.token);
+                if (captchaResult.success) {
+
+                    // Notice we do not set the auctionId, this is done in response
+                    // to the CTS_CAPTCHA_SUBMIT message
+                    let captcha:recaptcha = new recaptcha();
+                    captcha.accountName = this.accountInfo.account_name;
+                    captcha.creationDatetime = new Date();
+                    captcha.tokenHash = md5(payload.token);
+                    await this.dbMySql.entityManager().save(captcha);
+                }
+                this.socketMessage.stcCaptchaResponse(captchaResult);
+            } catch (reason)  {
+                console.log("Google reCAPTCHA failed unexpectedly");
+                console.log(reason);
+            };
+        });
+
+        socket.on(SocketMessage.CTS_CAPTCHA_SUBMIT, async (payload:any) => {
+            payload = JSON.parse(payload);
+            try {
+                let tokenHash:string = md5(payload.token);
+                let captcha:recaptcha = await this.dbMySql.entityManager().findOne(recaptcha, {tokenHash: tokenHash});
+                if (captcha) {
+                    // The user associated with the recaptcha record will now be able to bid
+                    captcha.auctionId = payload.auctionId;
+                    await this.dbMySql.entityManager().save(captcha);
+                }
+            } catch (reason)  {
+                console.log("Google reCAPTCHA failed unexpectedly");
+                console.log(reason);
+            };
         });
     }
+
+    private getCaptchaResult(token:string):Promise<any> {
+        return new Promise<any>((resolve, reject) => {
+            // Hit Google and check captcha
+            request({
+                url: "https://www.google.com/recaptcha/api/siteverify",
+                method: 'POST',
+                body: "secret=" + Config.GOOGLE_RECAPTCHA + "&response=" + token,
+                headers: {"Content-Type": "application/x-www-form-urlencoded",
+                          "cache-control": "no-cache"}
+
+            }, function(error, response, body) {
+                if (error) {
+                    console.log("Got error");
+                    console.log(error);
+                    reject(error);
+                } else {
+                    try {
+                        console.log(body);
+                        let captchaResult:any = JSON.parse(body);
+                        resolve(captchaResult);
+                    } catch (err) {
+                        console.log("Bad response JSON from " + this.endpoiont);
+                        reject(err);
+                    }
+                }
+            });
+        });
+    }
+
 
     /**
      * Checks to see if the IP address is currently to be blocked
@@ -437,6 +542,7 @@ export class ClientConnection {
                     } else {
                         accountInfo.referrer = account.referrer;
                     }
+                    accountInfo.acceptedTerms = account.acceptedTerms == "true";
                 } else {
                     account = new user();
                     account.lastConnectedDatetime = account.creationDatetime = new Date();
@@ -449,6 +555,7 @@ export class ClientConnection {
                             account.referrer = dbReferrer.accountName;
                         }
                     }
+                    accountInfo.acceptedTerms = false;
                 }
                 account.eosBalance = parseFloat(accountInfo.core_liquid_balance.split(" ")[0]);
                 account.timeBalance = parseFloat(accountInfo.timeBalance.split(" ")[0]);

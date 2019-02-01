@@ -13,6 +13,7 @@ import {bid} from "./entities/bid";
 import moment = require("moment");
 import {auctions} from "./entities/auctions";
 import {auctionType} from "./entities/auctionType";
+import {harpoon} from "./entities/harpoon";
 const mysql = require('mysql');
 
 export class DBMysql {
@@ -244,8 +245,50 @@ export class DBMysql {
                     transactionId: auction.transactionId,
                     flags: auction.flags
                 };
-                winningAuction["bids"] = await this.auctionBids(auction.auctionId);
+                winningAuction["bidders"] = await this.auctionBids(auction.auctionId);
+                let harpoons:harpoon[] = await this.entityManager().find(harpoon, {auctionId: auction.auctionId});
+                let harpoonsObject:any = {};
+                for (let h of harpoons) {
+                    harpoonsObject[h.accountName] = {
+                        "creationDatetime": h.creationDatetime,
+                        "status": h.status,
+                        "accountName": h.accountName,
+                        "serverSeed": h.serverSeed,
+                        "clientSeed": h.clientSeed,
+                        "odds": h.odds,
+                        "result": h.result
+                    };
+                }
+                winningAuction["harpoons"] = harpoonsObject;
                 resolve(winningAuction);
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Assembles an array of auction bids for a given auction specified by auctionId
+     * @param {number} auctionId
+     * @returns {Promise<any[]>}
+     */
+    public auctionHarpoons(auctionId:number):Promise<any[]> {
+        return new Promise<any[]>(async (resolve, reject) => {
+            try {
+                let harpoons:harpoon[] = await this.qb(harpoon, "harpoon").where("harpoon.auctionId = :id", { id: auctionId }).getMany();
+                let h:any = {};
+                for (let hp of harpoons) {
+                    h[hp.accountName] = {
+                        accountName: hp.accountName,
+                        status: hp.status,
+                        clientSeed: hp.clientSeed,
+                        serverSeed: hp.serverSeed,
+                        odds: hp.odds,
+                        result: hp.result
+                    };
+                }
+                resolve(h);
+
             } catch (err) {
                 reject(err);
             }
@@ -262,11 +305,11 @@ export class DBMysql {
             try {
                 let bids:bid[] = await this.qb(bid, "bid").where("bid.auctionId = :id", { id: auctionId }).orderBy("bid.bidId", "DESC").getMany();
                 let b:any[] = new Array<any>();
-                for (let bid of bids) {
+                for (let bd of bids) {
                     b.push({
-                        accountName: bid.accountName,
-                        amount: bid.amount,
-                        currency: bid.currency
+                        accountName: bd.accountName,
+                        amount: bd.amount,
+                        currency: bd.currency
                     });
                 }
                 resolve(b);

@@ -11,9 +11,32 @@
         <link rel="stylesheet" href="assets/css/animate.min.css"/>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.1/css/bootstrap-slider.min.css" crossorigin="anonymous">
         <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
-        <link rel="stylesheet" href="assets/css/custom_css_1.css?nonce=5"/>
+        <link rel="stylesheet" href="assets/css/custom_css_1.css?nonce=9"/>
         <link rel="stylesheet" href="assets/css/flag_icons.min.css"/>
+        <link rel="stylesheet" href="assets/css/odometer-theme-default.css"/>
     </head>
+    <script type="text/javascript">
+
+        var CAPTCHA_LOADED = false;
+
+        function onloadCaptcha() {
+            CAPTCHA_LOADED = true;
+        }
+
+        function onCaptchaData(token) {
+            var evt = new CustomEvent("captchaData", { detail: token });
+            console.log("Token: " + token);
+            document.dispatchEvent(evt);
+        }
+
+        function onCaptchaDataExpired() {
+            var evt = new CustomEvent("captchaDataExpired");
+            document.dispatchEvent(evt);
+        }
+
+        var odometerOptions = { auto: false };
+
+    </script>
     <style>
         :root{
             --dark-blue: #2980b9;
@@ -63,6 +86,16 @@
         .ribbon > div > span{
             font-size:12px;
         }
+
+        #captcha_container div {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #captcha_outer_container {
+            padding-top: 10px;
+            padding-bottom: 15px;
+        }
     </style>
     <body data-gr-c-s-loaded="true">
 
@@ -89,11 +122,9 @@
                                             <div class="row">
                                                 <div class="col-12 text-center">
                                                     <span class="icon-time_token1 font-36 col-yellow m-r-10"></span>
-                                                    <span class="font-24 english lang">Bid to win <span class="icon-eos_icon font24 m-r-5"></span> EOS</span>
-                                                    <span class="font-24 chinese lang d-none">出價要贏 <span class="icon-eos_icon font-24 m-r-5"></span> EOS</span>
+                                                    <span class="font-24"><span class="localize" data-i18n="bid_to_win"></span> <span class="icon-eos_icon font24 m-r-5"></span> EOS</span>
                                                 </div>
-                                                <div class="d-none"><span class="col-yellow d-none english lang">Earn TIME tokens with each bid</span></div>
-                                                <div class="d-none"><span class="col-yellow chinese lang d-none">賺 TIME 每次出價的代幣</span></div>
+                                                <div class="d-none text-center"><span class="col-yellow localize" data-i18n="earn_with_each_bid"></span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -109,7 +140,7 @@
 
                         </div>
                     </div>
-                    
+
                     <!-- winners -->
                     <!-- <div class="col-lg-6 col-md-12 col-sm-12 col-12"> -->
                     <div class="col-12">
@@ -119,18 +150,13 @@
                             <div class="auction-winners col-12 px-2 mb-3">
                                 <div class="card dark">
                                     <div class="card-body p-0">
-                                        <h5 class="my-4 text-center english lang">Auction Winners</h5>
-                                        <h5 class="my-4 text-center chinese lang d-none">拍賣獲獎者</h5>
+                                        <h5 class="my-4 text-center localize" data-i18n="auction_winners"></h5>
                                         <ul class="referral-table header mt-1 mb-0">
                                             <li class="info-row no-bg font-muted m-r-10">
-                                                <span class="english lang d-none">ID</span>
-                                                <span class="chinese lang d-none">ID</span>
-                                                <span class="english lang d-none">User</span>
-                                                <span class="chinese lang d-none">用戶</span>
-                                                <span class="english lang d-none">Time</span>
-                                                <span class="chinese lang d-none">時間</span>
-                                                <span class="english lang d-none">Prize</span>
-                                                <span class="chinese lang d-none">獎</span>
+                                                <span class="localize" data-i18n="id"></span>
+                                                <span class="localize" data-i18n="user"></span>
+                                                <span class="localize" data-i18n="time"></span>
+                                                <span class="localize" data-i18n="prize"></span>
                                             </li>
                                         </ul>
                                         
@@ -139,8 +165,7 @@
                                 
                                         </ul>
                                         </div>
-                                        <div class="font-muted text-left small px-2 py-2 english lang d-none">* Prizes are paid out automatically</div>
-                                        <div class="font-muted text-left small px-2 py-2 chinese lang d-none">* 獎品自動支付</div>
+                                        <div class="font-muted text-left small px-2 py-2 localize" data-i18n="prizes_are_paid"></div>
                                     </div>
                                     <div class="abs-corner">
                                         <i class="far fa-question-circle info-modal font-16 text-muted" data-id="winners-table-modal"></i>
@@ -169,31 +194,60 @@
                     <div class="abs-corner">
                         <i class="far fa-question-circle auction-instance-info font-16 text-muted" data-id="auction-instance-modal"></i>
                     </div>
+                    <div class="auction-instance-flash-message" style="opacity: 0; position:absolute; top: 5px; left: 0px; width: 100%; pointer-events: none;">
+                        <!-- <div style="margin-left:auto; margin-right:auto; padding-left: 40px;"><img src="assets/images/harpoon.png" style="width: 20px; height: 20px;"><span class="auction-instance-harpoon-account" style="padding-left: 5px;"></span></div> -->
+                    </div>
                     <div class="auction-instance-busy d-none">
                         <div><img src="assets/images/loading.svg"></div>
                     </div>
+                    <div class="auction-instance-harpoon-overlay d-none">
+                        <div class="number-animation text-center d-none">
+                            <h4 class="harpoon-roll"></h4>
+                        </div>
+                        <div class="harpoon-miss d-none">
+                            <div class="close-icon"><i class="far fa-times-circle"></i></div>
+                            <div class="harpoon-miss-inner">
+                                <h5 class="localize" data-i18n="harpoon_miss">Harpoon Miss!</h5>
+                                <div class="harpoon-info-title localize" data-i18n="server_seed_hash"></div>
+                                <div class="harpoon-info-server-seed-hash harpoon-info-value"></div>
+                                <div class="harpoon-info-title localize" data-i18n="server_seed"></div>
+                                <div class="harpoon-info-server-seed harpoon-info-value"></div>
+                                <div class="harpoon-info-title localize" data-i18n="client_seed"></div>
+                                <div class="harpoon-info-client-seed harpoon-info-value"></div>
+                                <div class="harpoon-info-title localize" data-i18n="odds"></div>
+                                <div class="harpoon-info-odds harpoon-info-value"></div>
+                                <div class="harpoon-info-title localize" data-i18n="max_to_harpoon"></div>
+                                <div class="harpoon-info-harpoon-max harpoon-info-value"></div>
+                                <div class="harpoon-info-title localize" data-i18n="chosen_random_number"></div>
+                                <div class="harpoon-info-result harpoon-info-value"></div>
+                            </div>
+                        </div>
+                    </div>
                     <!--<div class="auction-instance-small-text text-right font-muted abs-corner">ID: <span class="auction-instance-id">76</span></div>-->
-                    <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span> <span class="text-primary col-white font-glow">1.0792</span></div>
+                    <div class="auction-instance-prize-pool flex-center my-3"><span class="icon-eos_icon font-36 font-blue-glow m-r-10"></span> <span class="text-primary col-white font-glow"></span></div>
                     <div class="flex-center">
                         <div>
-                            <div class="auction-instance-bidder-no-bidders english lang auction-instance-med-text text-center flex-center-row d-none" style="padding-bottom: 25px;">Be the first bid!</div>
-                            <div class="auction-instance-bidder-no-bidders chinese lang auction-instance-med-text text-center flex-center-row d-none" style="padding-bottom: 25px;">成為第一個投標</div>
+                            <div class="auction-instance-bidder-no-bidders auction-instance-med-text text-center flex-center-row localize d-none" data-i18n="be_first_to_bid" style="padding-bottom: 47px;"></div>
                             <div class="auction-instance-bidder auction-instance-med-text text-left d-none">
+                                <div class="auction-instance-time-for-time-container row" style="min-height: 19px;">
+                                    <div class="col-2"></div>
+                                    <div class="col-10 text-left" style="font-size:10pt; padding-left: 2px; padding-bottom: 3px;">
+                                        <span class="auction-instance-bonus-time-container"><span class="localize" data-i18n="bonus"></span> <span class="icon-time_token1 font-12 col-yellow"></span><span class="auction-instance-tt-odometer" style="padding-left: 4px;"></span></span>
+                                    </div>
+                                </div>
                                 <div class="row">
                                     <div class="col-2">
                                         <i class="far fa-user font-16 m-r-10 font-muted"></i>
                                     </div>
-                                    <div class="col-10 auction-instance-bidder-account-name col-blue" style="padding-left: 2px;">
-
-                                    </div>
+                                    <div class="col-10" style="padding-left: 2px;"><span class="auction-instance-bidder-account-name col-blue"></span> <a class="auction-instance-bidder-bloks-link" style="cursor: pointer; font-size: 11pt;" target="_blank"><i class="fas fa-external-link-alt"></i></a></div>
                                 </div>
                                 <div class="row">
                                     <div class="col-2" style="line-height: 2; font-size: 7pt">
                                         &nbsp;
                                     </div>
-                                    <div class="col-10" style="line-height: 2; font-size: 7pt; padding-left: 2px; cursor: pointer;">
+                                    <div class="col-10" style="line-height: 2; font-size: 7pt; padding-left: 2px;">
                                         <div class="auction-client-seed-container d-none">
-                                            <span class="english lang d-none">Leader's Client Seed: </span><span class="chinese lang d-none">领导者的客户种子：</span><span class="text-center auction-instance-client-seed"></span>
+                                            <span class="localize" data-i18n="leader_client_seed"></span>&nbsp;<span class="text-center auction-instance-client-seed"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -220,43 +274,37 @@
                             </div>
                             <div style="min-height: 20px;">
                                 <div class="auction-instance-clock-accelerates-message text-center d-none">
-                                    <div class="english lang d-none" style="font-size: 8pt; color: #48dbfb">
-                                        CLOCK ACCELERATES ON EACH BID!
-                                    </div>
-                                    <div class="chinese lang d-none" style="font-size: 8pt; color: #48dbfb">
-                                        时钟加速每个出价
-                                    </div>
+                                    <div class="localize" data-i18n="clock_accelerates" style="font-size: 8pt; color: #48dbfb"></div>
+                                </div>
+                                <div class="auction-instance-min-bids-message text-center d-none">
+                                    <div class="localize" data-i18n="minimum_bids" style="font-size: 8pt; color: #48dbfb"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div style="height: 42px;" class="flex-center">
                         <div class="auction-instance-ended no-user-select d-none">
-                            <span class="english lang d-none">ENDED</span>
-                            <span class="chinese lang d-none">結束</span>
+                            <span class="localize" data-i18n="ended"></span>
                         </div>
                         <button type="button" class="auction-instance-login-button btn btn-small btn-outline-yellow shadow-x d-none">
-                            <span class="english lang d-none">Login</span>
-                            <span class="chinese lang d-none">登錄</span>
+                            <span  class="localize" data-i18n="login"></span>
                         </button>
-                        <div class="bid-button-container d-none row" style="width: 100%;">
-                            <div class="col-6 pl-1 pr-1 bid-button-col">
+                        <div class="bid-button-container d-none row" style="width: 90%;">
+                            <div class="col-7 pl-1 pr-1 bid-button-col">
                                 <button type="button" class="auction-instance-bid-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
-                                    <span class="english lang d-none">Bid </span>
-                                    <span class="chinese lang d-none">出價 </span>
+                                    <span class="localize" data-i18n="bid"></span>&nbsp;
                                     <span class="auction-instance-bid-amount"></span>
                                 </button>
                             </div>
-                            <div class="col-6 pl-1 pr-1 bomb-button-col">
+                            <div class="col-5 pl-1 pr-1 bomb-button-col">
                                 <div class="row">
                                     <div class="col-10 pr-0">
                                         <button type="button" class="auction-instance-bomb-button btn btn-small btn-outline-yellow shadow-x" style="width:100%;">
-                                            <span class="english lang d-none"><i class="fas fa-bomb"></i></span>
-                                            <span class="chinese lang d-none"><i class="fas fa-bomb"></i></span>
-                                            <span class="auction-instance-bomb-odds"></span>
+                                            <span ><i class="fas fa-bomb"></i></span>
+                                            <span class="auction-instance-bomb-odds" style="font-size: 7pt;"></span>
                                         </button>
                                     </div>
-                                    <div class="col-2 pr-0" style="padding-left: 2px;">
+                                    <div class="col-2 pr-0" style="padding-left: 5px;">
                                         <i class="far fa-question-circle question-circle auction-instance-harpoon-info font-16 text-muted" data-id="auction-instance-modal"></i>
                                     </div>
                                 </div>
@@ -269,7 +317,7 @@
                                 <i class="far fa-question-circle question-circle auction-instance-server-hash-info font-16 text-muted" data-id="auction-instance-modal"></i>
                             </div>
                             <div class="col-10 pl-1 ml-0 text-left no-user-select" style="padding-top: 1px;">
-                                <span class="english lang">Server Hash: </span><span class="chinese lang">服务器哈希：</span><span class="text-center auction-instance-server-hash">&nbsp;</span>
+                                <span class="localize" data-i18n="server_hash"></span>&nbsp;<span class="text-center auction-instance-server-hash">&nbsp;</span>
                             </div>
                         </div>
                     </div>
@@ -280,8 +328,8 @@
         
         <!-- winners row template -->
         <li class="info-row big auction-winner-instance-template auction-winner-board-instance d-none">
-            <span><span class="auction-winner-id-link d-none"><a target="_blank"><i class="fas fa-external-link-alt"></i></a>&nbsp;&nbsp;</span><span class="auction-winner-id"></span></span>
-            <span class="auction-winner-name col-blue"></span>
+            <span><span class="auction-winner-id-link d-none"><a target="_blank"><i class="fas fa-external-link-alt"></i></a>&nbsp;&nbsp;</span><span class="auction-winner-id auction-winners-show-details col-blue" style="cursor:pointer"></span></span>
+            <span><span class="auction-winner-harpoon d-none"><img src="assets/images/harpoon.png" style="width:25px; height: 25px;">&nbsp;</span><span class="auction-winner-name auction-winners-show-details col-blue" style="cursor:pointer"></span></span>
             <span class="auction-winner-time"></span>
             <span class="auction-winner-amount">
                 <div class="flex-center">
@@ -291,7 +339,251 @@
             </span>
         </li>
         <!--/end winners row template -->
-        
+
+        <!-- --------------------- -->
+        <!-- auction details modal -->
+        <!-- --------------------- -->
+        <div class="row auction-details-bid-template d-none">
+            <div class="col-8 auction-details-bidder-name"></div>
+            <div class="col-4 auction-details-bidder-amount"></div>
+        </div>
+        <div class="row auction-details-harpoon-template d-none">
+            <div class="col-8 auction-details-harpoon-name"></div>
+            <div class="col-4 auction-details-odds-amount"></div>
+        </div>
+        <div class="modal fade" id="auction_details_modal">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="card dark card-modal">
+                        <div class="card-body">
+                            <div class="card-title font-muted modal-title mb-3">
+                                <span class="localize" data-i18n="auction_details"></span>
+                            </div>
+                            <div class="info-row px-4 py-4 modal-body" style="max-height: 500px; font-size: 10pt; overflow-y: scroll;">
+                                <div>
+                                    <div class="row">
+                                        <div class="col-3"><span class="localize" data-i18n="winner"></span> :</div>
+                                        <div class="col-9"><span class="auction-details-modal-harpooned"><img src="assets/images/harpoon.png" style="width:25px; height: 25px;">&nbsp;</span><span class="auction-details-modal-winner"></span></div>
+                                    </div>
+                                    <div class="row pt-1">
+                                        <div class="col-3"><span class="localize" data-i18n="prize"></span> :</div>
+                                        <div class="col-9"><span class="auction-details-modal-prize"></span> EOS</div>
+                                    </div>
+                                    <div class="row pt-1">
+                                        <div class="col-3"><span class="localize" data-i18n="bidders"></span> :</div>
+                                        <div class="col-9 auction-details-modal-bidders"></div>
+                                    </div>
+                                    <div class="row pt-1 auction-details-harpoons-outer">
+                                        <div class="col-3"><span class="localize" data-i18n="harpoons"></span> :</div>
+                                        <div class="col-9 auction-details-harpoons"></div>
+                                    </div>
+                                    <div class="row pt-1 auction-details-modal-player-seed-outer">
+                                        <div class="col-3"><span class="localize" data-i18n="player_seed"></span> :</div>
+                                        <div class="col-9 auction-details-modal-player-seed"></div>
+                                    </div>
+                                    <div class="row pt-1 auction-details-modal-server-seed-outer">
+                                        <div class="col-3"><span class="localize" data-i18n="server_seed"></span> :</div>
+                                        <div class="col-9 auction-details-modal-server-seed"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="abs-corner flex-center">
+                            <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- --------------- -->
+        <!-- RECAPTCHA modal -->
+        <!-- --------------- -->
+        <div class="modal fade" id="captcha_modal">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="card dark card-modal">
+                        <div class="card-body">
+                            <div class="card-title font-muted modal-title mb-3">
+                                Human Check
+                            </div>
+                            <div class="info-row px-4 py-4 modal-body" style="max-height: 500px; font-size: 10pt; overflow-y: scroll;">
+                                <div class="englishx langx">
+                                    <p>
+                                        To ensure a positive game experience for our players, we forbid
+                                        robots from accessing the service. You will be able to bid in this
+                                        auction after you enter your account name here and complete the CAPTCHA below.
+                                    </p>
+                                    <div class="container bg-secondary pt-1 pb-1 mb-2">
+                                        <div class="row">
+                                            <div class="col-5 text-right pt-1">
+                                                Enter Account Name:
+                                            </div>
+                                            <div class="col-7">
+                                                <input class="auction-captcha-account-name-input" type="text" name="account_name" value="" maxlength="12" style="width: 150px;"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="captcha_outer_container"></div>
+                                    <div class="text-center"><button class="auction-captcha-submit btn btn-primary btn-sx" type="button">Submit</button></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="abs-corner flex-center">
+                            <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ------------------------- -->
+        <!-- Harpoon description modal -->
+        <!-- ------------------------- -->
+        <div class="modal fade" id="harpoon_desc_modal">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="card dark card-modal">
+                        <div class="card-body">
+                            <div class="card-title font-muted modal-title mb-3">
+                                Harpooning An Auction
+                            </div>
+                            <div class="info-row px-4 py-4 modal-body" style="max-height: 500px; font-size: 10pt; overflow-y: scroll;">
+                                <div class="englishx langx">
+                                    <p>
+                                        The "harpoon" button offers any bidder in an auction a once-per-auction chance to steal the pot from the current active bidder.
+                                        More recently-placed bids have a higher chance of successfully stealing the pot. The odds of a harpoon succeeding are displayed
+                                        on the harpoon button as a percentage likelihood of success. When the harpoon button is pressed, a provably-fair random number
+                                        is calculated, and the bidder's current harpooning chances are compared against this random number. If the harpoon succeeds,
+                                        the auction is over and the entire pot is awarded to the player who pressed the harpoon button. If the harpoon fails, the player
+                                        who pressed the harpoon button can no longer participate in that specific auction, although other bidders in the auction can bid
+                                        or to use their own harpoon buttons.
+                                    </p>
+                                    <ul>
+                                        <li>
+                                            You must be a participating bidder in an auction in order to harpoon.
+                                        </li>
+                                        <li>
+                                            A bidder is not allowed to harpoon if he/she is the current leader.
+                                        </li>
+                                        <li class="harpoonMinBids">
+                                            You cannot harpoon this auction until a minimum of <span></span> bids
+                                            have been placed.
+                                        </li>
+                                        <li>
+                                            Your odds of successfully harpooning are dependent on how many other bidders have
+                                            bid more recently than you. Your odds are published on the harpoon button and
+                                            change as new bidders join an auction.
+                                        </li>
+                                        <li>
+                                            If you are the leader in an auction and all other participating bidders in that
+                                            auction harpoon you, you stand a <span class="harpoon-survival"></span> chance
+                                            of surviving all harpoons.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="abs-corner flex-center">
+                            <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- modal -->
+        <div class="modal fade" id="provably_fair_modal">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="card dark card-modal">
+                        <div class="card-body">
+                            <div class="card-title font-muted modal-title mb-3">
+                                Provably Fair
+                            </div>
+                            <div class="info-row px-4 py-4 modal-body" style="max-height: 500px; font-size: 10pt; overflow-y: scroll;">
+                                <div class="englishx langx">
+                                    <div class="container bg-secondary pt-1 pb-1 mb-2">
+                                        <div class="row">
+                                            <div class="col-4 text-right pt-1">
+                                                Your Player Seed:
+                                            </div>
+                                            <div class="col-3">
+                                                <input class="auction-client-seed-input" type="text" name="player_seed" value="" maxlength="100" style="width: 75px;"/>
+                                            </div>
+                                            <div class="col-5 pt-1">
+                                                <input class="auction-client-seed-randomize" type="checkbox" name="random" checked/> Auto-randomize
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p>
+                                        When you click the "harpoon" button and try to steal the pot, we compute a random number to determine whether or not the harpoon will be successful.
+                                        The random number is generated using a "house seed" that is selected by EOSTime and a "player seed" that is determined by the person who is in jeopardy
+                                        of losing the pot (the player who is the current active bidder). A bidder's player seed is sent to our servers each time a bid is placed.
+                                    </p>
+                                    <p>
+                                        This means that the random number can be proven to be fair, in that it requires seeds from both EOSTime (the "house") and the leading bidder. We do not
+                                        disclose the house's seed before the random number is generated, but we do disclose its SHA-256 hash, which can be used later to prove fairness, as described below.
+                                    </p>
+                                    <p>
+                                        Your player seed sent to us each time you bid can be randomly generated by your browser on each bid, or explicitely set by you
+                                        using the form at the top. Your player seed must be an integer <= 100000.
+                                    </p>
+                                    <p>
+                                        The random number is between 0 and 4294967295 (2^32) (inclusive), and is computed by concatenating the player seed and
+                                        the house seed, then taking SHA-512 hash of that combination, and finally using the first 32 bits (8 hex digits) of this hash
+                                        as the 32-bit random number.
+                                    </p>
+                                    <p>
+                                        Let's say for example, when an auction is first started, we select a server seed of 072b1fc2-d121-d9cb-2fd4-3fa902a12677. We do not
+                                        disclose this seed, but do publish its SHA-256 hash at the bottom of the displayed auction:
+                                    </p>
+                                    <p>
+                                        43201cdad9dd01e5d6cdaaf51adda76f0f999b69c1b23150b80ab893a1598b3c
+                                    </p>
+                                    <p>
+                                        Let's assume the player seed of the leading bidder was 79561. When the harpoon button is pressed, our server generates a random number
+                                        by taking the leading bidder's player seed (sent when the leader bid was placed) and concatenating the undisclosed house seed to yield the string:
+                                    </p>
+                                    <p>
+                                        79561072b1fc2-d121-d9cb-2fd4-3fa902a12677
+                                    </p>
+                                    <p>
+                                        We then take the SHA-512 hash of this value, yielding (in hexadecimal)
+                                    </p>
+                                    <p>
+                                        d4282b56805ca1bdc140ea5b854c7c87d05078fa86bdb0183cf62336f9ddb16d579da9c669ba847d5f1af8896a75aeb087b0a3844567a880a8962299c6c8b5e0
+                                    </p>
+                                    <p>
+                                        The first 32 bits of this value are represented by the first eight hex digits, in this case, 0xD4282B56. Converting this to a decimal integer will yield a
+                                        random number between 0 and 4294967295 (inclusive), or, in this example, 3559402326.
+                                    </p>
+                                    <p>
+                                        In order for the player's harpoon to succeed, the random number must be less than or equal to the odds published on the harpoon button when pressed
+                                        multiplied by the maximum range of the random number (4294967295):
+                                    </p>
+                                    <p>
+                                        Random # must be <= Math.round(odds * 4294967295)
+                                    </p>
+                                    <p>
+                                        After the harpoon has been processed, we publish the oringal server seed which hashes to the value published on the auction.
+                                    </p>
+                                    <p>
+                                        Because the player seed (79561) was chosen by the bidder who is being harpooned and displayed on the auction along with the server seed hash prior
+                                        to the harpoon button being pressed, the harpoon's randomness is provably fair. All players can prove that neither the house nor any player was able
+                                        to individually affect the resulting random number.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="abs-corner flex-center">
+                            <i class="far fa-times-circle font-16 text-muted" data-dismiss="modal" aria-label="Close"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- modal -->
         <div class="modal fade" id="info_modal">
           <div class="modal-dialog" role="document">
@@ -356,19 +648,42 @@
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             The bid price will increase by <span class="auction-instance-modal-bid-price-increase"></span> after each bid.
                                         </li>
-                                        <li>
+                                        <li><span class="auction-instance-dual-redzone-slow">Until <span class="auction-instance-dual-redzone-bids"></span>
+                                            bids have been placed in this auction, the following applies: </span>
                                             If a bid is received in the last <span class="auction-instance-modal-time-redzone"></span>
-                                            seconds of the auction, the timer will be reset to <span class="auction-instance-modal-time-redzone"></span>
-                                            seconds, offering others a chance to bid if they wish to.
+                                            of the auction, the timer will be reset to <span class="auction-instance-modal-time-redzone"></span>,
+                                            offering others a chance to bid if they wish to.
+                                        </li>
+                                        <li class="auction-instance-dual-redzone-fast">When <span class="auction-instance-dual-redzone-bids"></span>
+                                            bids have been placed in this auction, the following applies: </span>
+                                            If a bid is received in the last <span class="auction-instance-modal-time-redzone-fast"></span>
+                                            of the auction, the timer will be reset to <span class="auction-instance-modal-time-redzone-fast"></span>,
+                                            offering others a chance to bid if they wish to.
+                                        </li>
+                                        <li class="auction-instance-time-for-timer">
+                                            The current leader of the auction (i.e. the most recent bidder) will receive <span class="auction-instance-time-token-bonus"></span>
+                                            <span class="icon-time_token1 font-12 col-yellow"></span> TIME tokens for each second they remain in the lead. NOTE: The actual number of
+                                            <span class="icon-time_token1 font-12 col-yellow"></span> TIME awarded may be slightly different than what is displayed on the website because the blockchain calculates
+                                            this value based on blockchain time at the time the leader of the auction changes.
                                         </li>
                                         <li class="auction-instance-modal-clock-accelerator-outer">
-                                            This auction accelerates on each bid. If the time remaining in the auction is greater than <span class="auction-instance-modal-time-redzone"></span> seconds,
+                                            This auction accelerates on each bid. If the time remaining in the auction is greater than <span class="auction-instance-modal-time-redzone"></span>,
                                             each bid will cause the time remaining to be set to <span class="auction-instance-modal-clock-accelerator"></span> of
                                             the time remaining prior to the bid.
                                         </li>
+                                        <li class="auction-instance-modal-min-bids localize" data-i18n="auction_instance_min_bids"></li>
                                         <li>
-                                            You will receive <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
+                                            You will receive <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-12 col-yellow"></span>
                                             TIME Tokens when you bid.
+                                        </li>
+                                        <li class="auction-instance-modal-harpoonable">
+                                            This auction can be "harpooned". At any given time, the auction leader has a <span class="harpoon-survival"></span> chance
+                                            of surviving if all other auction participants use their harpoon. Once a player harpoons an auction,
+                                            he/she is no longer allowed to bid in that auction.
+                                        </li>
+                                        <li class="harpoonMinBids">
+                                            You cannot harpoon this auction until a minimum of <span></span> bids
+                                            have been placed.
                                         </li>
                                     </ul>
                                 </div>
@@ -402,10 +717,22 @@
                                         <li class="auction-instance-modal-bid-price-increase-outer">
                                             出價將增加 <span class="auction-instance-modal-bid-price-increase"></span> 每次競標後。
                                         </li>
-                                        <li>
-                                            如果在最後收到出價 <span class="auction-instance-modal-time-redzone"></span>
-                                            拍賣的秒數, 計時器將重置為 <span class="auction-instance-modal-time-redzone"></span>
-                                            秒如果他們願意，為他人提供出價機會。
+                                        <li><span class="auction-instance-dual-redzone-slow">直到 <span class="auction-instance-dual-redzone-bids"></span>
+                                            此次竞价已经出价，以下内容适用：</span>
+                                            如果在最后收到出价 <span class="auction-instance-modal-time-redzone"></span>
+                                            在拍卖中，计时器将被重置为 <span class="auction-instance-modal-time-redzone"></span>,
+                                            如果他们愿意，为他人提供出价机会。
+                                        </li>
+                                        <li class="auction-instance-dual-redzone-fast">什么时候 <span class="auction-instance-dual-redzone-bids"></span>
+                                            此次竞价已经出价，以下内容适用：</span>
+                                            如果在最后收到出价<span class="auction-instance-modal-time-redzone-fast"></span>
+                                            在拍卖中，计时器将被重置为 <span class="auction-instance-modal-time-redzone-fast"></span>,
+                                            如果他们愿意，为他人提供出价机会。
+                                        </li>
+                                        <li class="auction-instance-time-for-timer">
+                                            目前拍卖的领导者 (最近的竞标者) 会收到 <span class="auction-instance-time-token-bonus"></span>
+                                            <span class="icon-time_token1 font-12 col-yellow"></span> TIME 每秒令牌都会保持领先。 注意：实际的数量
+                                            <span class="icon-time_token1 font-12 col-yellow"></span> TIME 奖励可能与网站上显示的略有不同，因为区块链根据拍卖领导者更改时的区块链时间计算此值。
                                         </li>
                                         <li class="auction-instance-modal-clock-accelerator-outer">
                                             此次拍卖会在每次竞价时加速。 如果拍卖剩余的时间大于 <span class="auction-instance-modal-time-redzone"></span> 秒,
@@ -414,6 +741,12 @@
                                         <li>
                                             您將收到 <span class="auction-instance-modal-time-tokens"></span> <span class="icon-time_token1 font-16 col-yellow"></span>
                                             TIME 出價時的代幣。
+                                        </li>
+                                        <li class="auction-instance-modal-harpoonable">
+                                            这次拍卖可以“拍卖”。 在任何时候，拍卖领导者都有 <span class="harpoon-survival"></span> 如果所有其他拍卖参与者使用他们的鱼叉，则存活的机会。 一旦玩家对拍卖进行了拍卖，他/她就不再参与拍卖。
+                                        </li>
+                                        <li class="harpoonMinBids">
+                                            直到最低限度为止，你才能拍卖这场拍卖<span></span> 已经出价。
                                         </li>
                                     </ul>
                                 </div>
@@ -490,7 +823,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.6/lib/eos.min.js" integrity="sha512-IS9vyI+sMK7MYNJgHj9G8Li21QYs59sRW/Nyzi+dKUh6bF6OfpOnvzSCTiegWftY1ozOmmyacCH2QIJpZgbuKw==" crossorigin="anonymous"></script>
     <script src="assets/js/bootstrap-notify.min.js"></script>
-    <script src="assets/js/eostime-bundle.min.js?nonce=1546043202"></script>
+    <script src="assets/js/odometer.js"></script>
+    <script src="assets/js/eostime-bundle.min.js?nonce=1546043234"></script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCaptcha&render=explicit" async defer></script>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125965569-2"></script>
